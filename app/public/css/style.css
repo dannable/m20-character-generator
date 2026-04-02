@@ -1632,6 +1632,89 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   font-size: 0.72rem;
   padding: 0.1rem 0.25rem;
   cursor: pointer;
+  width: auto;
+}
+
+#fb-flaws .mf-cost-select { color: var(--purple-bright); }
+
+/* Repeatable merit/flaw instances */
+.mf-instances {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.45rem 0 0.35rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+  border-left: 2px solid var(--gold-dim);
+}
+
+#fb-flaws .mf-instances { border-left-color: var(--purple-dim); }
+
+.mf-instance {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.mf-instance-label {
+  color: var(--text-faint);
+  min-width: 1.5rem;
+}
+
+.mf-instance-cost {
+  color: var(--gold-mid);
+  flex: 1;
+}
+
+#fb-flaws .mf-instance-cost { color: var(--purple-mid); }
+
+.mf-remove-btn {
+  background: transparent;
+  border: 1px solid var(--crimson);
+  border-radius: 3px;
+  color: var(--crimson);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.05rem 0.3rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-left: auto;
+}
+
+.mf-remove-btn:hover {
+  background: var(--crimson-dim);
+  color: #ff8080;
+}
+
+.mf-add-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  background: transparent;
+  border: 1px dashed var(--border-bright);
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  padding: 0.3rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.mf-add-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold-bright);
+  background: var(--gold-faint);
+}
+
+#fb-flaws .mf-add-btn:hover {
+  border-color: var(--purple-dim);
+  color: var(--purple-bright);
+  background: var(--purple-faint);
 }
 
 /* ─── Core stats grid in freebie panel ───────────────────────── */

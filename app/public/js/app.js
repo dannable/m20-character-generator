@@ -667,8 +667,8 @@ const Creator = {
   calcFreebies() {
     const c = this.char;
     // Merits cost freebies; flaws grant them (max +7)
-    const meritCost  = Object.values(c.merits || {}).reduce((s, v) => s + v, 0);
-    const flawBonus  = Math.min(Object.values(c.flaws || {}).reduce((s, v) => s + v, 0), 7);
+    const meritCost = this.calcMeritCost();
+    const flawBonus = this.calcFlawBonus();
     let total = this.calcAttrFreebies() + this.calcAbilityFreebies() + this.calcBgFreebies() + this.calcSphereFreebies() + meritCost - flawBonus;
     total += Math.max(0, (c.arete || 1) - 1) * 4;
     total += Math.max(0, (c.willpower || 5) - 5) * 1;
@@ -906,7 +906,7 @@ const Creator = {
             </div>
             ${dotsClickable(c[a.id] || 1, 5, null, '')}
           </div>
-          <div class="specialty-row" ${(c[a.id] || 1) < 3 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${(c[a.id] || 1) < 4 ? 'style="display:none"' : ''}>
             <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
               placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
             <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
@@ -965,7 +965,7 @@ const Creator = {
             </div>
             ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
           </div>
-          <div class="specialty-row" ${(c[key][a.id] || 0) < 3 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${(c[key][a.id] || 0) < 4 ? 'style="display:none"' : ''}>
             <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
               placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
             <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
@@ -1124,7 +1124,7 @@ const Creator = {
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 5, null, 'sphere-dots')}</div>
-        <div class="specialty-row" ${val < 3 ? 'style="display:none"' : ''}>
+        <div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
           <input class="specialty-input" list="spec-${sphere.id}" data-specialty-for="${sphere.id}"
             placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}">
           <datalist id="spec-${sphere.id}">${(sphere.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
@@ -1591,8 +1591,8 @@ const Creator = {
             // Show/hide specialty row
             const specRow = attrRow.querySelector('.specialty-row');
             if (specRow) {
-              specRow.style.display = c[cat][id] >= 3 ? '' : 'none';
-              if (c[cat][id] < 3) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
+              specRow.style.display = c[cat][id] >= 4 ? '' : 'none';
+              if (c[cat][id] < 4) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
             }
             return;
           }
@@ -1611,8 +1611,8 @@ const Creator = {
           // Show/hide specialty row
           const specRow = attrRow.querySelector('.specialty-row');
           if (specRow) {
-            specRow.style.display = c[attrId] >= 3 ? '' : 'none';
-            if (c[attrId] < 3) { delete c.specialties[attrId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
+            specRow.style.display = c[attrId] >= 4 ? '' : 'none';
+            if (c[attrId] < 4) { delete c.specialties[attrId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
           }
         });
       });
@@ -1658,8 +1658,8 @@ const Creator = {
         // Show/hide specialty row
         const specRow = card.querySelector('.specialty-row');
         if (specRow) {
-          specRow.style.display = c.spheres[sphereId] >= 3 ? '' : 'none';
-          if (c.spheres[sphereId] < 3) { delete c.specialties[sphereId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
+          specRow.style.display = c.spheres[sphereId] >= 4 ? '' : 'none';
+          if (c.spheres[sphereId] < 4) { delete c.specialties[sphereId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
         }
 
         // Update rank display
@@ -1932,23 +1932,55 @@ const Creator = {
     const c = this;
     const char = this.char;
 
-    // Event delegation on the mf grids
     ['fb-merits', 'fb-flaws'].forEach(gridId => {
       const grid = document.getElementById(gridId);
       if (!grid) return;
-      const kind = gridId === 'fb-merits' ? 'merit' : 'flaw';
+      const kind  = gridId === 'fb-merits' ? 'merit' : 'flaw';
       const store = kind === 'merit' ? char.merits : char.flaws;
       const list  = kind === 'merit' ? M20.MERITS   : M20.FLAWS;
 
       grid.addEventListener('click', e => {
-        // Variable cost select changes
-        const sel = e.target.closest('.mf-cost-select');
-        if (sel) {
+        // "+ Take" / "+ Add Another" button
+        const addBtn = e.target.closest('.mf-add-btn');
+        if (addBtn) {
           e.stopPropagation();
-          store[sel.dataset.id] = parseInt(sel.value);
+          const id   = addBtn.dataset.id;
+          const item = list.find(i => i.id === id);
+          if (!item) return;
+          const cost = Array.isArray(item.cost) ? item.cost[0] : item.cost;
+          if (kind === 'merit' && !c.canSpendFreebie(cost)) {
+            toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
+          }
+          if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+            toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
+          }
+          if (!Array.isArray(store[id])) store[id] = [];
+          store[id].push(cost);
           c.updateFreebieBank();
           return;
         }
+
+        // "×" Remove instance button
+        const removeBtn = e.target.closest('.mf-remove-btn');
+        if (removeBtn) {
+          e.stopPropagation();
+          const id  = removeBtn.dataset.id;
+          const idx = parseInt(removeBtn.dataset.idx);
+          if (Array.isArray(store[id])) {
+            store[id].splice(idx, 1);
+            if (store[id].length === 0) delete store[id];
+          }
+          c.updateFreebieBank();
+          return;
+        }
+
+        // Cost select — let change handle the value; just stop propagation
+        if (e.target.closest('.mf-cost-select')) {
+          e.stopPropagation();
+          return;
+        }
+
+        // Card click
         const card = e.target.closest('.mf-card');
         if (!card) return;
         const id   = card.dataset.id;
@@ -1956,32 +1988,50 @@ const Creator = {
         if (!item) return;
         const cost = Array.isArray(item.cost) ? item.cost[0] : item.cost;
 
+        if (item.repeatable) {
+          // Clicking a repeatable card with no instances → add first instance
+          const existing = store[id];
+          if (!existing || (Array.isArray(existing) && existing.length === 0)) {
+            if (kind === 'merit' && !c.canSpendFreebie(cost)) {
+              toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
+            }
+            if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+              toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
+            }
+            store[id] = [cost];
+            c.updateFreebieBank();
+          }
+          // If already has instances, do nothing (use + / × buttons)
+          return;
+        }
+
+        // Non-repeatable: toggle on/off
         if (store[id] !== undefined) {
-          // Deselect
           delete store[id];
         } else {
-          // Select — check budget (merits cost, flaws grant)
           if (kind === 'merit' && !c.canSpendFreebie(cost)) {
-            toast('Not enough freebie points to take ' + item.name + '.', 'error');
-            return;
+            toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
           }
-          if (kind === 'flaw') {
-            const newBonus = c.calcFlawBonus() + cost;
-            if (newBonus > 7) {
-              toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error');
-              return;
-            }
+          if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+            toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
           }
           store[id] = cost;
         }
         c.updateFreebieBank();
       });
 
-      // Variable cost selects — prevent card toggle on change
+      // Cost selects (both variable non-repeatable and per-instance)
       grid.addEventListener('change', e => {
         const sel = e.target.closest('.mf-cost-select');
         if (!sel) return;
-        store[sel.dataset.id] = parseInt(sel.value);
+        const id      = sel.dataset.id;
+        const newCost = parseInt(sel.value);
+        if (sel.dataset.idx !== undefined) {
+          const idx = parseInt(sel.dataset.idx);
+          if (Array.isArray(store[id])) store[id][idx] = newCost;
+        } else {
+          store[id] = newCost;
+        }
         c.updateFreebieBank();
       });
     });
@@ -2136,13 +2186,18 @@ const Creator = {
     el.textContent = arch ? `Regain Willpower when: ${arch.willpower}` : '';
   },
 
+  // Sum a merit/flaw store value: number (single) or array (repeatable instances)
+  mfSum(v) {
+    return Array.isArray(v) ? v.reduce((a, b) => a + b, 0) : (typeof v === 'number' ? v : 0);
+  },
+
   calcMeritCost() {
-    return Object.values(this.char.merits || {}).reduce((s, v) => s + v, 0);
+    return Object.values(this.char.merits || {}).reduce((s, v) => s + this.mfSum(v), 0);
   },
 
   calcFlawBonus() {
-    const raw = Object.values(this.char.flaws || {}).reduce((s, v) => s + v, 0);
-    return Math.min(raw, 7); // max +7 pts from flaws
+    const raw = Object.values(this.char.flaws || {}).reduce((s, v) => s + this.mfSum(v), 0);
+    return Math.min(raw, 7);
   },
 
   updateMFDisplay() {
@@ -2167,33 +2222,86 @@ const Creator = {
   },
 
   renderMFCards(container, list, selected, kind) {
-    // Don't re-render if nothing changed (avoids flicker)
     const key = JSON.stringify(selected);
     if (container.dataset.lastKey === key) return;
     container.dataset.lastKey = key;
 
-    const flawBonus = this.calcFlawBonus();
     container.innerHTML = list.map(item => {
-      const cost = Array.isArray(item.cost) ? item.cost : [item.cost];
-      const chosen = selected[item.id];
-      const isActive = chosen !== undefined;
-      const catClass = 'mf-cat-' + item.category.toLowerCase().replace(' ', '-');
-      const costLabel = cost.length > 1
-        ? cost.join('/') + ' pt'
-        : cost[0] + ' pt' + (cost[0] !== 1 ? 's' : '');
-      // For variable-cost items show a selector when active
-      const costSelect = (isActive && cost.length > 1)
-        ? '<select class="mf-cost-select" data-id="' + item.id + '">'
-          + cost.map(v => '<option value="' + v + '"' + (v === chosen ? ' selected' : '') + '>' + v + ' pt</option>').join('')
-          + '</select>'
+      const costs      = Array.isArray(item.cost) ? item.cost : [item.cost];
+      const isRepeat   = !!item.repeatable;
+      const catClass   = 'mf-cat-' + item.category.toLowerCase().replace(/\s+/g, '-');
+
+      // Resolve active instances
+      let instances = [];
+      let isActive  = false;
+      if (isRepeat) {
+        const raw = selected[item.id];
+        instances = Array.isArray(raw) ? raw : (raw !== undefined ? [raw] : []);
+        isActive  = instances.length > 0;
+      } else {
+        isActive = selected[item.id] !== undefined;
+      }
+
+      // ── Header cost display ─────────────────────────────────────
+      let costDisplay;
+      if (isRepeat) {
+        if (isActive) {
+          const tot = instances.reduce((s, v) => s + v, 0);
+          costDisplay = tot + ' pt' + (tot !== 1 ? 's' : '') + ' total';
+        } else {
+          costDisplay = costs.length > 1
+            ? costs.join('/') + ' pt ea'
+            : costs[0] + ' pt' + (costs[0] !== 1 ? 's' : '') + ' ea';
+        }
+      } else if (isActive) {
+        costDisplay = costs.length > 1
+          ? '<select class="mf-cost-select" data-id="' + item.id + '">'
+            + costs.map(v => '<option value="' + v + '"' + (v === selected[item.id] ? ' selected' : '') + '>' + v + ' pt</option>').join('')
+            + '</select>'
+          : selected[item.id] + ' pt' + (selected[item.id] !== 1 ? 's' : '');
+      } else {
+        costDisplay = costs.length > 1
+          ? costs.join('/') + ' pt'
+          : costs[0] + ' pt' + (costs[0] !== 1 ? 's' : '');
+      }
+
+      // ── Instance rows (repeatable only) ─────────────────────────
+      let instancesHtml = '';
+      if (isRepeat && isActive) {
+        instancesHtml = '<div class="mf-instances">'
+          + instances.map((instCost, idx) => {
+            const costEl = costs.length > 1
+              ? '<select class="mf-cost-select" data-id="' + item.id + '" data-idx="' + idx + '">'
+                + costs.map(v => '<option value="' + v + '"' + (v === instCost ? ' selected' : '') + '>' + v + ' pt</option>').join('')
+                + '</select>'
+              : '<span class="mf-instance-cost">' + instCost + ' pt' + (instCost !== 1 ? 's' : '') + '</span>';
+            return '<div class="mf-instance">'
+              + '<span class="mf-instance-label">#' + (idx + 1) + '</span>'
+              + costEl
+              + '<button class="mf-remove-btn" data-id="' + item.id + '" data-idx="' + idx + '" title="Remove">×</button>'
+              + '</div>';
+          }).join('')
+          + '</div>';
+      }
+
+      // ── Add button (repeatable only) ────────────────────────────
+      const addBtn = isRepeat
+        ? '<button class="mf-add-btn" data-id="' + item.id + '">'
+          + (isActive ? '+ Add Another' : '+ Take') + '</button>'
         : '';
-      return '<div class="mf-card' + (isActive ? ' mf-active' : '') + ' ' + catClass
-        + '" data-id="' + item.id + '" data-cost="' + cost[0] + '" data-kind="' + kind + '">'
+
+      return '<div class="mf-card'
+        + (isActive   ? ' mf-active'    : '')
+        + (isRepeat   ? ' mf-repeatable': '')
+        + ' ' + catClass
+        + '" data-id="' + item.id + '" data-kind="' + kind + '">'
         + '<div class="mf-card-top">'
         + '<span class="mf-card-name">' + item.name + '</span>'
-        + '<span class="mf-card-cost">' + (isActive ? (costSelect || chosen + ' pt') : costLabel) + '</span>'
+        + '<span class="mf-card-cost">' + costDisplay + '</span>'
         + '</div>'
         + '<div class="mf-card-desc">' + item.description + '</div>'
+        + instancesHtml
+        + addBtn
         + '<div class="mf-card-page">p. ' + item.page + '</div>'
         + '</div>';
     }).join('');
