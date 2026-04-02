@@ -632,60 +632,92 @@ select {
 select option { background: var(--bg-deep); color: var(--text-bright); }
 
 /* ─── Priority Selector ──────────────────────────────────────── */
-.priority-row {
+/* ─── Priority drag-and-drop sorter ──────────────────────────── */
+.priority-sorter {
   display: flex;
-  gap: 0.8rem;
+  flex-direction: column;
+  gap: 0.4rem;
   margin-bottom: 1.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.priority-label {
-  font-family: var(--font-ui);
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  min-width: 80px;
-}
-
-.priority-options { display: flex; gap: 0.5rem; }
-
-.priority-btn {
+  padding: 0.9rem;
   background: var(--bg-raised);
-  border: 1px solid var(--border-bright);
-  color: var(--text-dim);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-dim);
+}
+
+.priority-sorter-hint {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.priority-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+  user-select: none;
+}
+
+.priority-item:active { cursor: grabbing; }
+
+.priority-item.dragging { opacity: 0.35; }
+
+.priority-item.drag-over {
+  border-color: var(--gold-mid);
+  background: var(--gold-faint);
+}
+
+.priority-handle {
+  color: var(--text-faint);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.priority-tier-badge {
   font-family: var(--font-ui);
   font-size: 0.65rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 0.45rem 0.9rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.2s;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 150px;
+  text-align: center;
 }
 
-.priority-btn:hover { background: var(--bg-hover); color: var(--text-mid); }
-
-.priority-btn.selected-primary {
+.priority-primary   .priority-tier-badge {
   background: var(--gold-faint);
-  border-color: var(--gold-mid);
+  border: 1px solid var(--gold-dim);
   color: var(--gold-bright);
 }
 
-.priority-btn.selected-secondary {
+.priority-secondary .priority-tier-badge {
   background: var(--purple-faint);
-  border-color: var(--purple-mid);
+  border: 1px solid var(--purple-dim);
   color: var(--purple-bright);
 }
 
-.priority-btn.selected-tertiary {
+.priority-tertiary  .priority-tier-badge {
   background: rgba(40,60,40,0.5);
-  border-color: #3a5a3a;
+  border: 1px solid #3a5a3a;
   color: #7ab07a;
 }
 
-.priority-btn.used { opacity: 0.4; cursor: not-allowed; }
+.priority-cat-name {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  color: var(--text-bright);
+  flex: 1;
+}
 
 /* ─── Attribute / Ability Blocks ──────────────────────────────── */
 .attr-block {

@@ -964,7 +964,7 @@ const Creator = {
     const c = this.char;
     const pri = c.attr_priority;
 
-    const priorityHtml = this.renderPrioritySelector(
+    const priorityHtml = this.renderPrioritySorter(
       ['Physical', 'Social', 'Mental'],
       pri,
       'attr_priority',
@@ -1022,7 +1022,7 @@ const Creator = {
     const abilityMap = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
     const abilityData = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
 
-    const priorityHtml = this.renderPrioritySelector(
+    const priorityHtml = this.renderPrioritySorter(
       ['Talents', 'Skills', 'Knowledges'],
       pri,
       'ability_priority',
@@ -1524,27 +1524,22 @@ const Creator = {
   },
 
   /* ─── Priority Selector Helper ─────────────────────────────── */
-  renderPrioritySelector(categories, current, field, labels) {
+  renderPrioritySorter(categories, current, field, labels) {
     const tierLabels = ['Primary', 'Secondary', 'Tertiary'];
     const tierPts    = [labels.primary, labels.secondary, labels.tertiary];
+    const tierCls    = ['priority-primary', 'priority-secondary', 'priority-tertiary'];
 
-    const catBtns = categories.map(cat => {
-      const rank = current.indexOf(cat);
-      const cls  = rank === 0 ? 'selected-primary' : rank === 1 ? 'selected-secondary' : rank === 2 ? 'selected-tertiary' : '';
-      return `<button class="priority-btn ${cls} ${rank >= 0 ? 'used' : ''}" data-cat="${cat}" data-field="${field}">${cat}</button>`;
-    }).join('');
-
-    const summary = tierLabels.map((t, i) => {
-      const cat = current[i];
-      return `<span style="font-size:0.75rem;color:var(--text-dim)">${t} (${tierPts[i]} pts): <strong style="color:var(--text-mid)">${cat || '—'}</strong></span>`;
-    }).join(' &nbsp;|&nbsp; ');
+    const items = current.map((cat, idx) => `
+      <div class="priority-item ${tierCls[idx]}" draggable="true" data-idx="${idx}" data-field="${field}">
+        <span class="priority-handle" title="Drag to reorder">⠿</span>
+        <span class="priority-tier-badge">${tierLabels[idx]} &middot; ${tierPts[idx]} pts</span>
+        <span class="priority-cat-name">${cat}</span>
+      </div>`).join('');
 
     return `
-    <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-raised);border-radius:var(--radius-md);border:1px solid var(--border-dim)">
-      <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.6rem">
-        Click to assign priority ranking. Current: ${summary}
-      </p>
-      <div class="priority-options">${catBtns}</div>
+    <div class="priority-sorter" data-field="${field}">
+      <p class="priority-sorter-hint">Drag rows to set priority order — top row gets the most points</p>
+      ${items}
     </div>`;
   },
 
@@ -1633,22 +1628,48 @@ const Creator = {
     });
 
     // Priority buttons — clicking a category promotes it toward Primary
-    $$('.priority-btn', content).forEach(btn => {
-      btn.addEventListener('click', () => {
-        const cat   = btn.dataset.cat;
-        const field = btn.dataset.field;
-        const arr   = c[field];
-        const idx   = arr.indexOf(cat);
-        if (idx > 0) {
-          // Swap with the one ranked above it (promote by one rank)
-          const tmp = arr[idx - 1];
-          arr[idx - 1] = cat;
-          arr[idx] = tmp;
-        } else if (idx === 0) {
-          // Already Primary — move to end (demote to Tertiary)
-          arr.splice(0, 1);
-          arr.push(cat);
-        }
+    // Priority drag-and-drop sorters (steps 1 & 2)
+    $$('.priority-sorter', content).forEach(sorter => {
+      const field = sorter.dataset.field;
+      let dragIdx = null;
+
+      sorter.addEventListener('dragstart', e => {
+        const item = e.target.closest('.priority-item');
+        if (!item) return;
+        dragIdx = parseInt(item.dataset.idx);
+        e.dataTransfer.effectAllowed = 'move';
+        // Defer so the browser can capture the drag ghost before we dim
+        requestAnimationFrame(() => item.classList.add('dragging'));
+      });
+
+      sorter.addEventListener('dragend', () => {
+        $$('.priority-item', sorter).forEach(el => el.classList.remove('dragging', 'drag-over'));
+        dragIdx = null;
+      });
+
+      sorter.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const item = e.target.closest('.priority-item');
+        if (!item) return;
+        $$('.priority-item', sorter).forEach(el => el.classList.remove('drag-over'));
+        if (parseInt(item.dataset.idx) !== dragIdx) item.classList.add('drag-over');
+      });
+
+      sorter.addEventListener('dragleave', e => {
+        const item = e.target.closest('.priority-item');
+        if (item) item.classList.remove('drag-over');
+      });
+
+      sorter.addEventListener('drop', e => {
+        e.preventDefault();
+        const item = e.target.closest('.priority-item');
+        if (!item || dragIdx === null) return;
+        const dropIdx = parseInt(item.dataset.idx);
+        if (dragIdx === dropIdx) return;
+        const arr = c[field];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(dropIdx, 0, moved);
         this.renderStep();
       });
     });
