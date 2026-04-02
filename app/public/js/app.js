@@ -1189,11 +1189,14 @@ const Creator = {
   renderStep5() {
     const c = this.char;
 
-    // Determine affinity sphere from tradition
+    // Determine affinity sphere options from tradition / affiliation
+    const isDisparate = c.affiliation === 'Disparates';
     const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY].find(t => t.name === c.tradition);
-    const affinitySpheres = trad?.affinitySpheres || [];
+    const affinitySpheres = isDisparate
+      ? M20.SPHERES.map(s => s.name)   // Disparates may choose any sphere
+      : (trad?.affinitySpheres || []);
 
-    // Auto-select affinity sphere if tradition has only one option and none set
+    // Auto-select affinity sphere if tradition has exactly one option and none set yet
     let selectedAffinity = c.affinity_sphere;
     if (!selectedAffinity && affinitySpheres.length === 1) {
       selectedAffinity = affinitySpheres[0];
@@ -1204,17 +1207,20 @@ const Creator = {
     const usedDots  = Object.values(c.spheres).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
 
-    // Affinity sphere selector if multiple options
+    // Affinity sphere selector for multiple options (includes Disparates — all spheres)
     let affinitySelectHtml = '';
     if (affinitySpheres.length > 1) {
       const opts = affinitySpheres.map(s => `<option value="${s}" ${selectedAffinity === s ? 'selected' : ''}>${s}</option>`).join('');
+      const hint = isDisparate
+        ? 'As a Disparate, you may choose any Sphere as your Affinity Sphere.'
+        : 'Your Affinity Sphere receives its first dot free. It costs 7 XP per dot (vs. 8 for other spheres).';
       affinitySelectHtml = `
       <div class="form-group" style="margin-bottom:1rem">
         <label>Choose Affinity Sphere <span class="ref">p. 259</span></label>
         <select id="affinity-select">
           <option value="">— Select Affinity Sphere —</option>${opts}
         </select>
-        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem">Your Affinity Sphere receives its first dot free. It costs 7 XP per dot (vs. 8 for other spheres).</p>
+        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem">${hint}</p>
       </div>`;
     }
 
