@@ -715,10 +715,16 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 
 .attr-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   padding: 0.5rem 0;
   border-bottom: 1px solid rgba(58,52,40,0.3);
+  gap: 0.3rem;
+}
+
+.attr-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
 }
 
@@ -1628,26 +1634,41 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   padding: 0 0.5rem;
 }
 
-/* ─── Specialty Input ────────────────────────────────────────── */
+/* ─── Specialty Row ──────────────────────────────────────────── */
+.specialty-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 0 0.15rem 0;
+}
+
+.specialty-row::before {
+  content: 'Specialty:';
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .specialty-input {
-  display: block;
-  width: 100%;
-  margin-top: 0.35rem;
-  padding: 0.25rem 0.5rem;
+  flex: 1;
+  padding: 0.2rem 0.5rem;
   background: var(--bg-surface);
   border: 1px solid var(--border-dim);
   border-radius: 3px;
   color: var(--gold-bright);
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-style: italic;
   transition: border-color 0.15s;
-  box-sizing: border-box;
+  min-width: 0;
 }
 
 .specialty-input:focus {
   outline: none;
   border-color: var(--gold-mid);
+  background: var(--bg-raised);
 }
 
 .specialty-input::placeholder {

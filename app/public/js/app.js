@@ -723,16 +723,20 @@ const Creator = {
         </div>
         ${attrs.map(a => `
         <div class="attr-row" data-attr-id="${a.id}">
-          <div class="attr-info">
-            <div class="attr-name">${a.name}
-              <span class="info-tip" data-tip="${a.description}">?</span>
+          <div class="attr-row-main">
+            <div class="attr-info">
+              <div class="attr-name">${a.name}
+                <span class="info-tip" data-tip="${a.description}">?</span>
+              </div>
+              <div class="attr-desc">${a.description}</div>
             </div>
-            <div class="attr-desc">${a.description}</div>
+            ${dotsClickable(c[a.id] || 1, 5, null, '')}
           </div>
-          ${dotsClickable(c[a.id] || 1, 5, null, '')}
-          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
-            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
-            ${(c[a.id] || 1) < 3 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${(c[a.id] || 1) < 3 ? 'style="display:none"' : ''}>
+            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
+            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+          </div>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -778,16 +782,20 @@ const Creator = {
         </div>
         ${data.map(a => `
         <div class="attr-row" data-ability="${a.id}" data-category="${key}">
-          <div class="attr-info">
-            <div class="attr-name">${a.name}
-              <span class="info-tip" data-tip="${a.description}">?</span>
+          <div class="attr-row-main">
+            <div class="attr-info">
+              <div class="attr-name">${a.name}
+                <span class="info-tip" data-tip="${a.description}">?</span>
+              </div>
+              <div class="attr-desc">${a.description}</div>
             </div>
-            <div class="attr-desc">${a.description}</div>
+            ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
           </div>
-          ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
-          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
-            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
-            ${(c[key][a.id] || 0) < 3 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${(c[key][a.id] || 0) < 3 ? 'style="display:none"' : ''}>
+            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
+            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+          </div>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -942,9 +950,11 @@ const Creator = {
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 5, null, 'sphere-dots')}</div>
-        <input type="text" class="specialty-input" data-specialty-for="${sphere.id}"
-          placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}"
-          ${val < 3 ? 'style="display:none"' : ''}>
+        <div class="specialty-row" ${val < 3 ? 'style="display:none"' : ''}>
+          <input class="specialty-input" list="spec-${sphere.id}" data-specialty-for="${sphere.id}"
+            placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}">
+          <datalist id="spec-${sphere.id}">${(sphere.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+        </div>
         <div class="page-ref" style="margin-top:0.25rem">p. ${sphere.page}</div>
       </div>`;
     }).join('');
@@ -1404,11 +1414,11 @@ const Creator = {
             this.refreshDots(dotsEl, c[cat][id]);
             this.refreshAbilityPoints(block, cat);
             this.updateFreebieDisplay();
-            // Show/hide specialty input
-            const specEl = attrRow.querySelector('.specialty-input');
-            if (specEl) {
-              specEl.style.display = c[cat][id] >= 3 ? '' : 'none';
-              if (c[cat][id] < 3) { delete c.specialties[id]; specEl.value = ''; }
+            // Show/hide specialty row
+            const specRow = attrRow.querySelector('.specialty-row');
+            if (specRow) {
+              specRow.style.display = c[cat][id] >= 3 ? '' : 'none';
+              if (c[cat][id] < 3) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
             }
             return;
           }
@@ -1424,11 +1434,11 @@ const Creator = {
           this.refreshDots(dotsEl, c[attrId]);
           this.refreshAttrPoints(block, attrId);
           this.updateFreebieDisplay();
-          // Show/hide specialty input
-          const specEl = attrRow.querySelector('.specialty-input');
-          if (specEl) {
-            specEl.style.display = c[attrId] >= 3 ? '' : 'none';
-            if (c[attrId] < 3) { delete c.specialties[attrId]; specEl.value = ''; }
+          // Show/hide specialty row
+          const specRow = attrRow.querySelector('.specialty-row');
+          if (specRow) {
+            specRow.style.display = c[attrId] >= 3 ? '' : 'none';
+            if (c[attrId] < 3) { delete c.specialties[attrId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
           }
         });
       });
@@ -1471,11 +1481,11 @@ const Creator = {
         c.spheres[sphereId] = cur === val ? Math.max(0, val - 1) : val;
         this.refreshDots(dotsEl, c.spheres[sphereId]);
 
-        // Show/hide specialty input
-        const specEl = card.querySelector('.specialty-input');
-        if (specEl) {
-          specEl.style.display = c.spheres[sphereId] >= 3 ? '' : 'none';
-          if (c.spheres[sphereId] < 3) { delete c.specialties[sphereId]; specEl.value = ''; }
+        // Show/hide specialty row
+        const specRow = card.querySelector('.specialty-row');
+        if (specRow) {
+          specRow.style.display = c.spheres[sphereId] >= 3 ? '' : 'none';
+          if (c.spheres[sphereId] < 3) { delete c.specialties[sphereId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
         }
 
         // Update rank display
