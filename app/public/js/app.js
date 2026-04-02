@@ -698,6 +698,8 @@ const Creator = {
       talents: {}, skills: {}, knowledges: {},
       // Advantages
       backgrounds: {},
+      // Merits & Flaws
+      merits: {}, flaws: {},
       // Spheres
       spheres: {}, affinity_sphere: '',
       // Stats
@@ -1295,9 +1297,9 @@ const Creator = {
                           Skills:     [13,9,5][abilityPri.indexOf('Skills')]     ?? 0,
                           Knowledges: [13,9,5][abilityPri.indexOf('Knowledges')] ?? 0 };
 
-    // Ensure merits/flaws are objects, not arrays (migration safety)
-    if (Array.isArray(c.merits)) c.merits = {};
-    if (Array.isArray(c.flaws))  c.flaws  = {};
+    // Ensure merits/flaws are plain objects (migration safety: handle undefined, null, or legacy arrays)
+    if (!c.merits || Array.isArray(c.merits)) c.merits = {};
+    if (!c.flaws  || Array.isArray(c.flaws))  c.flaws  = {};
 
     // Flat attribute specialty lookup: { strength: [...], dexterity: [...], ... }
     const attrSpecMap = {};
