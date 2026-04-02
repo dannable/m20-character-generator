@@ -1228,8 +1228,10 @@ const Creator = {
 
     const sphereCards = M20.SPHERES.map(sphere => {
       const val = c.spheres[sphere.id] || 0;
-      const isAffinity = sphere.name === selectedAffinity ||
-        (sphere.altName && sphere.altName.startsWith(selectedAffinity));
+      const isAffinity = !!selectedAffinity && (
+        sphere.name === selectedAffinity ||
+        (sphere.altName && sphere.altName.startsWith(selectedAffinity))
+      );
       const rankName = val > 0 ? (sphere.ranks[val - 1]?.name || '') : 'Unlearned';
 
       return `
