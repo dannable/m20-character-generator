@@ -142,28 +142,47 @@ const App = {
       const r = await fetch('/api/admin/users');
       if (!r.ok) throw new Error('Access denied');
       const users = await r.json();
+      const me = this.currentUser;
       content.innerHTML = `
         <table class="admin-table">
           <thead>
             <tr>
               <th>Username</th><th>Email</th><th>Role</th>
-              <th>Characters</th><th>Status</th><th>Actions</th>
+              <th>Chars</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${users.map(u => `
-              <tr>
+            ${users.map(u => {
+              const isSelf = me && u.id === me.id;
+              return `<tr>
                 <td>${u.username}</td>
-                <td>${u.email}</td>
-                <td>${u.role}</td>
-                <td>${u.character_count}</td>
+                <td style="font-size:0.8rem;color:var(--text-dim)">${u.email}</td>
+                <td>
+                  <span class="${u.role === 'admin' ? 'admin-badge' : ''}" style="${u.role !== 'admin' ? 'color:var(--text-dim);font-size:0.8rem' : ''}">${u.role}</span>
+                </td>
+                <td style="text-align:center">${u.character_count}</td>
                 <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
                 <td>
-                  <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})">
-                    ${u.is_active ? 'Disable' : 'Enable'}
-                  </button>
+                  <div class="admin-actions">
+                    <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})"
+                      ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>
+                      ${u.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button class="btn-ghost btn-sm" onclick="App.changeRole(${u.id}, '${u.role}', '${u.username}')"
+                      ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>
+                      ${u.role === 'admin' ? 'Demote' : 'Promote'}
+                    </button>
+                    <button class="btn-secondary btn-sm" onclick="App.resetPassword(${u.id}, '${u.username}')">
+                      Reset PW
+                    </button>
+                    <button class="btn-danger btn-sm" onclick="App.deleteUser(${u.id}, '${u.username}')"
+                      ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
+                      Delete
+                    </button>
+                  </div>
                 </td>
-              </tr>`).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>`;
     } catch (err) {
@@ -182,6 +201,66 @@ const App = {
       toast(isActive ? 'User disabled' : 'User enabled');
       await this.showAdmin();
     } catch { toast('Failed to update user', 'error'); }
+  },
+
+  async changeRole(id, currentRole, username) {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole })
+      });
+      if (!r.ok) throw new Error();
+      toast(`${username} ${newRole === 'admin' ? 'promoted to Admin' : 'demoted to User'}.`);
+      await this.showAdmin();
+    } catch { toast('Failed to change role.', 'error'); }
+  },
+
+  resetPassword(id, username) {
+    $('#modal-title').textContent = `Reset Password — ${username}`;
+    $('#modal-body').innerHTML = `
+      <p style="margin-bottom:0.75rem">Set a new password for <strong style="color:var(--gold-mid)">${username}</strong>:</p>
+      <div class="form-group">
+        <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
+        <input type="password" id="modal-new-password" class="form-input" minlength="6" placeholder="Enter new password…" />
+      </div>`;
+    const btn = $('#modal-confirm');
+    btn.textContent = 'Reset Password';
+    btn.className = 'btn-secondary';
+    btn.onclick = async () => {
+      const pw = $('#modal-new-password')?.value || '';
+      if (pw.length < 6) { toast('Password must be at least 6 characters.', 'error'); return; }
+      try {
+        const r = await fetch(`/api/admin/users/${id}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (!r.ok) throw new Error();
+        this.closeModal();
+        toast(`Password reset for ${username}.`);
+      } catch { toast('Failed to reset password.', 'error'); }
+    };
+    $('#modal-overlay').style.display = 'flex';
+  },
+
+  deleteUser(id, username) {
+    $('#modal-title').textContent = 'Delete User';
+    $('#modal-body').innerHTML = `<p>Permanently delete <strong style="color:var(--crimson)">${username}</strong> and all their characters?<br>This cannot be undone.</p>`;
+    const btn = $('#modal-confirm');
+    btn.textContent = 'Delete User';
+    btn.className = 'btn-danger';
+    btn.onclick = async () => {
+      try {
+        const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error();
+        this.closeModal();
+        toast(`${username} has been deleted.`);
+        await this.showAdmin();
+      } catch { toast('Failed to delete user.', 'error'); }
+    };
+    $('#modal-overlay').style.display = 'flex';
   },
 
   async logout() {
@@ -301,6 +380,9 @@ const App = {
 
   closeModal() {
     $('#modal-overlay').style.display = 'none';
+    // Reset confirm button to neutral state for next use
+    const btn = $('#modal-confirm');
+    if (btn) { btn.textContent = 'Confirm'; btn.className = 'btn-danger'; btn.onclick = null; }
   },
 };
 
@@ -693,6 +775,14 @@ const Creator = {
 
   freebieSpent() {
     return this.calcFreebies().total;
+  },
+
+  freebiesRemaining() {
+    return M20.CREATION.freebiePoints - this.calcFreebies().total;
+  },
+
+  canSpendFreebie(amount) {
+    return this.freebiesRemaining() >= amount;
   },
 
   prevStep() { if (this.step > 0) { this.step--; this.renderStep(); } },
@@ -2058,11 +2148,29 @@ const Creator = {
         if (!sel) return;
         const id      = sel.dataset.id;
         const newCost = parseInt(sel.value);
+
         if (sel.dataset.idx !== undefined) {
+          // Repeatable instance cost change
           const idx = parseInt(sel.dataset.idx);
-          if (Array.isArray(store[id])) store[id][idx] = newCost;
+          if (!Array.isArray(store[id])) return;
+          const oldCost = store[id][idx];
+          store[id][idx] = newCost; // tentatively apply
+          if (kind === 'merit' && c.calcFreebies().total > M20.CREATION.freebiePoints) {
+            store[id][idx] = oldCost; // revert
+            sel.value = oldCost;
+            toast('Not enough freebie points for that option.', 'error');
+            return;
+          }
         } else {
-          store[id] = newCost;
+          // Non-repeatable variable cost change
+          const oldCost = store[id];
+          store[id] = newCost; // tentatively apply
+          if (kind === 'merit' && c.calcFreebies().total > M20.CREATION.freebiePoints) {
+            store[id] = oldCost; // revert
+            sel.value = oldCost;
+            toast('Not enough freebie points for that option.', 'error');
+            return;
+          }
         }
         c.updateFreebieBank();
       });

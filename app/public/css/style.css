@@ -2057,6 +2057,17 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .admin-table .status-active { color: #70c070; }
 .admin-table .status-disabled { color: var(--text-faint); }
 
+.admin-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.admin-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* ─── Print ──────────────────────────────────────────────────── */
 @media print {
   body { background: white; color: black; }
