@@ -1,0 +1,31 @@
+# ── Runtime data (never commit the database) ─────────────────────
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# ── Dependencies ──────────────────────────────────────────────────
+node_modules/
+app/node_modules/
+
+# ── PDF files (copyright + large binaries) ────────────────────────
+*.pdf
+
+# ── Text files extracted from PDFs ───────────────────────────────
+*.txt
+
+# ── Claude Code local settings (contains server IPs/hostnames) ───
+.claude/
+
+# ── Development patch/migration scripts ──────────────────────────
+patch_*.py
+fix_*.py
+tmp_*.py
+tmp_*.js
+tmp_*.css
+
+# ── OS / editor noise ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.env
+.env.*
