@@ -53,6 +53,22 @@ function formatDate(str) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Returns the faction-appropriate display name for a background
+function bgDisplayName(bg, affiliation) {
+  if (!bg) return '';
+  if (affiliation === 'Technocracy' && bg.technocracyName) return bg.technocracyName;
+  if (bg.traditionName) return bg.traditionName;
+  return bg.name;
+}
+
+// Returns only backgrounds appropriate for the given affiliation
+function filteredBackgrounds(affiliation) {
+  return M20.BACKGROUNDS.filter(bg => {
+    if (bg.technocracy && affiliation !== 'Technocracy') return false;
+    return true;
+  });
+}
+
 /* ─── API ────────────────────────────────────────────────────── */
 const API = {
   async get(id = '') {
@@ -481,7 +497,7 @@ const Sheet = {
       .filter(([,v]) => v > 0)
       .map(([k, v]) => {
         const bg = M20.BACKGROUNDS.find(b => b.id === k);
-        return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bg.name}</span>${dots(v, 5, 'readonly')}</div>` : '';
+        return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
       }).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
 
     const instruments = (Array.isArray(char.instruments) ? char.instruments : []).join(', ') || '—';
@@ -1081,12 +1097,14 @@ const Creator = {
     const usedDots = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
 
-    const bgRows = M20.BACKGROUNDS.map(bg => {
+    const aff = c.affiliation || 'Traditions';
+    const bgRows = filteredBackgrounds(aff).map(bg => {
       const val = c.backgrounds[bg.id] || 0;
+      const dispName = bgDisplayName(bg, aff);
       return `
       <div class="attr-row" data-bg="${bg.id}">
         <div class="attr-info">
-          <div class="attr-name">${bg.name}
+          <div class="attr-name">${dispName}
             ${bg.doubleCost ? '<span style="font-size:0.6rem;color:var(--crimson);margin-left:0.3rem">[2× cost]</span>' : ''}
             <span class="info-tip" data-tip="${bg.description}${bg.note ? ' (' + bg.note + ')' : ''}">?</span>
           </div>
@@ -1114,7 +1132,8 @@ const Creator = {
 
     <div style="margin-top:1rem;padding:0.8rem;background:var(--bg-raised);border-radius:var(--radius-md);border:1px solid var(--border-dim)">
       <p style="font-size:0.82rem;color:var(--text-dim)">
-        <strong style="color:var(--gold-dim)">Note on Avatar/Genius:</strong> Your Avatar rating determines your starting Quintessence.
+        <strong style="color:var(--gold-dim)">Note on ${aff === 'Technocracy' ? 'Genius' : 'Avatar'}:</strong>
+        Your ${aff === 'Technocracy' ? 'Genius' : 'Avatar'} rating determines your starting Quintessence.
         This will be set automatically in the final step. <span class="page-ref">p. 303</span>
       </p>
     </div>`;
@@ -1358,10 +1377,11 @@ const Creator = {
       </div>`;
     }).join('');
 
-    // Background rows
-    const bgSection = M20.BACKGROUNDS.map(bg => {
+    // Background rows (filtered by faction, correct names)
+    const bgAff = c.affiliation || 'Traditions';
+    const bgSection = filteredBackgrounds(bgAff).map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
-      return fbRow(bg.id, bg.name, cur, 5, 0, 1, '1 pt/dot', null);
+      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, 0, 1, '1 pt/dot', null);
     }).join('');
 
     // Sphere rows
