@@ -1184,8 +1184,14 @@ const Creator = {
     if (Array.isArray(c.merits)) c.merits = {};
     if (Array.isArray(c.flaws))  c.flaws  = {};
 
+    // Flat attribute specialty lookup: { strength: [...], dexterity: [...], ... }
+    const attrSpecMap = {};
+    Object.values(M20.ATTRIBUTES).forEach(grp => grp.forEach(a => { attrSpecMap[a.id] = a.specialties || []; }));
+
     // Helper: dots row for the freebie panel
-    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null) => {
+    // specOptions: array of suggestion strings (null = no specialty row)
+    // currentSpec: currently saved specialty text for this trait
+    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '') => {
       const spent     = Math.max(0, current - baseline) * costPer;
       const dotsHtml  = Array.from({length: max}, (_, i) => {
         const val = i + 1;
@@ -1198,12 +1204,19 @@ const Creator = {
         ? `<span class="fb-cost-badge">${spent} pt${spent>1?'s':''}</span>`
         : `<span class="fb-cost-free">free</span>`;
       const dataAttr = stat ? `data-stat="${stat}"` : `data-fb-id="${id}"`;
+      const specHtml = specOptions !== null
+        ? `<div class="specialty-row fb-specialty-row"${current < 4 ? ' style="display:none"' : ''}>` +
+          `<input class="specialty-input" list="fb-spec-${id}" data-specialty-for="${id}" ` +
+          `placeholder="Specialty\u2026" value="${currentSpec}">` +
+          `<datalist id="fb-spec-${id}">${specOptions.map(s => `<option value="${s}">`).join('')}</datalist>` +
+          `</div>`
+        : '';
       return `
       <div class="fb-row" ${dataAttr} data-baseline="${baseline}" data-cost="${costPer}" data-max="${max}">
         <div class="fb-row-label">${label}${costNote ? `<span class="fb-cost-hint">${costNote}</span>` : ''}</div>
         <span class="dots" data-max="${max}">${dotsHtml}</span>
         <div class="fb-row-cost">${costDisplay}</div>
-      </div>`;
+      </div>${specHtml}`;
     };
 
     // Attribute rows — grouped
@@ -1220,12 +1233,7 @@ const Creator = {
       // For display we just show each attr; baseline is 1 + their share of alloc
       const rows = g.ids.map(([id, name]) => {
         const cur = c[id] || 1;
-        // Baseline: how many dots were "free" from creation for this attr
-        // Simplification: 1 (all attrs start at 1); extra from creation alloc
-        // We can't perfectly apportion per-attr, so we show creation dots in gold, freebie dots in purple
-        // Actually we track it by: anything that pushes the group total above alloc costs freebies
-        // For display simplicity: baseline = 1 for each, creation points shown as "free up to alloc"
-        return fbRow(id, name, cur, 5, 1, 5, '5 pts/dot', null);
+        return fbRow(id, name, cur, 5, 1, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1248,7 +1256,7 @@ const Creator = {
       const alloc = abilAllocs[g.label] ?? 0;
       const rows  = g.data.map(a => {
         const cur = c[g.key][a.id] || 0;
-        return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null);
+        return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1269,7 +1277,7 @@ const Creator = {
     // Sphere rows
     const sphereSection = M20.SPHERES.map(s => {
       const cur = c.spheres[s.id] || 0;
-      return fbRow(s.id, s.name, cur, 5, 0, 7, '7 pts/dot', null);
+      return fbRow(s.id, s.name, cur, 5, 0, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
     }).join('');
 
     const { total } = this.calcFreebies();
@@ -1823,21 +1831,25 @@ const Creator = {
         const cur = char[id] || 1;
         char[id]  = cur === val ? Math.max(1, val - 1) : Math.min(max, val);
         // Recalculate per-group allocation to determine freebie cost of this row
-        // Simple approach: mark dots above 1 as potentially freebie, actual cost is group-level
         const groupEl = row.closest('.fb-group');
         if (groupEl) {
-          const groupLabel = groupEl.querySelector('.fb-group-label').textContent.split(' ')[0]; // Physical/Social/Mental
+          const groupLabel = groupEl.querySelector('.fb-group-label').textContent.split(' ')[0];
           const groupIds   = attrGroups[groupLabel] || [];
-          const alloc      = attrAlloc[groupLabel] || 0;
-          const usedExtra  = groupIds.reduce((s, aid) => s + Math.max(0,(char[aid]||1)-1), 0);
-          const freeExtra  = Math.min(usedExtra, alloc);
-          // Re-render all rows in this group with updated free baseline
           groupIds.forEach((aid, idx) => {
-            const aRow    = groupEl.querySelectorAll('.fb-row[data-fb-id]')[idx];
-            const aVal    = char[aid] || 1;
-            const aFreeUp = Math.max(1, aVal); // simplified: dots up to alloc-covered are "free"
+            const aRow = groupEl.querySelectorAll('.fb-row[data-fb-id]')[idx];
+            const aVal = char[aid] || 1;
             if (aRow) c.refreshFreebieRow(aRow, aVal, 1, 5, 5);
           });
+        }
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char[id] >= 4 ? '' : 'none';
+          if (char[id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
         }
         c.updateFreebieBank();
       });
@@ -1868,6 +1880,16 @@ const Creator = {
         const cur = char[catKey][id] || 0;
         char[catKey][id] = cur === val ? Math.max(0, val-1) : Math.min(max, val);
         c.refreshFreebieRow(row, char[catKey][id], 0, 2, 5);
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char[catKey][id] >= 4 ? '' : 'none';
+          if (char[catKey][id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
+        }
         c.updateFreebieBank();
       });
     });
@@ -1916,6 +1938,16 @@ const Creator = {
           c.updateAreteLabel();
         }
         c.refreshFreebieRow(row, char.spheres[id], 0, 7, 5);
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char.spheres[id] >= 4 ? '' : 'none';
+          if (char.spheres[id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
+        }
         c.updateFreebieBank();
       });
     });

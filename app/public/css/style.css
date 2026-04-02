@@ -1733,6 +1733,14 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   padding: 0.1rem 0 0.15rem 0;
 }
 
+/* Specialty row inside the Finishing Touches freebie panel */
+.fb-specialty-row {
+  padding: 0.15rem 0.5rem 0.35rem 0.5rem;
+  background: rgba(0,0,0,0.15);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  margin-bottom: 0.1rem;
+}
+
 .specialty-row::before {
   content: 'Specialty:';
   font-size: 0.68rem;
