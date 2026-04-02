@@ -879,10 +879,15 @@ const Creator = {
         <div class="page-ref" style="margin-top:0.5rem">p. ${e.page}</div>
       </div>`).join('');
 
+    const builtinNames     = new Set(M20.ARCHETYPES.map(a => a.name));
+    const isCustomNature   = !!(c.nature   && !builtinNames.has(c.nature));
+    const isCustomDemeanor = !!(c.demeanor && !builtinNames.has(c.demeanor));
     const archetypeOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${c.nature === a.name ? 'selected' : ''}>${a.name}</option>`).join('');
+      `<option value="${a.name}" ${!isCustomNature && c.nature === a.name ? 'selected' : ''}>${a.name}</option>`).join('')
+      + `<option value="__custom__" ${isCustomNature ? 'selected' : ''}>Other (Custom)\u2026</option>`;
     const demeanorOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${c.demeanor === a.name ? 'selected' : ''}>${a.name}</option>`).join('');
+      `<option value="${a.name}" ${!isCustomDemeanor && c.demeanor === a.name ? 'selected' : ''}>${a.name}</option>`).join('')
+      + `<option value="__custom__" ${isCustomDemeanor ? 'selected' : ''}>Other (Custom)\u2026</option>`;
     const conceptOptions = ['', ...M20.CONCEPTS].map(con =>
       `<option value="${con}" ${c.concept === con ? 'selected' : ''}>${con || '— choose or type below —'}</option>`).join('');
 
@@ -933,11 +938,17 @@ const Creator = {
       <div class="form-group">
         <label>Nature <span class="ref">p. 267</span></label>
         <select id="f-nature"><option value="">— Select Nature —</option>${archetypeOptions}</select>
+        <input type="text" id="f-nature-custom" placeholder="Enter custom archetype name\u2026"
+          value="${isCustomNature ? c.nature : ''}"
+          style="margin-top:0.35rem${isCustomNature ? '' : ';display:none'}">
         <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-top:0.3rem;font-style:italic"></div>
       </div>
       <div class="form-group">
         <label>Demeanor <span class="ref">p. 267</span></label>
         <select id="f-demeanor"><option value="">— Select Demeanor —</option>${demeanorOptions}</select>
+        <input type="text" id="f-demeanor-custom" placeholder="Enter custom archetype name\u2026"
+          value="${isCustomDemeanor ? c.demeanor : ''}"
+          style="margin-top:0.35rem${isCustomDemeanor ? '' : ';display:none'}">
       </div>
     </div>`;
   },
@@ -1037,8 +1048,13 @@ const Creator = {
   renderStep2() {
     const c = this.char;
     const pri = c.ability_priority;
-    const abilityMap = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
-    const abilityData = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
+    const abilityMap  = { Talents: 'talents',    Skills: 'skills',    Knowledges: 'knowledges' };
+    const abilityData = { Talents: M20.TALENTS,  Skills: M20.SKILLS,  Knowledges: M20.KNOWLEDGES };
+    const secondaryData = {
+      Talents:    M20.SECONDARY_TALENTS,
+      Skills:     M20.SECONDARY_SKILLS,
+      Knowledges: M20.SECONDARY_KNOWLEDGES,
+    };
 
     const priorityHtml = this.renderPrioritySorter(
       ['Talents', 'Skills', 'Knowledges'],
@@ -1047,13 +1063,57 @@ const Creator = {
       { primary: 13, secondary: 9, tertiary: 5 }
     );
 
+    const abilityRow = (a, key, isSecondary = false) => {
+      const val     = c[key][a.id] || 0;
+      const specRow = `<div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
+            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
+            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+          </div>`;
+      const removeBtn = isSecondary
+        ? `<button class="btn-remove-secondary" data-ability-id="${a.id}" data-category="${key}" title="Remove ${a.name}">\u00d7</button>`
+        : '';
+      return `
+        <div class="attr-row${isSecondary ? ' secondary-ability-row' : ''}" data-ability="${a.id}" data-category="${key}">
+          <div class="attr-row-main">
+            <div class="attr-info">
+              <div class="attr-name">${a.name}
+                ${isSecondary ? '<span class="secondary-badge">Secondary</span>' : ''}
+                <span class="info-tip" data-tip="${a.description}">?</span>
+              </div>
+              <div class="attr-desc">${a.description}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem">
+              ${dotsClickable(val, 3, null, '')}
+              ${removeBtn}
+            </div>
+          </div>
+          ${specRow}
+        </div>`;
+    };
+
     const blocks = ['Talents', 'Skills', 'Knowledges'].map(cat => {
-      const key   = abilityMap[cat];
-      const data  = abilityData[cat];
-      const rank  = pri.indexOf(cat);
-      const total = [13, 9, 5][rank] || 0;
-      const used  = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
+      const key     = abilityMap[cat];
+      const data    = abilityData[cat];
+      const secAll  = secondaryData[cat];
+      // Secondary abilities already added: any whose ID is present in c[key]
+      const secAdded     = secAll.filter(a => c[key][a.id] !== undefined);
+      const secAvailable = secAll.filter(a => c[key][a.id] === undefined);
+
+      const rank      = pri.indexOf(cat);
+      const total     = [13, 9, 5][rank] || 0;
+      // Only primary abilities count against the creation point pool
+      const used      = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
       const remaining = total - used;
+
+      const adderHtml = secAvailable.length > 0 ? `
+        <div class="secondary-ability-adder">
+          <select class="secondary-add-select" data-category="${key}">
+            <option value="">\uff0b Add Secondary Ability\u2026</option>
+            ${secAvailable.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
+          </select>
+        </div>` : '';
+
       return `
       <div class="attr-block">
         <div class="attr-block-header">
@@ -1062,30 +1122,16 @@ const Creator = {
             <span class="pts">${remaining}</span> / ${total} pts · max 3 per ability
           </span>
         </div>
-        ${data.map(a => `
-        <div class="attr-row" data-ability="${a.id}" data-category="${key}">
-          <div class="attr-row-main">
-            <div class="attr-info">
-              <div class="attr-name">${a.name}
-                <span class="info-tip" data-tip="${a.description}">?</span>
-              </div>
-              <div class="attr-desc">${a.description}</div>
-            </div>
-            ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
-          </div>
-          <div class="specialty-row" ${(c[key][a.id] || 0) < 4 ? 'style="display:none"' : ''}>
-            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
-              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
-            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
-          </div>
-        </div>`).join('')}
+        ${data.map(a => abilityRow(a, key, false)).join('')}
+        ${secAdded.map(a => abilityRow(a, key, true)).join('')}
+        ${adderHtml}
       </div>`;
     }).join('');
 
     return `
     ${this.stepHeader('Step Three: Abilities',
       M20.QUOTES.step3,
-      `Rank Talents, Skills, and Knowledges as <strong>Primary (13 pts)</strong>, <strong>Secondary (9 pts)</strong>, and <strong>Tertiary (5 pts)</strong>. Maximum <strong>3 dots</strong> in any Ability at character creation. <span class="page-ref">M20 p. 259</span>`)}
+      `Rank Talents, Skills, and Knowledges as <strong>Primary (13 pts)</strong>, <strong>Secondary (9 pts)</strong>, and <strong>Tertiary (5 pts)</strong>. Maximum <strong>3 dots</strong> in any Ability at character creation. Secondary Abilities are optional and cost <strong>3 freebie pts/dot</strong> — add them below each group. <span class="page-ref">M20 p. 259, 275</span>`)}
     ${priorityHtml}
     ${blocks}`;
   },
@@ -1366,9 +1412,9 @@ const Creator = {
 
     // Ability rows
     const abilGroups = [
-      { label:'Talents',    key:'talents',    data: M20.TALENTS },
-      { label:'Skills',     key:'skills',     data: M20.SKILLS },
-      { label:'Knowledges', key:'knowledges', data: M20.KNOWLEDGES },
+      { label:'Talents',    key:'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS },
+      { label:'Skills',     key:'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS },
+      { label:'Knowledges', key:'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
     ];
     const abilSection = abilGroups.map(g => {
       const used  = g.data.reduce((s,a) => s + (c[g.key][a.id]||0), 0);
@@ -1377,6 +1423,13 @@ const Creator = {
         const cur = c[g.key][a.id] || 0;
         return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
       }).join('');
+      // Secondary abilities that have been added — 3 pts/dot, no free baseline
+      const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
+      const secRows  = addedSec.map(a => {
+        const cur = c[g.key][a.id] || 0;
+        const label = a.name + ' <span class="secondary-badge">Secondary</span>';
+        return fbRow(a.id, label, cur, 3, 0, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+      }).join('');
       return `
       <div class="fb-group">
         <div class="fb-group-header">
@@ -1384,6 +1437,7 @@ const Creator = {
           <span class="fb-group-alloc">${alloc} creation pts · over-allocation costs 2 freebies/dot</span>
         </div>
         ${rows}
+        ${secRows}
       </div>`;
     }).join('');
 
@@ -1620,8 +1674,47 @@ const Creator = {
       conceptInp.addEventListener('input', () => { c.concept = conceptInp.value; });
     }
 
-    bind('#f-nature', 'nature');
-    bind('#f-demeanor', 'demeanor');
+    // Nature — standard archetype or custom freeform
+    const natureSel    = $('#f-nature', content);
+    const natureCustom = $('#f-nature-custom', content);
+    if (natureSel) {
+      natureSel.addEventListener('change', () => {
+        if (natureSel.value === '__custom__') {
+          natureCustom.style.display = '';
+          c.nature = natureCustom.value.trim() || '';
+        } else {
+          natureCustom.style.display = 'none';
+          c.nature = natureSel.value;
+        }
+        this.updateNatureWillpower();
+        this.updateFreebieDisplay();
+      });
+    }
+    if (natureCustom) {
+      natureCustom.addEventListener('input', () => {
+        c.nature = natureCustom.value.trim();
+        this.updateNatureWillpower();
+      });
+    }
+
+    // Demeanor — standard archetype or custom freeform
+    const demeanorSel    = $('#f-demeanor', content);
+    const demeanorCustom = $('#f-demeanor-custom', content);
+    if (demeanorSel) {
+      demeanorSel.addEventListener('change', () => {
+        if (demeanorSel.value === '__custom__') {
+          demeanorCustom.style.display = '';
+          c.demeanor = demeanorCustom.value.trim() || '';
+        } else {
+          demeanorCustom.style.display = 'none';
+          c.demeanor = demeanorSel.value;
+        }
+        this.updateFreebieDisplay();
+      });
+    }
+    if (demeanorCustom) {
+      demeanorCustom.addEventListener('input', () => { c.demeanor = demeanorCustom.value.trim(); });
+    }
 
     // Essence cards
     $$('.essence-card', content).forEach(card => {
@@ -1765,6 +1858,29 @@ const Creator = {
           }
         });
       });
+    });
+
+    // Secondary ability — add (select change)
+    $$('.secondary-add-select', content).forEach(sel => {
+      sel.addEventListener('change', () => {
+        const id  = sel.value;
+        const cat = sel.dataset.category;
+        if (!id || !cat) return;
+        c[cat][id] = 0;
+        this.renderStep();
+      });
+    });
+
+    // Secondary ability — remove (delegated click)
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('.btn-remove-secondary');
+      if (!btn) return;
+      const id  = btn.dataset.abilityId;
+      const cat = btn.dataset.category;
+      if (!id || !cat) return;
+      delete c[cat][id];
+      delete c.specialties[id];
+      this.renderStep();
     });
 
     // Background dots (step 3)
@@ -2312,13 +2428,22 @@ const Creator = {
   calcAbilityFreebies() {
     const c = this.char;
     const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
-    const groups = { Talents:{key:'talents',data:M20.TALENTS}, Skills:{key:'skills',data:M20.SKILLS}, Knowledges:{key:'knowledges',data:M20.KNOWLEDGES} };
+    const groups = {
+      Talents:    { key: 'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS },
+      Skills:     { key: 'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS },
+      Knowledges: { key: 'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
+    };
     let total = 0;
     ['Talents','Skills','Knowledges'].forEach(cat => {
       const alloc = [13,9,5][pri.indexOf(cat)] ?? 0;
-      const {key,data} = groups[cat];
-      const used = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
-      total += Math.max(0, used - alloc) * 2;
+      const { key, data, sec } = groups[cat];
+      // Primary ability over-allocation at 2 pts/dot
+      const primaryUsed = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
+      total += Math.max(0, primaryUsed - alloc) * 2;
+      // Secondary abilities cost 3 freebie pts/dot (all dots, regardless of alloc)
+      const addedSec = sec.filter(a => c[key][a.id] !== undefined);
+      const secDots  = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
+      total += secDots * 3;
     });
     return total;
   },
