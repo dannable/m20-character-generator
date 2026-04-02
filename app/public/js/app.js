@@ -82,13 +82,122 @@ const API = {
    ═══════════════════════════════════════════════════════════════ */
 const App = {
   currentCharId: null,
+  currentUser: null,
+
+  setUser(user) {
+    this.currentUser = user;
+    $('#user-name').textContent = user.username;
+    $('#user-info').style.display = 'flex';
+    $('#nav-dashboard').style.display = '';
+    $('#nav-roster').style.display = '';
+    $('#nav-create').style.display = '';
+    $('#nav-logout').style.display = '';
+    if (user.role === 'admin') {
+      $('#nav-admin').style.display = '';
+      $('#admin-badge').style.display = 'inline';
+    } else {
+      $('#nav-admin').style.display = 'none';
+      $('#admin-badge').style.display = 'none';
+    }
+  },
+
+  clearUser() {
+    this.currentUser = null;
+    $('#user-info').style.display = 'none';
+    ['nav-dashboard','nav-roster','nav-create','nav-admin','nav-logout'].forEach(id => {
+      $(`#${id}`).style.display = 'none';
+    });
+    $('#admin-badge').style.display = 'none';
+  },
+
+  async showDashboard() {
+    this.showPage('dashboard');
+    const greeting = $('#dashboard-greeting');
+    if (this.currentUser) greeting.textContent = `Welcome back, ${this.currentUser.username}`;
+    const grid  = $('#dashboard-cards');
+    const empty = $('#dashboard-empty');
+    try {
+      const r = await fetch('/api/characters/recent');
+      if (!r.ok) throw new Error();
+      const chars = await r.json();
+      if (!Array.isArray(chars) || chars.length === 0) {
+        grid.innerHTML = '';
+        grid.style.display = 'none';
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        grid.style.display = 'grid';
+        grid.innerHTML = chars.map(c => this.renderCard(c)).join('');
+      }
+    } catch {
+      grid.innerHTML = '';
+    }
+  },
+
+  async showAdmin() {
+    this.showPage('admin');
+    const content = $('#admin-content');
+    content.innerHTML = '<p style="color:var(--text-faint);font-style:italic">Loading users…</p>';
+    try {
+      const r = await fetch('/api/admin/users');
+      if (!r.ok) throw new Error('Access denied');
+      const users = await r.json();
+      content.innerHTML = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Username</th><th>Email</th><th>Role</th>
+              <th>Characters</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(u => `
+              <tr>
+                <td>${u.username}</td>
+                <td>${u.email}</td>
+                <td>${u.role}</td>
+                <td>${u.character_count}</td>
+                <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
+                <td>
+                  <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})">
+                    ${u.is_active ? 'Disable' : 'Enable'}
+                  </button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (err) {
+      content.innerHTML = `<p style="color:var(--crimson)">Failed to load users: ${err.message}</p>`;
+    }
+  },
+
+  async toggleUser(id, isActive) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: isActive ? 0 : 1 })
+      });
+      if (!r.ok) throw new Error();
+      toast(isActive ? 'User disabled' : 'User enabled');
+      await this.showAdmin();
+    } catch { toast('Failed to update user', 'error'); }
+  },
+
+  async logout() {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    this.clearUser();
+    this.showPage('auth');
+  },
 
   showPage(id) {
     $$('.page').forEach(p => p.classList.remove('active'));
     $(`#page-${id}`).classList.add('active');
     $$('.nav-btn').forEach(b => b.classList.remove('active'));
-    if (id === 'roster') $('#nav-roster').classList.add('active');
-    if (id === 'creator') $('#nav-create').classList.add('active');
+    if (id === 'dashboard') $('#nav-dashboard').classList.add('active');
+    if (id === 'roster')    $('#nav-roster').classList.add('active');
+    if (id === 'creator')   $('#nav-create').classList.add('active');
+    if (id === 'admin')     $('#nav-admin').classList.add('active');
   },
 
   async showRoster() {
@@ -192,6 +301,71 @@ const App = {
 
   closeModal() {
     $('#modal-overlay').style.display = 'none';
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH — Login / Registration
+   ═══════════════════════════════════════════════════════════════ */
+const Auth = {
+  showTab(tab) {
+    $('#form-login').style.display  = tab === 'login'    ? 'flex' : 'none';
+    $('#form-register').style.display = tab === 'register' ? 'flex' : 'none';
+    $$('.auth-tab').forEach(t => t.classList.remove('active'));
+    $(`#tab-${tab}`).classList.add('active');
+  },
+
+  async login(e) {
+    e.preventDefault();
+    const username = $('#login-username').value.trim();
+    const password = $('#login-password').value;
+    const errEl = $('#login-error');
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Login failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      App.setUser(data);
+      App.showDashboard();
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
+  },
+
+  async register(e) {
+    e.preventDefault();
+    const username = $('#reg-username').value.trim();
+    const email    = $('#reg-email').value.trim();
+    const password = $('#reg-password').value;
+    const errEl = $('#reg-error');
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Registration failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      App.setUser(data);
+      App.showDashboard();
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
   },
 };
 
@@ -2054,8 +2228,20 @@ const Creator = {
 };
 
 /* ─── Bootstrap ──────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', () => {
-  App.showRoster();
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check if already logged in
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      const user = await r.json();
+      App.setUser(user);
+      App.showDashboard();
+    } else {
+      App.showPage('auth');
+    }
+  } catch {
+    App.showPage('auth');
+  }
 
   // Click any step in the sidebar to jump directly to it
   document.getElementById('step-list')?.addEventListener('click', e => {
