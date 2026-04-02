@@ -3,7 +3,7 @@ const router  = express.Router();
 const db      = require('../db');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
-  'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws'];
+  'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties'];
 
 function parseCharacter(row) {
   if (!row) return null;

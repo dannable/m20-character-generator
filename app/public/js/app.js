@@ -205,18 +205,21 @@ const Sheet = {
     this.char = char;
     const content = $('#sheet-content');
 
+    const specialties = char.specialties || {};
+
     const allSpheres = M20.SPHERES.map(s => {
-      const val = (char.spheres || {})[s.id] || 0;
+      const val  = (char.spheres || {})[s.id] || 0;
       if (val === 0) return null;
+      const spec = specialties[s.id];
       return `<div class="sheet-trait-row">
-        <span class="sheet-trait-name">${s.name}</span>
+        <span class="sheet-trait-name">${s.name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
         ${dots(val, 5, 'readonly sphere-dots')}
       </div>`;
     }).filter(Boolean).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No spheres allocated</p>';
 
-    const allTalents = M20.TALENTS.map(a => this.traitRow(a, (char.talents || {})[a.id])).join('');
-    const allSkills  = M20.SKILLS.map(a => this.traitRow(a, (char.skills || {})[a.id])).join('');
-    const allKnow    = M20.KNOWLEDGES.map(a => this.traitRow(a, (char.knowledges || {})[a.id])).join('');
+    const allTalents = M20.TALENTS.map(a => this.traitRow(a, (char.talents || {})[a.id], specialties)).join('');
+    const allSkills  = M20.SKILLS.map(a => this.traitRow(a, (char.skills || {})[a.id], specialties)).join('');
+    const allKnow    = M20.KNOWLEDGES.map(a => this.traitRow(a, (char.knowledges || {})[a.id], specialties)).join('');
 
     const bgs = Object.entries(char.backgrounds || {})
       .filter(([,v]) => v > 0)
@@ -262,21 +265,21 @@ const Sheet = {
         <div class="sheet-column">
           <div class="sheet-section">
             <div class="sheet-section-title">Physical <span class="page-ref">p. 258</span></div>
-            ${this.attrRow('Strength',    char.strength)}
-            ${this.attrRow('Dexterity',   char.dexterity)}
-            ${this.attrRow('Stamina',     char.stamina)}
+            ${this.attrRow('Strength',    char.strength,    specialties)}
+            ${this.attrRow('Dexterity',   char.dexterity,   specialties)}
+            ${this.attrRow('Stamina',     char.stamina,     specialties)}
           </div>
           <div class="sheet-section">
             <div class="sheet-section-title">Social <span class="page-ref">p. 258</span></div>
-            ${this.attrRow('Charisma',    char.charisma)}
-            ${this.attrRow('Manipulation',char.manipulation)}
-            ${this.attrRow('Appearance',  char.appearance)}
+            ${this.attrRow('Charisma',    char.charisma,    specialties)}
+            ${this.attrRow('Manipulation',char.manipulation,specialties)}
+            ${this.attrRow('Appearance',  char.appearance,  specialties)}
           </div>
           <div class="sheet-section">
             <div class="sheet-section-title">Mental <span class="page-ref">p. 258</span></div>
-            ${this.attrRow('Perception',  char.perception)}
-            ${this.attrRow('Intelligence',char.intelligence)}
-            ${this.attrRow('Wits',        char.wits)}
+            ${this.attrRow('Perception',  char.perception,  specialties)}
+            ${this.attrRow('Intelligence',char.intelligence,specialties)}
+            ${this.attrRow('Wits',        char.wits,        specialties)}
           </div>
         </div>
 
@@ -356,13 +359,22 @@ const Sheet = {
     </div>`;
   },
 
-  attrRow(name, val = 1) {
-    return `<div class="sheet-trait-row"><span class="sheet-trait-name">${name}</span>${dots(val, 5, 'readonly')}</div>`;
+  attrRow(name, val = 1, specialties = {}) {
+    const id   = name.toLowerCase();
+    const spec = specialties[id];
+    return `<div class="sheet-trait-row">
+      <span class="sheet-trait-name">${name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+      ${dots(val, 5, 'readonly')}
+    </div>`;
   },
 
-  traitRow(trait, val = 0) {
+  traitRow(trait, val = 0, specialties = {}) {
     if (!val) return '';
-    return `<div class="sheet-trait-row"><span class="sheet-trait-name">${trait.name}</span>${dots(val, 5, 'readonly')}</div>`;
+    const spec = specialties[trait.id];
+    return `<div class="sheet-trait-row">
+      <span class="sheet-trait-name">${trait.name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+      ${dots(val, 5, 'readonly')}
+    </div>`;
   },
 
   coreStatBox(label, val, max) {
@@ -424,6 +436,7 @@ const Creator = {
       freebie_spent: {}, description: '', notes: '',
       attr_priority: ['Physical', 'Social', 'Mental'],
       ability_priority: ['Talents', 'Skills', 'Knowledges'],
+      specialties: {},
     };
   },
 
@@ -709,7 +722,7 @@ const Creator = {
           </span>
         </div>
         ${attrs.map(a => `
-        <div class="attr-row">
+        <div class="attr-row" data-attr-id="${a.id}">
           <div class="attr-info">
             <div class="attr-name">${a.name}
               <span class="info-tip" data-tip="${a.description}">?</span>
@@ -717,6 +730,9 @@ const Creator = {
             <div class="attr-desc">${a.description}</div>
           </div>
           ${dotsClickable(c[a.id] || 1, 5, null, '')}
+          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
+            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
+            ${(c[a.id] || 1) < 3 ? 'style="display:none"' : ''}>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -769,6 +785,9 @@ const Creator = {
             <div class="attr-desc">${a.description}</div>
           </div>
           ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
+          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
+            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
+            ${(c[key][a.id] || 0) < 3 ? 'style="display:none"' : ''}>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -923,6 +942,9 @@ const Creator = {
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 5, null, 'sphere-dots')}</div>
+        <input type="text" class="specialty-input" data-specialty-for="${sphere.id}"
+          placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}"
+          ${val < 3 ? 'style="display:none"' : ''}>
         <div class="page-ref" style="margin-top:0.25rem">p. ${sphere.page}</div>
       </div>`;
     }).join('');
@@ -1261,6 +1283,16 @@ const Creator = {
       });
     };
 
+    // Specialty text inputs — delegate across all steps
+    content.addEventListener('input', e => {
+      const inp = e.target.closest('.specialty-input');
+      if (!inp) return;
+      const id = inp.dataset.specialtyFor;
+      if (!id) return;
+      if (inp.value.trim()) c.specialties[id] = inp.value.trim();
+      else delete c.specialties[id];
+    });
+
     bind('#f-name', 'name');
     bind('#f-player', 'player');
     bind('#f-chronicle', 'chronicle');
@@ -1372,6 +1404,12 @@ const Creator = {
             this.refreshDots(dotsEl, c[cat][id]);
             this.refreshAbilityPoints(block, cat);
             this.updateFreebieDisplay();
+            // Show/hide specialty input
+            const specEl = attrRow.querySelector('.specialty-input');
+            if (specEl) {
+              specEl.style.display = c[cat][id] >= 3 ? '' : 'none';
+              if (c[cat][id] < 3) { delete c.specialties[id]; specEl.value = ''; }
+            }
             return;
           }
 
@@ -1386,6 +1424,12 @@ const Creator = {
           this.refreshDots(dotsEl, c[attrId]);
           this.refreshAttrPoints(block, attrId);
           this.updateFreebieDisplay();
+          // Show/hide specialty input
+          const specEl = attrRow.querySelector('.specialty-input');
+          if (specEl) {
+            specEl.style.display = c[attrId] >= 3 ? '' : 'none';
+            if (c[attrId] < 3) { delete c.specialties[attrId]; specEl.value = ''; }
+          }
         });
       });
     });
@@ -1426,6 +1470,13 @@ const Creator = {
         const cur = c.spheres[sphereId] || 0;
         c.spheres[sphereId] = cur === val ? Math.max(0, val - 1) : val;
         this.refreshDots(dotsEl, c.spheres[sphereId]);
+
+        // Show/hide specialty input
+        const specEl = card.querySelector('.specialty-input');
+        if (specEl) {
+          specEl.style.display = c.spheres[sphereId] >= 3 ? '' : 'none';
+          if (c.spheres[sphereId] < 3) { delete c.specialties[sphereId]; specEl.value = ''; }
+        }
 
         // Update rank display
         const rankEl = $(`#sphere-rank-${sphereId}`, content);

@@ -61,6 +61,7 @@ db.exec(`
     freebie_spent TEXT DEFAULT '{}',
     merits        TEXT DEFAULT '{}',
     flaws         TEXT DEFAULT '{}',
+    specialties   TEXT DEFAULT '{}',
 
     description   TEXT DEFAULT '',
     notes         TEXT DEFAULT '',
@@ -103,7 +104,7 @@ db.exec(`
 `);
 
 // ── Safe migrations for older installs ───────────────────────────────────────
-['merits', 'flaws'].forEach(col => {
+['merits', 'flaws', 'specialties'].forEach(col => {
   try { db.exec(`ALTER TABLE characters ADD COLUMN ${col} TEXT DEFAULT '{}'`); } catch {}
 });
 try { db.exec(`ALTER TABLE characters ADD COLUMN user_id INTEGER`); } catch {}

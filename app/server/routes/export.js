@@ -9,7 +9,7 @@ const { PDFDocument, PDFName, PDFString } = require('pdf-lib');
 const TEMPLATE   = path.join('/data', 'template.pdf');
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
                      'instruments','freebie_spent','attr_priority','ability_priority',
-                     'merits','flaws'];
+                     'merits','flaws','specialties'];
 
 // Parse flat DB row — JSON fields become objects, everything else stays as-is
 function parseRow(row) {

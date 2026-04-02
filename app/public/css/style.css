@@ -1628,6 +1628,41 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   padding: 0 0.5rem;
 }
 
+/* ─── Specialty Input ────────────────────────────────────────── */
+.specialty-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  color: var(--gold-bright);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-style: italic;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.specialty-input:focus {
+  outline: none;
+  border-color: var(--gold-mid);
+}
+
+.specialty-input::placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Specialty label on the character sheet */
+.sheet-specialty {
+  font-size: 0.72rem;
+  color: var(--gold-mid);
+  font-style: italic;
+  margin-left: 0.35rem;
+}
+
 /* ─── Arete Sphere Notice ────────────────────────────────────── */
 .arete-sphere-notice {
   display: none;
