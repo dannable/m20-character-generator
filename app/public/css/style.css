@@ -2205,6 +2205,176 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .archetype-card.archetype-custom .archetype-name { color: var(--text-faint); }
 .archetype-card.archetype-custom.selected .archetype-name { color: var(--gold-bright); }
 
+/* ─── N/D button row inside each archetype card ─────────────── */
+.archetype-nd-row {
+  display: flex;
+  gap: 0.22rem;
+  justify-content: flex-end;
+  margin-bottom: 0.3rem;
+}
+
+.archetype-nd-btn {
+  font-size: 0.62rem;
+  font-weight: 700;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-dim);
+  background: var(--bg-card);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.archetype-nd-btn:hover {
+  border-color: var(--border-mid);
+  color: var(--text-mid);
+}
+
+.archetype-nd-btn.nd-active-n {
+  background: var(--gold-faint);
+  border-color: var(--gold-mid);
+  color: var(--gold-bright);
+}
+
+.archetype-nd-btn.nd-active-d {
+  background: var(--purple-faint);
+  border-color: var(--purple-mid);
+  color: var(--purple-bright);
+}
+
+/* Card border/bg when assigned as Nature or Demeanor */
+.archetype-card.nd-nature {
+  border-color: var(--gold-dim);
+  background: var(--gold-faint);
+}
+
+.archetype-card.nd-demeanor {
+  border-color: var(--purple-dim);
+  background: var(--purple-faint);
+}
+
+.archetype-card.nd-nature.nd-demeanor {
+  border-color: var(--gold-mid);
+  background: linear-gradient(135deg, var(--gold-faint) 50%, var(--purple-faint) 100%);
+}
+
+.archetype-card.nd-nature .archetype-name      { color: var(--gold-bright); }
+.archetype-card.nd-demeanor .archetype-name    { color: var(--purple-bright); }
+.archetype-card.nd-nature.nd-demeanor .archetype-name { color: var(--gold-bright); }
+
+/* Delete button for custom archetype cards */
+.archetype-delete-btn {
+  font-size: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--border-dim);
+  background: var(--bg-card);
+  color: #e57373;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.archetype-delete-btn:hover {
+  background: rgba(229, 115, 115, 0.12);
+  border-color: #e57373;
+}
+
+/* Legend row above grid */
+.archetype-nd-legend {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.nd-legend-n, .nd-legend-d {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.nd-legend-n {
+  background: var(--gold-faint);
+  border: 1px solid var(--gold-mid);
+  color: var(--gold-bright);
+}
+
+.nd-legend-d {
+  background: var(--purple-faint);
+  border: 1px solid var(--purple-mid);
+  color: var(--purple-bright);
+}
+
+/* Custom badge on custom archetype cards */
+.custom-badge {
+  font-size: 0.58rem;
+  background: var(--purple-faint);
+  color: var(--purple-mid);
+  border: 1px solid var(--purple-dim);
+  border-radius: 3px;
+  padding: 0 0.28rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* Custom archetype creation form */
+.custom-archetype-adder {
+  margin-top: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+#custom-archetype-form {
+  margin-top: 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+}
+
+.custom-arch-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.custom-arch-fields input,
+.custom-arch-fields textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.custom-arch-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 @media (max-width: 900px) {
   .archetype-grid { grid-template-columns: repeat(2, 1fr); }
 }

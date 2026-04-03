@@ -711,6 +711,7 @@ const Creator = {
       attr_priority: ['Physical', 'Social', 'Mental'],
       ability_priority: ['Talents', 'Skills', 'Knowledges'],
       specialties: {},
+      customArchetypes: [],
     };
   },
 
@@ -879,26 +880,32 @@ const Creator = {
         <div class="page-ref" style="margin-top:0.5rem">p. ${e.page}</div>
       </div>`).join('');
 
-    const builtinNames     = new Set(M20.ARCHETYPES.map(a => a.name));
-    const isCustomNature   = !!(c.nature   && !builtinNames.has(c.nature));
-    const isCustomDemeanor = !!(c.demeanor && !builtinNames.has(c.demeanor));
+    if (!c.customArchetypes) c.customArchetypes = [];
 
-    const archetypeCardGrid = (target, selectedVal, isCustom) => {
-      const cards = M20.ARCHETYPES.map(a => `
-        <div class="archetype-card ${!isCustom && selectedVal === a.name ? 'selected' : ''}"
-             data-archetype="${a.name}" data-target="${target}">
-          <div class="archetype-name">${a.name}</div>
-          <div class="archetype-wp">${a.willpower}</div>
-          <div class="archetype-desc">${a.description}</div>
-        </div>`).join('');
-      const customCard = `
-        <div class="archetype-card archetype-custom ${isCustom ? 'selected' : ''}"
-             data-archetype="__custom__" data-target="${target}">
-          <div class="archetype-name">Custom\u2026</div>
-          <div class="archetype-desc">Enter your own archetype name below.</div>
+    const allArchetypes = [
+      ...M20.ARCHETYPES,
+      ...c.customArchetypes.map(ca => ({ ...ca, isCustom: true })),
+    ];
+
+    const archetypeCards = allArchetypes.map(a => {
+      const isNature   = c.nature   === a.name;
+      const isDemeanor = c.demeanor === a.name;
+      const deleteBtn  = a.isCustom
+        ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">\u00d7</button>`
+        : '';
+      const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
+      return `
+        <div class="${classes}" data-archetype="${a.name}">
+          <div class="archetype-nd-row">
+            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
+            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+            ${deleteBtn}
+          </div>
+          <div class="archetype-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}</div>
+          ${a.willpower ? `<div class="archetype-wp">${a.willpower}</div>` : ''}
+          ${a.description ? `<div class="archetype-desc">${a.description}</div>` : ''}
         </div>`;
-      return `<div class="archetype-grid" id="${target}-archetype-grid">${cards}${customCard}</div>`;
-    };
+    }).join('');
     const conceptOptions = ['', ...M20.CONCEPTS].map(con =>
       `<option value="${con}" ${c.concept === con ? 'selected' : ''}>${con || '— choose or type below —'}</option>`).join('');
 
@@ -940,30 +947,34 @@ const Creator = {
     </div>
 
     <div class="ornate-divider">— Archetypes —</div>
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.6rem">
       <strong style="color:var(--text-mid)">Nature</strong> is your true self — fulfilling it is how you regain Willpower.
       <strong style="color:var(--text-mid)">Demeanor</strong> is the face you show the world.
       <span class="page-ref">p. 267</span>
     </p>
-
-    <div class="archetype-section-header">
-      <span class="archetype-section-title">Nature <span class="page-ref">p. 267</span></span>
-      <span class="archetype-section-hint">Your true inner self — what fulfilling your Nature achieves</span>
+    <div class="archetype-nd-legend">
+      <span id="archetype-nd-legend-nature"><span class="nd-legend-n">N</span> Nature${c.nature ? ` \u2014 <em>${c.nature}</em>` : ''}</span>
+      <span id="archetype-nd-legend-demeanor"><span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` \u2014 <em>${c.demeanor}</em>` : ''}</span>
     </div>
-    ${archetypeCardGrid('nature', c.nature, isCustomNature)}
-    <input type="text" id="f-nature-custom" placeholder="Enter custom archetype name\u2026"
-      value="${isCustomNature ? c.nature : ''}"
-      style="margin-bottom:0.5rem${isCustomNature ? '' : ';display:none'}">
-    <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:1.5rem;font-style:italic"></div>
-
-    <div class="archetype-section-header">
-      <span class="archetype-section-title">Demeanor <span class="page-ref">p. 267</span></span>
-      <span class="archetype-section-hint">The mask you wear — does not affect Willpower recovery</span>
+    <div class="archetype-grid" id="archetype-grid">
+      ${archetypeCards}
     </div>
-    ${archetypeCardGrid('demeanor', c.demeanor, isCustomDemeanor)}
-    <input type="text" id="f-demeanor-custom" placeholder="Enter custom archetype name\u2026"
-      value="${isCustomDemeanor ? c.demeanor : ''}"
-      style="${isCustomDemeanor ? '' : 'display:none'}">`;
+    <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:0.75rem;font-style:italic"></div>
+
+    <div class="custom-archetype-adder">
+      <button class="btn-secondary" id="btn-show-custom-arch">＋ Create Custom Archetype</button>
+      <div id="custom-archetype-form" style="display:none">
+        <div class="custom-arch-fields">
+          <input id="f-custom-arch-name" placeholder="Archetype name\u2026" />
+          <input id="f-custom-arch-wp" placeholder="Willpower condition (optional)\u2026" />
+          <textarea id="f-custom-arch-desc" placeholder="Description (optional)\u2026" rows="2"></textarea>
+        </div>
+        <div class="custom-arch-actions">
+          <button class="btn-primary" id="btn-custom-arch-submit">Add to Grid</button>
+          <button class="btn-secondary" id="btn-custom-arch-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
   },
 
   renderAffiliationSelector() {
@@ -1687,42 +1698,90 @@ const Creator = {
       conceptInp.addEventListener('input', () => { c.concept = conceptInp.value; });
     }
 
-    // Archetype cards — Nature and Demeanor
-    $$('.archetype-card', content).forEach(card => {
-      card.addEventListener('click', () => {
-        const target   = card.dataset.target;   // 'nature' or 'demeanor'
-        const value    = card.dataset.archetype;
-        const customEl = $(`#f-${target}-custom`, content);
-
-        // Update selection highlight
-        $$(`.archetype-card[data-target="${target}"]`, content)
-          .forEach(el => el.classList.remove('selected'));
-        card.classList.add('selected');
-
-        if (value === '__custom__') {
-          if (customEl) customEl.style.display = '';
-          c[target] = customEl ? customEl.value.trim() : '';
-        } else {
-          if (customEl) customEl.style.display = 'none';
-          c[target] = value;
-        }
-        if (target === 'nature') this.updateNatureWillpower();
+    // Archetype N/D buttons, delete buttons, and custom archetype form
+    content.addEventListener('click', e => {
+      // N or D assignment button
+      const ndBtn = e.target.closest('.archetype-nd-btn');
+      if (ndBtn) {
+        e.stopPropagation();
+        const archName = ndBtn.dataset.archetype;
+        const role     = ndBtn.dataset.role; // 'nature' or 'demeanor'
+        c[role] = (c[role] === archName) ? '' : archName;
+        if (role === 'nature') this.updateNatureWillpower();
         this.updateFreebieDisplay();
-      });
-    });
+        // Update highlights in-place without full re-render
+        $$('.archetype-nd-btn.nd-n', content).forEach(b =>
+          b.classList.toggle('nd-active-n', c.nature === b.dataset.archetype));
+        $$('.archetype-nd-btn.nd-d', content).forEach(b =>
+          b.classList.toggle('nd-active-d', c.demeanor === b.dataset.archetype));
+        $$('.archetype-card', content).forEach(card => {
+          const n = card.dataset.archetype;
+          card.classList.toggle('nd-nature',   c.nature   === n);
+          card.classList.toggle('nd-demeanor', c.demeanor === n);
+        });
+        // Update legend
+        const leg = $('#archetype-nd-legend-nature', content);
+        const legD = $('#archetype-nd-legend-demeanor', content);
+        if (leg)  leg.innerHTML  = `<span class="nd-legend-n">N</span> Nature${c.nature   ? ` \u2014 <em>${c.nature}</em>`   : ''}`;
+        if (legD) legD.innerHTML = `<span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` \u2014 <em>${c.demeanor}</em>` : ''}`;
+        return;
+      }
 
-    // Custom archetype text inputs
-    const natureCustom = $('#f-nature-custom', content);
-    if (natureCustom) {
-      natureCustom.addEventListener('input', () => {
-        c.nature = natureCustom.value.trim();
-        this.updateNatureWillpower();
-      });
-    }
-    const demeanorCustom = $('#f-demeanor-custom', content);
-    if (demeanorCustom) {
-      demeanorCustom.addEventListener('input', () => { c.demeanor = demeanorCustom.value.trim(); });
-    }
+      // Delete custom archetype
+      const delBtn = e.target.closest('.archetype-delete-btn');
+      if (delBtn) {
+        e.stopPropagation();
+        const archName = delBtn.dataset.archetype;
+        c.customArchetypes = (c.customArchetypes || []).filter(a => a.name !== archName);
+        if (c.nature   === archName) c.nature   = '';
+        if (c.demeanor === archName) c.demeanor = '';
+        this.renderStep();
+        return;
+      }
+
+      // Show custom archetype form
+      if (e.target.closest('#btn-show-custom-arch')) {
+        const form = $('#custom-archetype-form', content);
+        if (form) form.style.display = '';
+        e.target.style.display = 'none';
+        return;
+      }
+
+      // Cancel custom archetype form
+      if (e.target.closest('#btn-custom-arch-cancel')) {
+        const form = $('#custom-archetype-form', content);
+        if (form) form.style.display = 'none';
+        const showBtn = $('#btn-show-custom-arch', content);
+        if (showBtn) showBtn.style.display = '';
+        ['f-custom-arch-name', 'f-custom-arch-wp', 'f-custom-arch-desc'].forEach(id => {
+          const el = $(`#${id}`, content);
+          if (el) el.value = '';
+        });
+        return;
+      }
+
+      // Submit custom archetype
+      if (e.target.closest('#btn-custom-arch-submit')) {
+        const nameEl = $('#f-custom-arch-name', content);
+        const wpEl   = $('#f-custom-arch-wp', content);
+        const descEl = $('#f-custom-arch-desc', content);
+        const name   = nameEl ? nameEl.value.trim() : '';
+        if (!name) { toast('Please enter an archetype name.', 'error'); return; }
+        const allNames = [
+          ...M20.ARCHETYPES.map(a => a.name),
+          ...(c.customArchetypes || []).map(a => a.name),
+        ];
+        if (allNames.includes(name)) { toast('An archetype with that name already exists.', 'error'); return; }
+        if (!c.customArchetypes) c.customArchetypes = [];
+        c.customArchetypes.push({
+          name,
+          willpower:   wpEl   ? wpEl.value.trim()   : '',
+          description: descEl ? descEl.value.trim() : '',
+        });
+        this.renderStep();
+        return;
+      }
+    });
 
     // Essence cards
     $$('.essence-card', content).forEach(card => {
@@ -2506,8 +2565,11 @@ const Creator = {
   updateNatureWillpower() {
     const el = $('#nature-wp');
     if (!el) return;
-    const arch = M20.ARCHETYPES.find(a => a.name === this.char.nature);
-    el.textContent = arch ? `Regain Willpower when: ${arch.willpower}` : '';
+    const name = this.char.nature;
+    if (!name) { el.textContent = ''; return; }
+    const arch = M20.ARCHETYPES.find(a => a.name === name)
+      || (this.char.customArchetypes || []).find(a => a.name === name);
+    el.textContent = arch?.willpower ? `Regain Willpower when: ${arch.willpower}` : '';
   },
 
   // Sum a merit/flaw store value: number (single) or array (repeatable instances)
