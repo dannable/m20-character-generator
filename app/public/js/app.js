@@ -1232,15 +1232,25 @@ const Creator = {
       .find(t => t.name === c.tradition);
     const paradigmHint = trad?.paradigm || '';
 
-    const instrumentHtml = M20.INSTRUMENTS.map(inst => {
-      const checked = (c.instruments || []).includes(inst);
-      const safeId = inst.replace(/[^a-zA-Z0-9]/g, '_');
+    const selectedInstruments = Array.isArray(c.instruments) ? c.instruments : [];
+    const builtinSet = new Set(M20.INSTRUMENTS);
+    const customInstruments = selectedInstruments.filter(i => !builtinSet.has(i));
+
+    const instrumentRows = M20.INSTRUMENTS.map(inst => {
+      const checked = selectedInstruments.includes(inst);
+      const safeId  = inst.replace(/[^a-zA-Z0-9]/g, '_');
       return `
       <label class="instrument-item ${checked ? 'checked' : ''}" for="inst-${safeId}">
         <input type="checkbox" id="inst-${safeId}" value="${inst}" ${checked ? 'checked' : ''} />
         ${inst}
       </label>`;
     }).join('');
+
+    const customTags = customInstruments.map(inst => `
+      <span class="instrument-custom-tag">
+        ${inst}
+        <button class="instrument-tag-remove" data-instrument="${inst.replace(/"/g, '&quot;')}" title="Remove">\u00d7</button>
+      </span>`).join('');
 
     return `
     ${this.stepHeader('Step Five: Focus & Practice',
@@ -1258,13 +1268,21 @@ const Creator = {
       <input type="text" id="f-practice" value="${c.practice}" placeholder="e.g. Ceremonial Magic, Scientific Method, Shamanic Journeywork, Martial Discipline..." />
     </div>
 
-    <div style="margin-bottom:0.75rem">
-      <label>Instruments — Tools & Foci <span class="ref">p. 259</span></label>
+    <div style="margin-bottom:0.6rem">
+      <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
       <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem">
-        Choose the instruments your mage uses to work magic. Most mages use 3–5 instruments regularly. These are narrative tools — they help describe <em>how</em> you work Effects, not hard mechanical limits.
+        Choose the instruments your mage uses to work magic. Most mages use 3–5 regularly. These are narrative tools — they describe <em>how</em> you work Effects, not hard mechanical limits.
       </p>
     </div>
-    <div class="instrument-grid">${instrumentHtml}</div>`;
+    <div class="instrument-list">${instrumentRows}</div>
+
+    <div class="instrument-custom-section">
+      ${customTags.length ? `<div class="instrument-custom-tags">${customTags}</div>` : ''}
+      <div class="instrument-custom-adder">
+        <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
+        <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
+      </div>
+    </div>`;
   },
 
   /* ══════════════════════════════════════════════════════════════
@@ -2079,7 +2097,7 @@ const Creator = {
       });
     });
 
-    // Instruments (step 4)
+    // Instruments — standard checkboxes (step 4)
     $$('.instrument-item input', content).forEach(inp => {
       inp.addEventListener('change', () => {
         const instruments = c.instruments || [];
@@ -2092,6 +2110,34 @@ const Creator = {
         c.instruments = instruments;
         inp.closest('.instrument-item').classList.toggle('checked', inp.checked);
       });
+    });
+
+    // Instruments — add custom
+    const customInstrumentInput = $('#f-custom-instrument', content);
+    const addCustomBtn = $('#btn-add-instrument', content);
+    const addCustomInstrument = () => {
+      if (!customInstrumentInput) return;
+      const val = customInstrumentInput.value.trim();
+      if (!val) return;
+      if (!(c.instruments || []).includes(val)) {
+        c.instruments = [...(c.instruments || []), val];
+      }
+      this.renderStep();
+    };
+    if (addCustomBtn) addCustomBtn.addEventListener('click', addCustomInstrument);
+    if (customInstrumentInput) {
+      customInstrumentInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); addCustomInstrument(); }
+      });
+    }
+
+    // Instruments — remove custom tag
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('.instrument-tag-remove');
+      if (!btn) return;
+      const val = btn.dataset.instrument;
+      c.instruments = (c.instruments || []).filter(i => i !== val);
+      this.renderStep();
     });
 
     this.updateNatureWillpower();

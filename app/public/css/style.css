@@ -1005,10 +1005,15 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 }
 
 /* ─── Instruments ────────────────────────────────────────────── */
-.instrument-grid {
+.instrument-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.4rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 600px) {
+  .instrument-list { grid-template-columns: 1fr; }
 }
 
 .instrument-item {
@@ -1043,6 +1048,61 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 }
 
 .instrument-item.checked label { color: var(--purple-bright); }
+
+/* ─── Custom Instruments ─────────────────────────────────────── */
+.instrument-custom-section {
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.instrument-custom-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.instrument-custom-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--purple-faint);
+  border: 1px solid var(--purple-dim);
+  color: var(--purple-bright);
+  border-radius: 2rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: var(--font-body);
+}
+
+.instrument-tag-remove {
+  background: none;
+  border: none;
+  color: var(--purple-mid);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.instrument-tag-remove:hover {
+  opacity: 1;
+  color: #e57373;
+}
+
+.instrument-custom-adder {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.instrument-custom-adder input {
+  flex: 1;
+}
 
 /* ─── Freebie Point Tracker ──────────────────────────────────── */
 .freebie-table {
@@ -2368,6 +2428,11 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .custom-arch-fields textarea {
   width: 100%;
   box-sizing: border-box;
+}
+
+.custom-arch-fields textarea {
+  min-height: 60px;
+  resize: vertical;
 }
 
 .custom-arch-actions {
