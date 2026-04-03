@@ -1347,8 +1347,8 @@ const Creator = {
         </div>
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
-        <div style="margin:0.5rem 0">${dotsClickable(val, 5, null, 'sphere-dots')}</div>
-        <div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
+        <div style="margin:0.5rem 0">${dotsClickable(val, 3, null, 'sphere-dots')}</div>
+        <div class="specialty-row" style="display:none">
           <input class="specialty-input" list="spec-${sphere.id}" data-specialty-for="${sphere.id}"
             placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}">
           <datalist id="spec-${sphere.id}">${(sphere.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
@@ -1404,6 +1404,23 @@ const Creator = {
                           Skills:     [13,9,5][abilityPri.indexOf('Skills')]     ?? 0,
                           Knowledges: [13,9,5][abilityPri.indexOf('Knowledges')] ?? 0 };
 
+    // Helper: greedily assign creation pool dots to traits (lowest-value first)
+    // Returns { id: baseline } where baseline = startBaseline + creation dots assigned
+    const computeTraitBaselines = (ids, getValue, pool, startBaseline) => {
+      const baselines = {};
+      ids.forEach(id => { baselines[id] = startBaseline; });
+      const sorted = [...ids].sort((a, b) => getValue(a) - getValue(b));
+      let rem = pool;
+      for (const id of sorted) {
+        if (rem <= 0) break;
+        const above = Math.max(0, getValue(id) - startBaseline);
+        const allocated = Math.min(rem, above);
+        baselines[id] = startBaseline + allocated;
+        rem -= allocated;
+      }
+      return baselines;
+    };
+
     // Ensure merits/flaws are plain objects (migration safety: handle undefined, null, or legacy arrays)
     if (!c.merits || Array.isArray(c.merits)) c.merits = {};
     if (!c.flaws  || Array.isArray(c.flaws))  c.flaws  = {};
@@ -1450,14 +1467,12 @@ const Creator = {
       { label: 'Mental',   ids: [['perception','Perception'],['intelligence','Intelligence'],['wits','Wits']] },
     ];
     const attrSection = attrGroups.map(g => {
-      const used     = g.ids.reduce((s,[id]) => s + Math.max(0,(c[id]||1)-1), 0);
       const alloc    = attrAllocs[g.label] ?? 0;
-      const overUsed = Math.max(0, used - alloc);
-      // Baseline per attribute: distribute free dots greedily (already set from step 2)
-      // For display we just show each attr; baseline is 1 + their share of alloc
+      const attrIds  = g.ids.map(([id]) => id);
+      const baselines = computeTraitBaselines(attrIds, id => c[id] || 1, alloc, 1);
       const rows = g.ids.map(([id, name]) => {
         const cur = c[id] || 1;
-        return fbRow(id, name, cur, 5, 1, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
+        return fbRow(id, name, cur, 5, baselines[id], 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1476,11 +1491,12 @@ const Creator = {
       { label:'Knowledges', key:'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
     ];
     const abilSection = abilGroups.map(g => {
-      const used  = g.data.reduce((s,a) => s + (c[g.key][a.id]||0), 0);
       const alloc = abilAllocs[g.label] ?? 0;
+      const abilIds = g.data.map(a => a.id);
+      const baselines = computeTraitBaselines(abilIds, id => c[g.key][id] || 0, alloc, 0);
       const rows  = g.data.map(a => {
         const cur = c[g.key][a.id] || 0;
-        return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+        return fbRow(a.id, a.name, cur, 5, baselines[a.id], 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
       }).join('');
       // Secondary abilities that have been added — 3 pts/dot, no free baseline
       const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
@@ -1502,15 +1518,28 @@ const Creator = {
 
     // Background rows (filtered by faction, correct names)
     const bgAff = c.affiliation || 'Traditions';
-    const bgSection = filteredBackgrounds(bgAff).map(bg => {
+    const filteredBgs = filteredBackgrounds(bgAff);
+    const bgBaselines = computeTraitBaselines(
+      filteredBgs.map(bg => bg.id),
+      id => c.backgrounds[id] || 0,
+      M20.CREATION.backgroundDots,
+      0
+    );
+    const bgSection = filteredBgs.map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
-      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, 0, 1, '1 pt/dot', null);
+      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, bgBaselines[bg.id], 1, '1 pt/dot', null);
     }).join('');
 
     // Sphere rows
+    const sphereBaselines = computeTraitBaselines(
+      M20.SPHERES.map(s => s.id),
+      id => c.spheres[id] || 0,
+      M20.CREATION.sphereDots,
+      0
+    );
     const sphereSection = M20.SPHERES.map(s => {
       const cur = c.spheres[s.id] || 0;
-      return fbRow(s.id, s.name, cur, 5, 0, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
+      return fbRow(s.id, s.name, cur, 3, sphereBaselines[s.id], 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
     }).join('');
 
     const { total } = this.calcFreebies();
@@ -2019,15 +2048,16 @@ const Creator = {
         if (!dot) return;
         const val = parseInt(dot.dataset.val);
         const cur = c.spheres[sphereId] || 0;
-        c.spheres[sphereId] = cur === val ? Math.max(0, val - 1) : val;
+        c.spheres[sphereId] = cur === val ? Math.max(0, val - 1) : Math.min(3, val);
         this.refreshDots(dotsEl, c.spheres[sphereId]);
 
-        // Show/hide specialty row
+        // Auto-set Arete to match highest sphere (min 1, max 3 at creation)
+        const maxSphere = Object.values(c.spheres).reduce((m, v) => Math.max(m, v), 0);
+        c.arete = Math.max(c.arete || 1, Math.min(3, maxSphere));
+
+        // Show/hide specialty row (always hidden at creation; spheres capped at 3)
         const specRow = card.querySelector('.specialty-row');
-        if (specRow) {
-          specRow.style.display = c.spheres[sphereId] >= 4 ? '' : 'none';
-          if (c.spheres[sphereId] < 4) { delete c.specialties[sphereId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
-        }
+        if (specRow) specRow.style.display = 'none';
 
         // Update rank display
         const rankEl = $(`#sphere-rank-${sphereId}`, content);
