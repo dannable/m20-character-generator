@@ -821,17 +821,68 @@ const Creator = {
     return this.freebiesRemaining() >= amount;
   },
 
-  prevStep() { if (this.step > 0) { this.step--; this.renderStep(); } },
+  prevStep() {
+    if (this.step > 0) {
+      if (this.step === 6) this._lockedBaselines = null; // re-lock next time step 6 is entered
+      this.step--;
+      this.renderStep();
+    }
+  },
 
   nextStep() {
     const err = this.validateStep();
     if (err) { toast(err, 'error'); return; }
     if (this.step < this.STEPS.length - 1) {
       this.step++;
+      if (this.step === 6) this._lockBaselines(); // lock creation baselines on entering step 6
       this.renderStep();
     } else {
       this.saveCharacter();
     }
+  },
+
+  // Compute and store per-trait creation baselines so step 6 dot coloring stays stable
+  // even as freebie dots are added. Must be called before renderStep6().
+  _lockBaselines() {
+    const c = this.char;
+    const attrPri    = c.attr_priority    || ['Physical','Social','Mental'];
+    const abilityPri = c.ability_priority || ['Talents','Skills','Knowledges'];
+    const attrAllocs = { Physical:[7,5,3][attrPri.indexOf('Physical')]??0, Social:[7,5,3][attrPri.indexOf('Social')]??0, Mental:[7,5,3][attrPri.indexOf('Mental')]??0 };
+    const abilAllocs = { Talents:[13,9,5][abilityPri.indexOf('Talents')]??0, Skills:[13,9,5][abilityPri.indexOf('Skills')]??0, Knowledges:[13,9,5][abilityPri.indexOf('Knowledges')]??0 };
+
+    const greedy = (ids, getValue, pool, startBaseline) => {
+      const baselines = {};
+      ids.forEach(id => { baselines[id] = startBaseline; });
+      const sorted = [...ids].sort((a,b) => getValue(a) - getValue(b));
+      let rem = pool;
+      for (const id of sorted) {
+        if (rem <= 0) break;
+        const above = Math.max(0, getValue(id) - startBaseline);
+        const alloc = Math.min(rem, above);
+        baselines[id] = startBaseline + alloc;
+        rem -= alloc;
+      }
+      return baselines;
+    };
+
+    const attrGroups = { Physical:['strength','dexterity','stamina'], Social:['charisma','manipulation','appearance'], Mental:['perception','intelligence','wits'] };
+    const attrs = {};
+    ['Physical','Social','Mental'].forEach(cat => Object.assign(attrs, greedy(attrGroups[cat], id => c[id]||1, attrAllocs[cat], 1)));
+
+    const abilGroups = { Talents:{key:'talents',data:M20.TALENTS}, Skills:{key:'skills',data:M20.SKILLS}, Knowledges:{key:'knowledges',data:M20.KNOWLEDGES} };
+    const abilities = {};
+    ['Talents','Skills','Knowledges'].forEach(cat => {
+      const {key,data} = abilGroups[cat];
+      Object.assign(abilities, greedy(data.map(a=>a.id), id => c[key][id]||0, abilAllocs[cat], 0));
+    });
+
+    const bgAff = c.affiliation || 'Traditions';
+    const bgIds = filteredBackgrounds(bgAff).map(bg => bg.id);
+    const backgrounds = greedy(bgIds, id => c.backgrounds[id]||0, M20.CREATION.backgroundDots, 0);
+
+    const spheres = greedy(M20.SPHERES.map(s=>s.id), id => c.spheres[id]||0, M20.CREATION.sphereDots, 0);
+
+    this._lockedBaselines = { attrs, abilities, backgrounds, spheres };
   },
 
   validateStep() {
@@ -1404,8 +1455,12 @@ const Creator = {
                           Skills:     [13,9,5][abilityPri.indexOf('Skills')]     ?? 0,
                           Knowledges: [13,9,5][abilityPri.indexOf('Knowledges')] ?? 0 };
 
+    // Lock baselines if not already locked (e.g. when editing an existing character)
+    if (!this._lockedBaselines) this._lockBaselines();
+    const lb = this._lockedBaselines;
+
     // Helper: greedily assign creation pool dots to traits (lowest-value first)
-    // Returns { id: baseline } where baseline = startBaseline + creation dots assigned
+    // Used only as fallback; normally locked baselines are used directly.
     const computeTraitBaselines = (ids, getValue, pool, startBaseline) => {
       const baselines = {};
       ids.forEach(id => { baselines[id] = startBaseline; });
@@ -1467,12 +1522,11 @@ const Creator = {
       { label: 'Mental',   ids: [['perception','Perception'],['intelligence','Intelligence'],['wits','Wits']] },
     ];
     const attrSection = attrGroups.map(g => {
-      const alloc    = attrAllocs[g.label] ?? 0;
-      const attrIds  = g.ids.map(([id]) => id);
-      const baselines = computeTraitBaselines(attrIds, id => c[id] || 1, alloc, 1);
+      const alloc = attrAllocs[g.label] ?? 0;
       const rows = g.ids.map(([id, name]) => {
         const cur = c[id] || 1;
-        return fbRow(id, name, cur, 5, baselines[id], 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
+        const baseline = lb.attrs[id] ?? 1;
+        return fbRow(id, name, cur, 5, baseline, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1492,11 +1546,10 @@ const Creator = {
     ];
     const abilSection = abilGroups.map(g => {
       const alloc = abilAllocs[g.label] ?? 0;
-      const abilIds = g.data.map(a => a.id);
-      const baselines = computeTraitBaselines(abilIds, id => c[g.key][id] || 0, alloc, 0);
       const rows  = g.data.map(a => {
         const cur = c[g.key][a.id] || 0;
-        return fbRow(a.id, a.name, cur, 5, baselines[a.id], 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+        const baseline = lb.abilities[a.id] ?? 0;
+        return fbRow(a.id, a.name, cur, 5, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
       }).join('');
       // Secondary abilities that have been added — 3 pts/dot, no free baseline
       const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
@@ -1519,27 +1572,17 @@ const Creator = {
     // Background rows (filtered by faction, correct names)
     const bgAff = c.affiliation || 'Traditions';
     const filteredBgs = filteredBackgrounds(bgAff);
-    const bgBaselines = computeTraitBaselines(
-      filteredBgs.map(bg => bg.id),
-      id => c.backgrounds[id] || 0,
-      M20.CREATION.backgroundDots,
-      0
-    );
     const bgSection = filteredBgs.map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
-      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, bgBaselines[bg.id], 1, '1 pt/dot', null);
+      const baseline = lb.backgrounds[bg.id] ?? 0;
+      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, baseline, 1, '1 pt/dot', null);
     }).join('');
 
     // Sphere rows
-    const sphereBaselines = computeTraitBaselines(
-      M20.SPHERES.map(s => s.id),
-      id => c.spheres[id] || 0,
-      M20.CREATION.sphereDots,
-      0
-    );
     const sphereSection = M20.SPHERES.map(s => {
       const cur = c.spheres[s.id] || 0;
-      return fbRow(s.id, s.name, cur, 3, sphereBaselines[s.id], 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
+      const baseline = lb.spheres[s.id] ?? 0;
+      return fbRow(s.id, s.name, cur, 3, baseline, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
     }).join('');
 
     const { total } = this.calcFreebies();
@@ -2219,7 +2262,7 @@ const Creator = {
         } else {
           char[stat] = cur === val ? Math.max(minVal, val - 1) : Math.min(max, val);
         }
-        c.refreshFreebieRow(row, char[stat], baseline, costPer, max);
+        c.refreshFreebieRow(row, char[stat]);
         if (stat === 'arete') c.updateAreteLabel();
         c.updateFreebieBank();
       });
@@ -2247,15 +2290,14 @@ const Creator = {
         const val = parseInt(dot.dataset.val);
         const cur = char[id] || 1;
         char[id]  = cur === val ? Math.max(1, val - 1) : Math.min(max, val);
-        // Recalculate per-group allocation to determine freebie cost of this row
+        // Refresh all rows in this attribute group (baselines read from data-baseline)
         const groupEl = row.closest('.fb-group');
         if (groupEl) {
           const groupLabel = groupEl.querySelector('.fb-group-label').textContent.split(' ')[0];
           const groupIds   = attrGroups[groupLabel] || [];
           groupIds.forEach((aid, idx) => {
             const aRow = groupEl.querySelectorAll('.fb-row[data-fb-id]')[idx];
-            const aVal = char[aid] || 1;
-            if (aRow) c.refreshFreebieRow(aRow, aVal, 1, 5, 5);
+            if (aRow) c.refreshFreebieRow(aRow, char[aid] || 1);
           });
         }
         // Show/hide specialty row
@@ -2296,7 +2338,7 @@ const Creator = {
         if (!catKey) return;
         const cur = char[catKey][id] || 0;
         char[catKey][id] = cur === val ? Math.max(0, val-1) : Math.min(max, val);
-        c.refreshFreebieRow(row, char[catKey][id], 0, 2, 5);
+        c.refreshFreebieRow(row, char[catKey][id]);
         // Show/hide specialty row
         const specRow = row.nextElementSibling;
         if (specRow && specRow.classList.contains('fb-specialty-row')) {
@@ -2323,7 +2365,7 @@ const Creator = {
         const val = parseInt(dot.dataset.val);
         const cur = char.backgrounds[id] || 0;
         char.backgrounds[id] = cur === val ? Math.max(0,val-1) : Math.min(max,val);
-        c.refreshFreebieRow(row, char.backgrounds[id], 0, 1, 5);
+        c.refreshFreebieRow(row, char.backgrounds[id]);
         c.updateFreebieBank();
       });
     });
@@ -2351,10 +2393,10 @@ const Creator = {
         if ((char.arete || 1) < newMin) {
           char.arete = newMin;
           const areteRow = content.querySelector('.fb-row[data-stat="arete"]');
-          if (areteRow) c.refreshFreebieRow(areteRow, char.arete, 1, 4, 3);
+          if (areteRow) c.refreshFreebieRow(areteRow, char.arete);
           c.updateAreteLabel();
         }
-        c.refreshFreebieRow(row, char.spheres[id], 0, 7, 5);
+        c.refreshFreebieRow(row, char.spheres[id]);
         // Show/hide specialty row
         const specRow = row.nextElementSibling;
         if (specRow && specRow.classList.contains('fb-specialty-row')) {
@@ -2504,8 +2546,13 @@ const Creator = {
     });
   },
 
-  // Refresh a single fb-row's dots and cost display in place
-  refreshFreebieRow(row, val, baseline, costPer, max) {
+  // Refresh a single fb-row's dots and cost display in place.
+  // Always reads baseline, cost, and max from the row's own data-* attributes
+  // (set during renderStep6 with the correct per-trait creation baseline).
+  refreshFreebieRow(row, val) {
+    const baseline = parseFloat(row.dataset.baseline) || 0;
+    const costPer  = parseFloat(row.dataset.cost)     || 1;
+    const max      = parseInt(row.dataset.max)         || 5;
     const dotsEl = row.querySelector('.dots');
     if (dotsEl) {
       dotsEl.querySelectorAll('.dot').forEach((dot, i) => {
@@ -2574,6 +2621,13 @@ const Creator = {
 
   calcAttrFreebies() {
     const c = this.char;
+    if (this._lockedBaselines) {
+      // Use per-trait locked baselines for accuracy (matches dot coloring)
+      return Object.entries(this._lockedBaselines.attrs).reduce((total, [id, baseline]) => {
+        return total + Math.max(0, (c[id]||1) - baseline) * 5;
+      }, 0);
+    }
+    // Fallback: group-level calculation (before step 6 is entered)
     const pri = c.attr_priority || ['Physical','Social','Mental'];
     const groups = { Physical:['strength','dexterity','stamina'], Social:['charisma','manipulation','appearance'], Mental:['perception','intelligence','wits'] };
     let total = 0;
@@ -2587,34 +2641,62 @@ const Creator = {
 
   calcAbilityFreebies() {
     const c = this.char;
-    const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
     const groups = {
       Talents:    { key: 'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS },
       Skills:     { key: 'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS },
       Knowledges: { key: 'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
     };
     let total = 0;
-    ['Talents','Skills','Knowledges'].forEach(cat => {
-      const alloc = [13,9,5][pri.indexOf(cat)] ?? 0;
-      const { key, data, sec } = groups[cat];
-      // Primary ability over-allocation at 2 pts/dot
-      const primaryUsed = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
-      total += Math.max(0, primaryUsed - alloc) * 2;
-      // Secondary abilities cost 3 freebie pts/dot (all dots, regardless of alloc)
-      const addedSec = sec.filter(a => c[key][a.id] !== undefined);
-      const secDots  = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
-      total += secDots * 3;
-    });
+    if (this._lockedBaselines) {
+      // Use per-trait locked baselines (matches dot coloring)
+      const lb = this._lockedBaselines.abilities;
+      ['Talents','Skills','Knowledges'].forEach(cat => {
+        const { key, data, sec } = groups[cat];
+        data.forEach(a => {
+          total += Math.max(0, (c[key][a.id]||0) - (lb[a.id]??0)) * 2;
+        });
+        // Secondary abilities: 3 pts/dot, no creation baseline
+        sec.filter(a => c[key][a.id] !== undefined).forEach(a => {
+          total += (c[key][a.id]||0) * 3;
+        });
+      });
+    } else {
+      // Fallback: group-level calculation
+      const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
+      ['Talents','Skills','Knowledges'].forEach(cat => {
+        const alloc = [13,9,5][pri.indexOf(cat)] ?? 0;
+        const { key, data, sec } = groups[cat];
+        const primaryUsed = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
+        total += Math.max(0, primaryUsed - alloc) * 2;
+        const addedSec = sec.filter(a => c[key][a.id] !== undefined);
+        const secDots  = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
+        total += secDots * 3;
+      });
+    }
     return total;
   },
 
   calcBgFreebies() {
-    const total = Object.values(this.char.backgrounds||{}).reduce((s,v)=>s+v,0);
+    const c = this.char;
+    if (this._lockedBaselines) {
+      const lb = this._lockedBaselines.backgrounds;
+      return Object.entries(c.backgrounds||{}).reduce((total, [id, val]) => {
+        return total + Math.max(0, val - (lb[id]??0));
+      }, 0);
+    }
+    const total = Object.values(c.backgrounds||{}).reduce((s,v)=>s+v,0);
     return Math.max(0, total - M20.CREATION.backgroundDots);
   },
 
   calcSphereFreebies() {
-    const total = Object.values(this.char.spheres||{}).reduce((s,v)=>s+v,0);
+    const c = this.char;
+    if (this._lockedBaselines) {
+      const lb = this._lockedBaselines.spheres;
+      return Object.entries(c.spheres||{}).reduce((total, [id, val]) => {
+        return total + Math.max(0, val - (lb[id]??0)) * 7;
+      }, 0);
+    }
+    const total = Object.values(c.spheres||{}).reduce((s,v)=>s+v,0);
     return Math.max(0, total - M20.CREATION.sphereDots) * 7;
   },
 
