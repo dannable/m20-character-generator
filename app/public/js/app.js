@@ -53,6 +53,22 @@ function formatDate(str) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+// Returns the faction-appropriate display name for a background
+function bgDisplayName(bg, affiliation) {
+  if (!bg) return '';
+  if (affiliation === 'Technocracy' && bg.technocracyName) return bg.technocracyName;
+  if (bg.traditionName) return bg.traditionName;
+  return bg.name;
+}
+
+// Returns only backgrounds appropriate for the given affiliation
+function filteredBackgrounds(affiliation) {
+  return M20.BACKGROUNDS.filter(bg => {
+    if (bg.technocracy && affiliation !== 'Technocracy') return false;
+    return true;
+  });
+}
+
 /* ─── API ────────────────────────────────────────────────────── */
 const API = {
   async get(id = '') {
@@ -82,13 +98,206 @@ const API = {
    ═══════════════════════════════════════════════════════════════ */
 const App = {
   currentCharId: null,
+  currentUser: null,
+
+  setUser(user) {
+    this.currentUser = user;
+    $('#user-name').textContent = user.username;
+    $('#user-info').style.display = 'flex';
+    $('#nav-dashboard').style.display = '';
+    $('#nav-roster').style.display = '';
+    $('#nav-create').style.display = '';
+    $('#nav-logout').style.display = '';
+    if (user.role === 'admin') {
+      $('#nav-admin').style.display = '';
+      $('#admin-badge').style.display = 'inline';
+    } else {
+      $('#nav-admin').style.display = 'none';
+      $('#admin-badge').style.display = 'none';
+    }
+  },
+
+  clearUser() {
+    this.currentUser = null;
+    $('#user-info').style.display = 'none';
+    ['nav-dashboard','nav-roster','nav-create','nav-admin','nav-logout'].forEach(id => {
+      $(`#${id}`).style.display = 'none';
+    });
+    $('#admin-badge').style.display = 'none';
+  },
+
+  async showDashboard() {
+    this.showPage('dashboard');
+    const greeting = $('#dashboard-greeting');
+    if (this.currentUser) greeting.textContent = `Welcome back, ${this.currentUser.username}`;
+    const grid  = $('#dashboard-cards');
+    const empty = $('#dashboard-empty');
+    try {
+      const r = await fetch('/api/characters/recent');
+      if (!r.ok) throw new Error();
+      const chars = await r.json();
+      if (!Array.isArray(chars) || chars.length === 0) {
+        grid.innerHTML = '';
+        grid.style.display = 'none';
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        grid.style.display = 'grid';
+        grid.innerHTML = chars.map(c => this.renderCard(c)).join('');
+      }
+    } catch {
+      grid.innerHTML = '';
+    }
+  },
+
+  async showAdmin() {
+    this.showPage('admin');
+    const content = $('#admin-content');
+    content.innerHTML = '<p style="color:var(--text-faint);font-style:italic">Loading users…</p>';
+    try {
+      const r = await fetch('/api/admin/users');
+      if (!r.ok) throw new Error('Access denied');
+      const users = await r.json();
+      const me = this.currentUser;
+      content.innerHTML = `
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Username</th><th>Email</th><th>Role</th>
+              <th>Chars</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(u => {
+              const isSelf = me && u.id === me.id;
+              return `<tr>
+                <td>${u.username}</td>
+                <td style="font-size:0.8rem;color:var(--text-dim)">${u.email}</td>
+                <td>
+                  <span class="${u.role === 'admin' ? 'admin-badge' : ''}" style="${u.role !== 'admin' ? 'color:var(--text-dim);font-size:0.8rem' : ''}">${u.role}</span>
+                </td>
+                <td style="text-align:center">${u.character_count}</td>
+                <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
+                <td>
+                  <div class="admin-actions">
+                    <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})"
+                      ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>
+                      ${u.is_active ? 'Disable' : 'Enable'}
+                    </button>
+                    <button class="btn-ghost btn-sm" onclick="App.changeRole(${u.id}, '${u.role}', '${u.username}')"
+                      ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>
+                      ${u.role === 'admin' ? 'Demote' : 'Promote'}
+                    </button>
+                    <button class="btn-secondary btn-sm" onclick="App.resetPassword(${u.id}, '${u.username}')">
+                      Reset PW
+                    </button>
+                    <button class="btn-danger btn-sm" onclick="App.deleteUser(${u.id}, '${u.username}')"
+                      ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    } catch (err) {
+      content.innerHTML = `<p style="color:var(--crimson)">Failed to load users: ${err.message}</p>`;
+    }
+  },
+
+  async toggleUser(id, isActive) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: isActive ? 0 : 1 })
+      });
+      if (!r.ok) throw new Error();
+      toast(isActive ? 'User disabled' : 'User enabled');
+      await this.showAdmin();
+    } catch { toast('Failed to update user', 'error'); }
+  },
+
+  async changeRole(id, currentRole, username) {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole })
+      });
+      if (!r.ok) throw new Error();
+      toast(`${username} ${newRole === 'admin' ? 'promoted to Admin' : 'demoted to User'}.`);
+      await this.showAdmin();
+    } catch { toast('Failed to change role.', 'error'); }
+  },
+
+  resetPassword(id, username) {
+    $('#modal-title').textContent = `Reset Password — ${username}`;
+    $('#modal-body').innerHTML = `
+      <p style="margin-bottom:0.75rem">Set a new password for <strong style="color:var(--gold-mid)">${username}</strong>:</p>
+      <div class="form-group">
+        <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
+        <input type="password" id="modal-new-password" class="form-input" minlength="6" placeholder="Enter new password…" />
+      </div>`;
+    const btn = $('#modal-confirm');
+    btn.textContent = 'Reset Password';
+    btn.className = 'btn-secondary';
+    btn.onclick = async () => {
+      const pw = $('#modal-new-password')?.value || '';
+      if (pw.length < 6) { toast('Password must be at least 6 characters.', 'error'); return; }
+      try {
+        const r = await fetch(`/api/admin/users/${id}/password`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw })
+        });
+        if (!r.ok) throw new Error();
+        this.closeModal();
+        toast(`Password reset for ${username}.`);
+      } catch { toast('Failed to reset password.', 'error'); }
+    };
+    $('#modal-overlay').style.display = 'flex';
+  },
+
+  deleteUser(id, username) {
+    $('#modal-title').textContent = 'Delete User';
+    $('#modal-body').innerHTML = `<p>Permanently delete <strong style="color:var(--crimson)">${username}</strong> and all their characters?<br>This cannot be undone.</p>`;
+    const btn = $('#modal-confirm');
+    btn.textContent = 'Delete User';
+    btn.className = 'btn-danger';
+    btn.onclick = async () => {
+      try {
+        const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error();
+        this.closeModal();
+        toast(`${username} has been deleted.`);
+        await this.showAdmin();
+      } catch { toast('Failed to delete user.', 'error'); }
+    };
+    $('#modal-overlay').style.display = 'flex';
+  },
+
+  async logout() {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    this.clearUser();
+    this.showPage('auth');
+  },
 
   showPage(id) {
+    if (id !== 'auth' && !this.currentUser) {
+      $$('.page').forEach(p => p.classList.remove('active'));
+      $('#page-auth').classList.add('active');
+      return;
+    }
     $$('.page').forEach(p => p.classList.remove('active'));
     $(`#page-${id}`).classList.add('active');
     $$('.nav-btn').forEach(b => b.classList.remove('active'));
-    if (id === 'roster') $('#nav-roster').classList.add('active');
-    if (id === 'creator') $('#nav-create').classList.add('active');
+    if (id === 'dashboard') $('#nav-dashboard').classList.add('active');
+    if (id === 'roster')    $('#nav-roster').classList.add('active');
+    if (id === 'creator')   $('#nav-create').classList.add('active');
+    if (id === 'admin')     $('#nav-admin').classList.add('active');
   },
 
   async showRoster() {
@@ -192,6 +401,81 @@ const App = {
 
   closeModal() {
     $('#modal-overlay').style.display = 'none';
+    // Reset confirm button to neutral state for next use
+    const btn = $('#modal-confirm');
+    if (btn) { btn.textContent = 'Confirm'; btn.className = 'btn-danger'; btn.onclick = null; }
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   AUTH — Login / Registration
+   ═══════════════════════════════════════════════════════════════ */
+const Auth = {
+  showTab(tab) {
+    $('#form-login').style.display  = tab === 'login'    ? 'flex' : 'none';
+    $('#form-register').style.display = tab === 'register' ? 'flex' : 'none';
+    $$('.auth-tab').forEach(t => t.classList.remove('active'));
+    $(`#tab-${tab}`).classList.add('active');
+  },
+
+  async login(e) {
+    e.preventDefault();
+    const username = $('#login-username').value.trim();
+    const password = $('#login-password').value;
+    const errEl = $('#login-error');
+    errEl.style.display = 'none';
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Login failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      App.setUser(data);
+      App.showDashboard();
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
+  },
+
+  async register(e) {
+    e.preventDefault();
+    const username = $('#reg-username').value.trim();
+    const email    = $('#reg-email').value.trim();
+    const password = $('#reg-password').value;
+    const confirm  = $('#reg-password-confirm').value;
+    const errEl = $('#reg-error');
+    errEl.style.display = 'none';
+    if (password !== confirm) {
+      errEl.textContent = 'Passwords do not match.';
+      errEl.style.display = 'block';
+      $('#reg-password-confirm').focus();
+      return;
+    }
+    try {
+      const r = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Registration failed';
+        errEl.style.display = 'block';
+        return;
+      }
+      App.setUser(data);
+      App.showDashboard();
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
   },
 };
 
@@ -225,7 +509,7 @@ const Sheet = {
       .filter(([,v]) => v > 0)
       .map(([k, v]) => {
         const bg = M20.BACKGROUNDS.find(b => b.id === k);
-        return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bg.name}</span>${dots(v, 5, 'readonly')}</div>` : '';
+        return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
       }).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
 
     const instruments = (Array.isArray(char.instruments) ? char.instruments : []).join(', ') || '—';
@@ -426,6 +710,8 @@ const Creator = {
       talents: {}, skills: {}, knowledges: {},
       // Advantages
       backgrounds: {},
+      // Merits & Flaws
+      merits: {}, flaws: {},
       // Spheres
       spheres: {}, affinity_sphere: '',
       // Stats
@@ -437,6 +723,7 @@ const Creator = {
       attr_priority: ['Physical', 'Social', 'Mental'],
       ability_priority: ['Talents', 'Skills', 'Knowledges'],
       specialties: {},
+      customArchetypes: [],
     };
   },
 
@@ -467,7 +754,12 @@ const Creator = {
   },
 
   renderStep() {
-    const content = $('#step-content');
+    // Replace the element with a fresh clone to clear any stacked event listeners
+    // from previous renders — otherwise delegated handlers accumulate and fire
+    // multiple times, causing toggles to cancel each other out.
+    const old = $('#step-content');
+    const content = old.cloneNode(false);
+    old.parentNode.replaceChild(content, old);
     content.innerHTML = this[`renderStep${this.step}`]();
     this.attachStepListeners();
     this.updateNav();
@@ -493,8 +785,8 @@ const Creator = {
   calcFreebies() {
     const c = this.char;
     // Merits cost freebies; flaws grant them (max +7)
-    const meritCost  = Object.values(c.merits || {}).reduce((s, v) => s + v, 0);
-    const flawBonus  = Math.min(Object.values(c.flaws || {}).reduce((s, v) => s + v, 0), 7);
+    const meritCost = this.calcMeritCost();
+    const flawBonus = this.calcFlawBonus();
     let total = this.calcAttrFreebies() + this.calcAbilityFreebies() + this.calcBgFreebies() + this.calcSphereFreebies() + meritCost - flawBonus;
     total += Math.max(0, (c.arete || 1) - 1) * 4;
     total += Math.max(0, (c.willpower || 5) - 5) * 1;
@@ -519,6 +811,14 @@ const Creator = {
 
   freebieSpent() {
     return this.calcFreebies().total;
+  },
+
+  freebiesRemaining() {
+    return M20.CREATION.freebiePoints - this.calcFreebies().total;
+  },
+
+  canSpendFreebie(amount) {
+    return this.freebiesRemaining() >= amount;
   },
 
   prevStep() { if (this.step > 0) { this.step--; this.renderStep(); } },
@@ -597,10 +897,32 @@ const Creator = {
         <div class="page-ref" style="margin-top:0.5rem">p. ${e.page}</div>
       </div>`).join('');
 
-    const archetypeOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${c.nature === a.name ? 'selected' : ''}>${a.name}</option>`).join('');
-    const demeanorOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${c.demeanor === a.name ? 'selected' : ''}>${a.name}</option>`).join('');
+    if (!c.customArchetypes) c.customArchetypes = [];
+
+    const allArchetypes = [
+      ...M20.ARCHETYPES,
+      ...c.customArchetypes.map(ca => ({ ...ca, isCustom: true })),
+    ];
+
+    const archetypeCards = allArchetypes.map(a => {
+      const isNature   = c.nature   === a.name;
+      const isDemeanor = c.demeanor === a.name;
+      const deleteBtn  = a.isCustom
+        ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">\u00d7</button>`
+        : '';
+      const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
+      return `
+        <div class="${classes}" data-archetype="${a.name}">
+          <div class="archetype-nd-row">
+            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
+            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+            ${deleteBtn}
+          </div>
+          <div class="archetype-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}</div>
+          ${a.willpower ? `<div class="archetype-wp">${a.willpower}</div>` : ''}
+          ${a.description ? `<div class="archetype-desc">${a.description}</div>` : ''}
+        </div>`;
+    }).join('');
     const conceptOptions = ['', ...M20.CONCEPTS].map(con =>
       `<option value="${con}" ${c.concept === con ? 'selected' : ''}>${con || '— choose or type below —'}</option>`).join('');
 
@@ -642,20 +964,32 @@ const Creator = {
     </div>
 
     <div class="ornate-divider">— Archetypes —</div>
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">
-      <strong style="color:var(--text-mid)">Nature</strong> is your true self — what drives you to regain Willpower.
-      <strong style="color:var(--text-mid)">Demeanor</strong> is how you present yourself to the world.
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.6rem">
+      <strong style="color:var(--text-mid)">Nature</strong> is your true self — fulfilling it is how you regain Willpower.
+      <strong style="color:var(--text-mid)">Demeanor</strong> is the face you show the world.
       <span class="page-ref">p. 267</span>
     </p>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Nature <span class="ref">p. 267</span></label>
-        <select id="f-nature"><option value="">— Select Nature —</option>${archetypeOptions}</select>
-        <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-top:0.3rem;font-style:italic"></div>
-      </div>
-      <div class="form-group">
-        <label>Demeanor <span class="ref">p. 267</span></label>
-        <select id="f-demeanor"><option value="">— Select Demeanor —</option>${demeanorOptions}</select>
+    <div class="archetype-nd-legend">
+      <span id="archetype-nd-legend-nature"><span class="nd-legend-n">N</span> Nature${c.nature ? ` \u2014 <em>${c.nature}</em>` : ''}</span>
+      <span id="archetype-nd-legend-demeanor"><span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` \u2014 <em>${c.demeanor}</em>` : ''}</span>
+    </div>
+    <div class="archetype-grid" id="archetype-grid">
+      ${archetypeCards}
+    </div>
+    <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:0.75rem;font-style:italic"></div>
+
+    <div class="custom-archetype-adder">
+      <button class="btn-secondary" id="btn-show-custom-arch">＋ Create Custom Archetype</button>
+      <div id="custom-archetype-form" style="display:none">
+        <div class="custom-arch-fields">
+          <input type="text" id="f-custom-arch-name" placeholder="Archetype name\u2026" />
+          <input type="text" id="f-custom-arch-wp" placeholder="Willpower condition (optional)\u2026" />
+          <textarea id="f-custom-arch-desc" placeholder="Description (optional)\u2026" rows="2"></textarea>
+        </div>
+        <div class="custom-arch-actions">
+          <button class="btn-primary" id="btn-custom-arch-submit">Add to Grid</button>
+          <button class="btn-secondary" id="btn-custom-arch-cancel">Cancel</button>
+        </div>
       </div>
     </div>`;
   },
@@ -700,7 +1034,7 @@ const Creator = {
     const c = this.char;
     const pri = c.attr_priority;
 
-    const priorityHtml = this.renderPrioritySelector(
+    const priorityHtml = this.renderPrioritySorter(
       ['Physical', 'Social', 'Mental'],
       pri,
       'attr_priority',
@@ -723,16 +1057,20 @@ const Creator = {
         </div>
         ${attrs.map(a => `
         <div class="attr-row" data-attr-id="${a.id}">
-          <div class="attr-info">
-            <div class="attr-name">${a.name}
-              <span class="info-tip" data-tip="${a.description}">?</span>
+          <div class="attr-row-main">
+            <div class="attr-info">
+              <div class="attr-name">${a.name}
+                <span class="info-tip" data-tip="${a.description}">?</span>
+              </div>
+              <div class="attr-desc">${a.description}</div>
             </div>
-            <div class="attr-desc">${a.description}</div>
+            ${dotsClickable(c[a.id] || 1, 5, null, '')}
           </div>
-          ${dotsClickable(c[a.id] || 1, 5, null, '')}
-          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
-            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
-            ${(c[a.id] || 1) < 3 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${(c[a.id] || 1) < 4 ? 'style="display:none"' : ''}>
+            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
+            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+          </div>
         </div>`).join('')}
       </div>`;
     }).join('');
@@ -751,23 +1089,72 @@ const Creator = {
   renderStep2() {
     const c = this.char;
     const pri = c.ability_priority;
-    const abilityMap = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
-    const abilityData = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
+    const abilityMap  = { Talents: 'talents',    Skills: 'skills',    Knowledges: 'knowledges' };
+    const abilityData = { Talents: M20.TALENTS,  Skills: M20.SKILLS,  Knowledges: M20.KNOWLEDGES };
+    const secondaryData = {
+      Talents:    M20.SECONDARY_TALENTS,
+      Skills:     M20.SECONDARY_SKILLS,
+      Knowledges: M20.SECONDARY_KNOWLEDGES,
+    };
 
-    const priorityHtml = this.renderPrioritySelector(
+    const priorityHtml = this.renderPrioritySorter(
       ['Talents', 'Skills', 'Knowledges'],
       pri,
       'ability_priority',
       { primary: 13, secondary: 9, tertiary: 5 }
     );
 
+    const abilityRow = (a, key, isSecondary = false) => {
+      const val     = c[key][a.id] || 0;
+      const specRow = `<div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
+            <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+              placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
+            <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+          </div>`;
+      const removeBtn = isSecondary
+        ? `<button class="btn-remove-secondary" data-ability-id="${a.id}" data-category="${key}" title="Remove ${a.name}">\u00d7</button>`
+        : '';
+      return `
+        <div class="attr-row${isSecondary ? ' secondary-ability-row' : ''}" data-ability="${a.id}" data-category="${key}">
+          <div class="attr-row-main">
+            <div class="attr-info">
+              <div class="attr-name">${a.name}
+                ${isSecondary ? '<span class="secondary-badge">Secondary</span>' : ''}
+                <span class="info-tip" data-tip="${a.description}">?</span>
+              </div>
+              <div class="attr-desc">${a.description}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.4rem">
+              ${dotsClickable(val, 3, null, '')}
+              ${removeBtn}
+            </div>
+          </div>
+          ${specRow}
+        </div>`;
+    };
+
     const blocks = ['Talents', 'Skills', 'Knowledges'].map(cat => {
-      const key   = abilityMap[cat];
-      const data  = abilityData[cat];
-      const rank  = pri.indexOf(cat);
-      const total = [13, 9, 5][rank] || 0;
-      const used  = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
+      const key     = abilityMap[cat];
+      const data    = abilityData[cat];
+      const secAll  = secondaryData[cat];
+      // Secondary abilities already added: any whose ID is present in c[key]
+      const secAdded     = secAll.filter(a => c[key][a.id] !== undefined);
+      const secAvailable = secAll.filter(a => c[key][a.id] === undefined);
+
+      const rank      = pri.indexOf(cat);
+      const total     = [13, 9, 5][rank] || 0;
+      // Only primary abilities count against the creation point pool
+      const used      = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
       const remaining = total - used;
+
+      const adderHtml = secAvailable.length > 0 ? `
+        <div class="secondary-ability-adder">
+          <select class="secondary-add-select" data-category="${key}">
+            <option value="">\uff0b Add Secondary Ability\u2026</option>
+            ${secAvailable.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
+          </select>
+        </div>` : '';
+
       return `
       <div class="attr-block">
         <div class="attr-block-header">
@@ -776,26 +1163,16 @@ const Creator = {
             <span class="pts">${remaining}</span> / ${total} pts · max 3 per ability
           </span>
         </div>
-        ${data.map(a => `
-        <div class="attr-row" data-ability="${a.id}" data-category="${key}">
-          <div class="attr-info">
-            <div class="attr-name">${a.name}
-              <span class="info-tip" data-tip="${a.description}">?</span>
-            </div>
-            <div class="attr-desc">${a.description}</div>
-          </div>
-          ${dotsClickable(c[key][a.id] || 0, 3, null, '')}
-          <input type="text" class="specialty-input" data-specialty-for="${a.id}"
-            placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}"
-            ${(c[key][a.id] || 0) < 3 ? 'style="display:none"' : ''}>
-        </div>`).join('')}
+        ${data.map(a => abilityRow(a, key, false)).join('')}
+        ${secAdded.map(a => abilityRow(a, key, true)).join('')}
+        ${adderHtml}
       </div>`;
     }).join('');
 
     return `
     ${this.stepHeader('Step Three: Abilities',
       M20.QUOTES.step3,
-      `Rank Talents, Skills, and Knowledges as <strong>Primary (13 pts)</strong>, <strong>Secondary (9 pts)</strong>, and <strong>Tertiary (5 pts)</strong>. Maximum <strong>3 dots</strong> in any Ability at character creation. <span class="page-ref">M20 p. 259</span>`)}
+      `Rank Talents, Skills, and Knowledges as <strong>Primary (13 pts)</strong>, <strong>Secondary (9 pts)</strong>, and <strong>Tertiary (5 pts)</strong>. Maximum <strong>3 dots</strong> in any Ability at character creation. Secondary Abilities are optional and cost <strong>3 freebie pts/dot</strong> — add them below each group. <span class="page-ref">M20 p. 259, 275</span>`)}
     ${priorityHtml}
     ${blocks}`;
   },
@@ -809,12 +1186,14 @@ const Creator = {
     const usedDots = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
 
-    const bgRows = M20.BACKGROUNDS.map(bg => {
+    const aff = c.affiliation || 'Traditions';
+    const bgRows = filteredBackgrounds(aff).map(bg => {
       const val = c.backgrounds[bg.id] || 0;
+      const dispName = bgDisplayName(bg, aff);
       return `
       <div class="attr-row" data-bg="${bg.id}">
         <div class="attr-info">
-          <div class="attr-name">${bg.name}
+          <div class="attr-name">${dispName}
             ${bg.doubleCost ? '<span style="font-size:0.6rem;color:var(--crimson);margin-left:0.3rem">[2× cost]</span>' : ''}
             <span class="info-tip" data-tip="${bg.description}${bg.note ? ' (' + bg.note + ')' : ''}">?</span>
           </div>
@@ -842,7 +1221,8 @@ const Creator = {
 
     <div style="margin-top:1rem;padding:0.8rem;background:var(--bg-raised);border-radius:var(--radius-md);border:1px solid var(--border-dim)">
       <p style="font-size:0.82rem;color:var(--text-dim)">
-        <strong style="color:var(--gold-dim)">Note on Avatar/Genius:</strong> Your Avatar rating determines your starting Quintessence.
+        <strong style="color:var(--gold-dim)">Note on ${aff === 'Technocracy' ? 'Genius' : 'Avatar'}:</strong>
+        Your ${aff === 'Technocracy' ? 'Genius' : 'Avatar'} rating determines your starting Quintessence.
         This will be set automatically in the final step. <span class="page-ref">p. 303</span>
       </p>
     </div>`;
@@ -857,15 +1237,25 @@ const Creator = {
       .find(t => t.name === c.tradition);
     const paradigmHint = trad?.paradigm || '';
 
-    const instrumentHtml = M20.INSTRUMENTS.map(inst => {
-      const checked = (c.instruments || []).includes(inst);
-      const safeId = inst.replace(/[^a-zA-Z0-9]/g, '_');
+    const selectedInstruments = Array.isArray(c.instruments) ? c.instruments : [];
+    const builtinSet = new Set(M20.INSTRUMENTS);
+    const customInstruments = selectedInstruments.filter(i => !builtinSet.has(i));
+
+    const instrumentRows = M20.INSTRUMENTS.map(inst => {
+      const checked = selectedInstruments.includes(inst);
+      const safeId  = inst.replace(/[^a-zA-Z0-9]/g, '_');
       return `
       <label class="instrument-item ${checked ? 'checked' : ''}" for="inst-${safeId}">
         <input type="checkbox" id="inst-${safeId}" value="${inst}" ${checked ? 'checked' : ''} />
         ${inst}
       </label>`;
     }).join('');
+
+    const customTags = customInstruments.map(inst => `
+      <span class="instrument-custom-tag">
+        ${inst}
+        <button class="instrument-tag-remove" data-instrument="${inst.replace(/"/g, '&quot;')}" title="Remove">\u00d7</button>
+      </span>`).join('');
 
     return `
     ${this.stepHeader('Step Five: Focus & Practice',
@@ -883,13 +1273,21 @@ const Creator = {
       <input type="text" id="f-practice" value="${c.practice}" placeholder="e.g. Ceremonial Magic, Scientific Method, Shamanic Journeywork, Martial Discipline..." />
     </div>
 
-    <div style="margin-bottom:0.75rem">
-      <label>Instruments — Tools & Foci <span class="ref">p. 259</span></label>
+    <div style="margin-bottom:0.6rem">
+      <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
       <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem">
-        Choose the instruments your mage uses to work magic. Most mages use 3–5 instruments regularly. These are narrative tools — they help describe <em>how</em> you work Effects, not hard mechanical limits.
+        Choose the instruments your mage uses to work magic. Most mages use 3–5 regularly. These are narrative tools — they describe <em>how</em> you work Effects, not hard mechanical limits.
       </p>
     </div>
-    <div class="instrument-grid">${instrumentHtml}</div>`;
+    <div class="instrument-list">${instrumentRows}</div>
+
+    <div class="instrument-custom-section">
+      ${customTags.length ? `<div class="instrument-custom-tags">${customTags}</div>` : ''}
+      <div class="instrument-custom-adder">
+        <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
+        <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
+      </div>
+    </div>`;
   },
 
   /* ══════════════════════════════════════════════════════════════
@@ -898,11 +1296,14 @@ const Creator = {
   renderStep5() {
     const c = this.char;
 
-    // Determine affinity sphere from tradition
+    // Determine affinity sphere options from tradition / affiliation
+    const isDisparate = c.affiliation === 'Disparates';
     const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY].find(t => t.name === c.tradition);
-    const affinitySpheres = trad?.affinitySpheres || [];
+    const affinitySpheres = isDisparate
+      ? M20.SPHERES.map(s => s.name)   // Disparates may choose any sphere
+      : (trad?.affinitySpheres || []);
 
-    // Auto-select affinity sphere if tradition has only one option and none set
+    // Auto-select affinity sphere if tradition has exactly one option and none set yet
     let selectedAffinity = c.affinity_sphere;
     if (!selectedAffinity && affinitySpheres.length === 1) {
       selectedAffinity = affinitySpheres[0];
@@ -913,24 +1314,29 @@ const Creator = {
     const usedDots  = Object.values(c.spheres).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
 
-    // Affinity sphere selector if multiple options
+    // Affinity sphere selector for multiple options (includes Disparates — all spheres)
     let affinitySelectHtml = '';
     if (affinitySpheres.length > 1) {
       const opts = affinitySpheres.map(s => `<option value="${s}" ${selectedAffinity === s ? 'selected' : ''}>${s}</option>`).join('');
+      const hint = isDisparate
+        ? 'As a Disparate, you may choose any Sphere as your Affinity Sphere.'
+        : 'Your Affinity Sphere receives its first dot free. It costs 7 XP per dot (vs. 8 for other spheres).';
       affinitySelectHtml = `
       <div class="form-group" style="margin-bottom:1rem">
         <label>Choose Affinity Sphere <span class="ref">p. 259</span></label>
         <select id="affinity-select">
           <option value="">— Select Affinity Sphere —</option>${opts}
         </select>
-        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem">Your Affinity Sphere receives its first dot free. It costs 7 XP per dot (vs. 8 for other spheres).</p>
+        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem">${hint}</p>
       </div>`;
     }
 
     const sphereCards = M20.SPHERES.map(sphere => {
       const val = c.spheres[sphere.id] || 0;
-      const isAffinity = sphere.name === selectedAffinity ||
-        (sphere.altName && sphere.altName.startsWith(selectedAffinity));
+      const isAffinity = !!selectedAffinity && (
+        sphere.name === selectedAffinity ||
+        (sphere.altName && sphere.altName.startsWith(selectedAffinity))
+      );
       const rankName = val > 0 ? (sphere.ranks[val - 1]?.name || '') : 'Unlearned';
 
       return `
@@ -942,9 +1348,11 @@ const Creator = {
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 5, null, 'sphere-dots')}</div>
-        <input type="text" class="specialty-input" data-specialty-for="${sphere.id}"
-          placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}"
-          ${val < 3 ? 'style="display:none"' : ''}>
+        <div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
+          <input class="specialty-input" list="spec-${sphere.id}" data-specialty-for="${sphere.id}"
+            placeholder="Specialty\u2026" value="${c.specialties[sphere.id] || ''}">
+          <datalist id="spec-${sphere.id}">${(sphere.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
+        </div>
         <div class="page-ref" style="margin-top:0.25rem">p. ${sphere.page}</div>
       </div>`;
     }).join('');
@@ -996,12 +1404,18 @@ const Creator = {
                           Skills:     [13,9,5][abilityPri.indexOf('Skills')]     ?? 0,
                           Knowledges: [13,9,5][abilityPri.indexOf('Knowledges')] ?? 0 };
 
-    // Ensure merits/flaws are objects, not arrays (migration safety)
-    if (Array.isArray(c.merits)) c.merits = {};
-    if (Array.isArray(c.flaws))  c.flaws  = {};
+    // Ensure merits/flaws are plain objects (migration safety: handle undefined, null, or legacy arrays)
+    if (!c.merits || Array.isArray(c.merits)) c.merits = {};
+    if (!c.flaws  || Array.isArray(c.flaws))  c.flaws  = {};
+
+    // Flat attribute specialty lookup: { strength: [...], dexterity: [...], ... }
+    const attrSpecMap = {};
+    Object.values(M20.ATTRIBUTES).forEach(grp => grp.forEach(a => { attrSpecMap[a.id] = a.specialties || []; }));
 
     // Helper: dots row for the freebie panel
-    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null) => {
+    // specOptions: array of suggestion strings (null = no specialty row)
+    // currentSpec: currently saved specialty text for this trait
+    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '') => {
       const spent     = Math.max(0, current - baseline) * costPer;
       const dotsHtml  = Array.from({length: max}, (_, i) => {
         const val = i + 1;
@@ -1014,12 +1428,19 @@ const Creator = {
         ? `<span class="fb-cost-badge">${spent} pt${spent>1?'s':''}</span>`
         : `<span class="fb-cost-free">free</span>`;
       const dataAttr = stat ? `data-stat="${stat}"` : `data-fb-id="${id}"`;
+      const specHtml = specOptions !== null
+        ? `<div class="specialty-row fb-specialty-row"${current < 4 ? ' style="display:none"' : ''}>` +
+          `<input class="specialty-input" list="fb-spec-${id}" data-specialty-for="${id}" ` +
+          `placeholder="Specialty\u2026" value="${currentSpec}">` +
+          `<datalist id="fb-spec-${id}">${specOptions.map(s => `<option value="${s}">`).join('')}</datalist>` +
+          `</div>`
+        : '';
       return `
       <div class="fb-row" ${dataAttr} data-baseline="${baseline}" data-cost="${costPer}" data-max="${max}">
         <div class="fb-row-label">${label}${costNote ? `<span class="fb-cost-hint">${costNote}</span>` : ''}</div>
         <span class="dots" data-max="${max}">${dotsHtml}</span>
         <div class="fb-row-cost">${costDisplay}</div>
-      </div>`;
+      </div>${specHtml}`;
     };
 
     // Attribute rows — grouped
@@ -1036,12 +1457,7 @@ const Creator = {
       // For display we just show each attr; baseline is 1 + their share of alloc
       const rows = g.ids.map(([id, name]) => {
         const cur = c[id] || 1;
-        // Baseline: how many dots were "free" from creation for this attr
-        // Simplification: 1 (all attrs start at 1); extra from creation alloc
-        // We can't perfectly apportion per-attr, so we show creation dots in gold, freebie dots in purple
-        // Actually we track it by: anything that pushes the group total above alloc costs freebies
-        // For display simplicity: baseline = 1 for each, creation points shown as "free up to alloc"
-        return fbRow(id, name, cur, 5, 1, 5, '5 pts/dot', null);
+        return fbRow(id, name, cur, 5, 1, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1055,16 +1471,23 @@ const Creator = {
 
     // Ability rows
     const abilGroups = [
-      { label:'Talents',    key:'talents',    data: M20.TALENTS },
-      { label:'Skills',     key:'skills',     data: M20.SKILLS },
-      { label:'Knowledges', key:'knowledges', data: M20.KNOWLEDGES },
+      { label:'Talents',    key:'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS },
+      { label:'Skills',     key:'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS },
+      { label:'Knowledges', key:'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
     ];
     const abilSection = abilGroups.map(g => {
       const used  = g.data.reduce((s,a) => s + (c[g.key][a.id]||0), 0);
       const alloc = abilAllocs[g.label] ?? 0;
       const rows  = g.data.map(a => {
         const cur = c[g.key][a.id] || 0;
-        return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null);
+        return fbRow(a.id, a.name, cur, 5, 0, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+      }).join('');
+      // Secondary abilities that have been added — 3 pts/dot, no free baseline
+      const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
+      const secRows  = addedSec.map(a => {
+        const cur = c[g.key][a.id] || 0;
+        const label = a.name + ' <span class="secondary-badge">Secondary</span>';
+        return fbRow(a.id, label, cur, 3, 0, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1073,19 +1496,21 @@ const Creator = {
           <span class="fb-group-alloc">${alloc} creation pts · over-allocation costs 2 freebies/dot</span>
         </div>
         ${rows}
+        ${secRows}
       </div>`;
     }).join('');
 
-    // Background rows
-    const bgSection = M20.BACKGROUNDS.map(bg => {
+    // Background rows (filtered by faction, correct names)
+    const bgAff = c.affiliation || 'Traditions';
+    const bgSection = filteredBackgrounds(bgAff).map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
-      return fbRow(bg.id, bg.name, cur, 5, 0, 1, '1 pt/dot', null);
+      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, 0, 1, '1 pt/dot', null);
     }).join('');
 
     // Sphere rows
     const sphereSection = M20.SPHERES.map(s => {
       const cur = c.spheres[s.id] || 0;
-      return fbRow(s.id, s.name, cur, 5, 0, 7, '7 pts/dot', null);
+      return fbRow(s.id, s.name, cur, 5, 0, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '');
     }).join('');
 
     const { total } = this.calcFreebies();
@@ -1242,27 +1667,22 @@ const Creator = {
   },
 
   /* ─── Priority Selector Helper ─────────────────────────────── */
-  renderPrioritySelector(categories, current, field, labels) {
+  renderPrioritySorter(categories, current, field, labels) {
     const tierLabels = ['Primary', 'Secondary', 'Tertiary'];
     const tierPts    = [labels.primary, labels.secondary, labels.tertiary];
+    const tierCls    = ['priority-primary', 'priority-secondary', 'priority-tertiary'];
 
-    const catBtns = categories.map(cat => {
-      const rank = current.indexOf(cat);
-      const cls  = rank === 0 ? 'selected-primary' : rank === 1 ? 'selected-secondary' : rank === 2 ? 'selected-tertiary' : '';
-      return `<button class="priority-btn ${cls} ${rank >= 0 ? 'used' : ''}" data-cat="${cat}" data-field="${field}">${cat}</button>`;
-    }).join('');
-
-    const summary = tierLabels.map((t, i) => {
-      const cat = current[i];
-      return `<span style="font-size:0.75rem;color:var(--text-dim)">${t} (${tierPts[i]} pts): <strong style="color:var(--text-mid)">${cat || '—'}</strong></span>`;
-    }).join(' &nbsp;|&nbsp; ');
+    const items = current.map((cat, idx) => `
+      <div class="priority-item ${tierCls[idx]}" draggable="true" data-idx="${idx}" data-field="${field}">
+        <span class="priority-handle" title="Drag to reorder">⠿</span>
+        <span class="priority-tier-badge">${tierLabels[idx]} &middot; ${tierPts[idx]} pts</span>
+        <span class="priority-cat-name">${cat}</span>
+      </div>`).join('');
 
     return `
-    <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-raised);border-radius:var(--radius-md);border:1px solid var(--border-dim)">
-      <p style="font-size:0.75rem;color:var(--text-dim);margin-bottom:0.6rem">
-        Click to assign priority ranking. Current: ${summary}
-      </p>
-      <div class="priority-options">${catBtns}</div>
+    <div class="priority-sorter" data-field="${field}">
+      <p class="priority-sorter-hint">Drag rows to set priority order — top row gets the most points</p>
+      ${items}
     </div>`;
   },
 
@@ -1313,8 +1733,90 @@ const Creator = {
       conceptInp.addEventListener('input', () => { c.concept = conceptInp.value; });
     }
 
-    bind('#f-nature', 'nature');
-    bind('#f-demeanor', 'demeanor');
+    // Archetype N/D buttons, delete buttons, and custom archetype form
+    content.addEventListener('click', e => {
+      // N or D assignment button
+      const ndBtn = e.target.closest('.archetype-nd-btn');
+      if (ndBtn) {
+        e.stopPropagation();
+        const archName = ndBtn.dataset.archetype;
+        const role     = ndBtn.dataset.role; // 'nature' or 'demeanor'
+        c[role] = (c[role] === archName) ? '' : archName;
+        if (role === 'nature') this.updateNatureWillpower();
+        this.updateFreebieDisplay();
+        // Update highlights in-place without full re-render
+        $$('.archetype-nd-btn.nd-n', content).forEach(b =>
+          b.classList.toggle('nd-active-n', c.nature === b.dataset.archetype));
+        $$('.archetype-nd-btn.nd-d', content).forEach(b =>
+          b.classList.toggle('nd-active-d', c.demeanor === b.dataset.archetype));
+        $$('.archetype-card', content).forEach(card => {
+          const n = card.dataset.archetype;
+          card.classList.toggle('nd-nature',   c.nature   === n);
+          card.classList.toggle('nd-demeanor', c.demeanor === n);
+        });
+        // Update legend
+        const leg = $('#archetype-nd-legend-nature', content);
+        const legD = $('#archetype-nd-legend-demeanor', content);
+        if (leg)  leg.innerHTML  = `<span class="nd-legend-n">N</span> Nature${c.nature   ? ` \u2014 <em>${c.nature}</em>`   : ''}`;
+        if (legD) legD.innerHTML = `<span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` \u2014 <em>${c.demeanor}</em>` : ''}`;
+        return;
+      }
+
+      // Delete custom archetype
+      const delBtn = e.target.closest('.archetype-delete-btn');
+      if (delBtn) {
+        e.stopPropagation();
+        const archName = delBtn.dataset.archetype;
+        c.customArchetypes = (c.customArchetypes || []).filter(a => a.name !== archName);
+        if (c.nature   === archName) c.nature   = '';
+        if (c.demeanor === archName) c.demeanor = '';
+        this.renderStep();
+        return;
+      }
+
+      // Show custom archetype form
+      if (e.target.closest('#btn-show-custom-arch')) {
+        const form = $('#custom-archetype-form', content);
+        if (form) form.style.display = '';
+        e.target.style.display = 'none';
+        return;
+      }
+
+      // Cancel custom archetype form
+      if (e.target.closest('#btn-custom-arch-cancel')) {
+        const form = $('#custom-archetype-form', content);
+        if (form) form.style.display = 'none';
+        const showBtn = $('#btn-show-custom-arch', content);
+        if (showBtn) showBtn.style.display = '';
+        ['f-custom-arch-name', 'f-custom-arch-wp', 'f-custom-arch-desc'].forEach(id => {
+          const el = $(`#${id}`, content);
+          if (el) el.value = '';
+        });
+        return;
+      }
+
+      // Submit custom archetype
+      if (e.target.closest('#btn-custom-arch-submit')) {
+        const nameEl = $('#f-custom-arch-name', content);
+        const wpEl   = $('#f-custom-arch-wp', content);
+        const descEl = $('#f-custom-arch-desc', content);
+        const name   = nameEl ? nameEl.value.trim() : '';
+        if (!name) { toast('Please enter an archetype name.', 'error'); return; }
+        const allNames = [
+          ...M20.ARCHETYPES.map(a => a.name),
+          ...(c.customArchetypes || []).map(a => a.name),
+        ];
+        if (allNames.includes(name)) { toast('An archetype with that name already exists.', 'error'); return; }
+        if (!c.customArchetypes) c.customArchetypes = [];
+        c.customArchetypes.push({
+          name,
+          willpower:   wpEl   ? wpEl.value.trim()   : '',
+          description: descEl ? descEl.value.trim() : '',
+        });
+        this.renderStep();
+        return;
+      }
+    });
 
     // Essence cards
     $$('.essence-card', content).forEach(card => {
@@ -1351,22 +1853,48 @@ const Creator = {
     });
 
     // Priority buttons — clicking a category promotes it toward Primary
-    $$('.priority-btn', content).forEach(btn => {
-      btn.addEventListener('click', () => {
-        const cat   = btn.dataset.cat;
-        const field = btn.dataset.field;
-        const arr   = c[field];
-        const idx   = arr.indexOf(cat);
-        if (idx > 0) {
-          // Swap with the one ranked above it (promote by one rank)
-          const tmp = arr[idx - 1];
-          arr[idx - 1] = cat;
-          arr[idx] = tmp;
-        } else if (idx === 0) {
-          // Already Primary — move to end (demote to Tertiary)
-          arr.splice(0, 1);
-          arr.push(cat);
-        }
+    // Priority drag-and-drop sorters (steps 1 & 2)
+    $$('.priority-sorter', content).forEach(sorter => {
+      const field = sorter.dataset.field;
+      let dragIdx = null;
+
+      sorter.addEventListener('dragstart', e => {
+        const item = e.target.closest('.priority-item');
+        if (!item) return;
+        dragIdx = parseInt(item.dataset.idx);
+        e.dataTransfer.effectAllowed = 'move';
+        // Defer so the browser can capture the drag ghost before we dim
+        requestAnimationFrame(() => item.classList.add('dragging'));
+      });
+
+      sorter.addEventListener('dragend', () => {
+        $$('.priority-item', sorter).forEach(el => el.classList.remove('dragging', 'drag-over'));
+        dragIdx = null;
+      });
+
+      sorter.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const item = e.target.closest('.priority-item');
+        if (!item) return;
+        $$('.priority-item', sorter).forEach(el => el.classList.remove('drag-over'));
+        if (parseInt(item.dataset.idx) !== dragIdx) item.classList.add('drag-over');
+      });
+
+      sorter.addEventListener('dragleave', e => {
+        const item = e.target.closest('.priority-item');
+        if (item) item.classList.remove('drag-over');
+      });
+
+      sorter.addEventListener('drop', e => {
+        e.preventDefault();
+        const item = e.target.closest('.priority-item');
+        if (!item || dragIdx === null) return;
+        const dropIdx = parseInt(item.dataset.idx);
+        if (dragIdx === dropIdx) return;
+        const arr = c[field];
+        const [moved] = arr.splice(dragIdx, 1);
+        arr.splice(dropIdx, 0, moved);
         this.renderStep();
       });
     });
@@ -1404,11 +1932,11 @@ const Creator = {
             this.refreshDots(dotsEl, c[cat][id]);
             this.refreshAbilityPoints(block, cat);
             this.updateFreebieDisplay();
-            // Show/hide specialty input
-            const specEl = attrRow.querySelector('.specialty-input');
-            if (specEl) {
-              specEl.style.display = c[cat][id] >= 3 ? '' : 'none';
-              if (c[cat][id] < 3) { delete c.specialties[id]; specEl.value = ''; }
+            // Show/hide specialty row
+            const specRow = attrRow.querySelector('.specialty-row');
+            if (specRow) {
+              specRow.style.display = c[cat][id] >= 4 ? '' : 'none';
+              if (c[cat][id] < 4) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
             }
             return;
           }
@@ -1424,14 +1952,37 @@ const Creator = {
           this.refreshDots(dotsEl, c[attrId]);
           this.refreshAttrPoints(block, attrId);
           this.updateFreebieDisplay();
-          // Show/hide specialty input
-          const specEl = attrRow.querySelector('.specialty-input');
-          if (specEl) {
-            specEl.style.display = c[attrId] >= 3 ? '' : 'none';
-            if (c[attrId] < 3) { delete c.specialties[attrId]; specEl.value = ''; }
+          // Show/hide specialty row
+          const specRow = attrRow.querySelector('.specialty-row');
+          if (specRow) {
+            specRow.style.display = c[attrId] >= 4 ? '' : 'none';
+            if (c[attrId] < 4) { delete c.specialties[attrId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
           }
         });
       });
+    });
+
+    // Secondary ability — add (select change)
+    $$('.secondary-add-select', content).forEach(sel => {
+      sel.addEventListener('change', () => {
+        const id  = sel.value;
+        const cat = sel.dataset.category;
+        if (!id || !cat) return;
+        c[cat][id] = 0;
+        this.renderStep();
+      });
+    });
+
+    // Secondary ability — remove (delegated click)
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('.btn-remove-secondary');
+      if (!btn) return;
+      const id  = btn.dataset.abilityId;
+      const cat = btn.dataset.category;
+      if (!id || !cat) return;
+      delete c[cat][id];
+      delete c.specialties[id];
+      this.renderStep();
     });
 
     // Background dots (step 3)
@@ -1471,11 +2022,11 @@ const Creator = {
         c.spheres[sphereId] = cur === val ? Math.max(0, val - 1) : val;
         this.refreshDots(dotsEl, c.spheres[sphereId]);
 
-        // Show/hide specialty input
-        const specEl = card.querySelector('.specialty-input');
-        if (specEl) {
-          specEl.style.display = c.spheres[sphereId] >= 3 ? '' : 'none';
-          if (c.spheres[sphereId] < 3) { delete c.specialties[sphereId]; specEl.value = ''; }
+        // Show/hide specialty row
+        const specRow = card.querySelector('.specialty-row');
+        if (specRow) {
+          specRow.style.display = c.spheres[sphereId] >= 4 ? '' : 'none';
+          if (c.spheres[sphereId] < 4) { delete c.specialties[sphereId]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
         }
 
         // Update rank display
@@ -1551,7 +2102,7 @@ const Creator = {
       });
     });
 
-    // Instruments (step 4)
+    // Instruments — standard checkboxes (step 4)
     $$('.instrument-item input', content).forEach(inp => {
       inp.addEventListener('change', () => {
         const instruments = c.instruments || [];
@@ -1564,6 +2115,34 @@ const Creator = {
         c.instruments = instruments;
         inp.closest('.instrument-item').classList.toggle('checked', inp.checked);
       });
+    });
+
+    // Instruments — add custom
+    const customInstrumentInput = $('#f-custom-instrument', content);
+    const addCustomBtn = $('#btn-add-instrument', content);
+    const addCustomInstrument = () => {
+      if (!customInstrumentInput) return;
+      const val = customInstrumentInput.value.trim();
+      if (!val) return;
+      if (!(c.instruments || []).includes(val)) {
+        c.instruments = [...(c.instruments || []), val];
+      }
+      this.renderStep();
+    };
+    if (addCustomBtn) addCustomBtn.addEventListener('click', addCustomInstrument);
+    if (customInstrumentInput) {
+      customInstrumentInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); addCustomInstrument(); }
+      });
+    }
+
+    // Instruments — remove custom tag
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('.instrument-tag-remove');
+      if (!btn) return;
+      const val = btn.dataset.instrument;
+      c.instruments = (c.instruments || []).filter(i => i !== val);
+      this.renderStep();
     });
 
     this.updateNatureWillpower();
@@ -1639,21 +2218,25 @@ const Creator = {
         const cur = char[id] || 1;
         char[id]  = cur === val ? Math.max(1, val - 1) : Math.min(max, val);
         // Recalculate per-group allocation to determine freebie cost of this row
-        // Simple approach: mark dots above 1 as potentially freebie, actual cost is group-level
         const groupEl = row.closest('.fb-group');
         if (groupEl) {
-          const groupLabel = groupEl.querySelector('.fb-group-label').textContent.split(' ')[0]; // Physical/Social/Mental
+          const groupLabel = groupEl.querySelector('.fb-group-label').textContent.split(' ')[0];
           const groupIds   = attrGroups[groupLabel] || [];
-          const alloc      = attrAlloc[groupLabel] || 0;
-          const usedExtra  = groupIds.reduce((s, aid) => s + Math.max(0,(char[aid]||1)-1), 0);
-          const freeExtra  = Math.min(usedExtra, alloc);
-          // Re-render all rows in this group with updated free baseline
           groupIds.forEach((aid, idx) => {
-            const aRow    = groupEl.querySelectorAll('.fb-row[data-fb-id]')[idx];
-            const aVal    = char[aid] || 1;
-            const aFreeUp = Math.max(1, aVal); // simplified: dots up to alloc-covered are "free"
+            const aRow = groupEl.querySelectorAll('.fb-row[data-fb-id]')[idx];
+            const aVal = char[aid] || 1;
             if (aRow) c.refreshFreebieRow(aRow, aVal, 1, 5, 5);
           });
+        }
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char[id] >= 4 ? '' : 'none';
+          if (char[id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
         }
         c.updateFreebieBank();
       });
@@ -1684,6 +2267,16 @@ const Creator = {
         const cur = char[catKey][id] || 0;
         char[catKey][id] = cur === val ? Math.max(0, val-1) : Math.min(max, val);
         c.refreshFreebieRow(row, char[catKey][id], 0, 2, 5);
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char[catKey][id] >= 4 ? '' : 'none';
+          if (char[catKey][id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
+        }
         c.updateFreebieBank();
       });
     });
@@ -1732,6 +2325,16 @@ const Creator = {
           c.updateAreteLabel();
         }
         c.refreshFreebieRow(row, char.spheres[id], 0, 7, 5);
+        // Show/hide specialty row
+        const specRow = row.nextElementSibling;
+        if (specRow && specRow.classList.contains('fb-specialty-row')) {
+          specRow.style.display = char.spheres[id] >= 4 ? '' : 'none';
+          if (char.spheres[id] < 4) {
+            delete char.specialties[id];
+            const inp = specRow.querySelector('.specialty-input');
+            if (inp) inp.value = '';
+          }
+        }
         c.updateFreebieBank();
       });
     });
@@ -1748,23 +2351,55 @@ const Creator = {
     const c = this;
     const char = this.char;
 
-    // Event delegation on the mf grids
     ['fb-merits', 'fb-flaws'].forEach(gridId => {
       const grid = document.getElementById(gridId);
       if (!grid) return;
-      const kind = gridId === 'fb-merits' ? 'merit' : 'flaw';
+      const kind  = gridId === 'fb-merits' ? 'merit' : 'flaw';
       const store = kind === 'merit' ? char.merits : char.flaws;
       const list  = kind === 'merit' ? M20.MERITS   : M20.FLAWS;
 
       grid.addEventListener('click', e => {
-        // Variable cost select changes
-        const sel = e.target.closest('.mf-cost-select');
-        if (sel) {
+        // "+ Take" / "+ Add Another" button
+        const addBtn = e.target.closest('.mf-add-btn');
+        if (addBtn) {
           e.stopPropagation();
-          store[sel.dataset.id] = parseInt(sel.value);
+          const id   = addBtn.dataset.id;
+          const item = list.find(i => i.id === id);
+          if (!item) return;
+          const cost = Array.isArray(item.cost) ? item.cost[0] : item.cost;
+          if (kind === 'merit' && !c.canSpendFreebie(cost)) {
+            toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
+          }
+          if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+            toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
+          }
+          if (!Array.isArray(store[id])) store[id] = [];
+          store[id].push(cost);
           c.updateFreebieBank();
           return;
         }
+
+        // "×" Remove instance button
+        const removeBtn = e.target.closest('.mf-remove-btn');
+        if (removeBtn) {
+          e.stopPropagation();
+          const id  = removeBtn.dataset.id;
+          const idx = parseInt(removeBtn.dataset.idx);
+          if (Array.isArray(store[id])) {
+            store[id].splice(idx, 1);
+            if (store[id].length === 0) delete store[id];
+          }
+          c.updateFreebieBank();
+          return;
+        }
+
+        // Cost select — let change handle the value; just stop propagation
+        if (e.target.closest('.mf-cost-select')) {
+          e.stopPropagation();
+          return;
+        }
+
+        // Card click
         const card = e.target.closest('.mf-card');
         if (!card) return;
         const id   = card.dataset.id;
@@ -1772,32 +2407,68 @@ const Creator = {
         if (!item) return;
         const cost = Array.isArray(item.cost) ? item.cost[0] : item.cost;
 
+        if (item.repeatable) {
+          // Clicking a repeatable card with no instances → add first instance
+          const existing = store[id];
+          if (!existing || (Array.isArray(existing) && existing.length === 0)) {
+            if (kind === 'merit' && !c.canSpendFreebie(cost)) {
+              toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
+            }
+            if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+              toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
+            }
+            store[id] = [cost];
+            c.updateFreebieBank();
+          }
+          // If already has instances, do nothing (use + / × buttons)
+          return;
+        }
+
+        // Non-repeatable: toggle on/off
         if (store[id] !== undefined) {
-          // Deselect
           delete store[id];
         } else {
-          // Select — check budget (merits cost, flaws grant)
           if (kind === 'merit' && !c.canSpendFreebie(cost)) {
-            toast('Not enough freebie points to take ' + item.name + '.', 'error');
-            return;
+            toast('Not enough freebie points to take ' + item.name + '.', 'error'); return;
           }
-          if (kind === 'flaw') {
-            const newBonus = c.calcFlawBonus() + cost;
-            if (newBonus > 7) {
-              toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error');
-              return;
-            }
+          if (kind === 'flaw' && c.calcFlawBonus() + cost > 7) {
+            toast('Flaw bonus cap reached (max +7 pts from flaws).', 'error'); return;
           }
           store[id] = cost;
         }
         c.updateFreebieBank();
       });
 
-      // Variable cost selects — prevent card toggle on change
+      // Cost selects (both variable non-repeatable and per-instance)
       grid.addEventListener('change', e => {
         const sel = e.target.closest('.mf-cost-select');
         if (!sel) return;
-        store[sel.dataset.id] = parseInt(sel.value);
+        const id      = sel.dataset.id;
+        const newCost = parseInt(sel.value);
+
+        if (sel.dataset.idx !== undefined) {
+          // Repeatable instance cost change
+          const idx = parseInt(sel.dataset.idx);
+          if (!Array.isArray(store[id])) return;
+          const oldCost = store[id][idx];
+          store[id][idx] = newCost; // tentatively apply
+          if (kind === 'merit' && c.calcFreebies().total > M20.CREATION.freebiePoints) {
+            store[id][idx] = oldCost; // revert
+            sel.value = oldCost;
+            toast('Not enough freebie points for that option.', 'error');
+            return;
+          }
+        } else {
+          // Non-repeatable variable cost change
+          const oldCost = store[id];
+          store[id] = newCost; // tentatively apply
+          if (kind === 'merit' && c.calcFreebies().total > M20.CREATION.freebiePoints) {
+            store[id] = oldCost; // revert
+            sel.value = oldCost;
+            toast('Not enough freebie points for that option.', 'error');
+            return;
+          }
+        }
         c.updateFreebieBank();
       });
     });
@@ -1887,13 +2558,22 @@ const Creator = {
   calcAbilityFreebies() {
     const c = this.char;
     const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
-    const groups = { Talents:{key:'talents',data:M20.TALENTS}, Skills:{key:'skills',data:M20.SKILLS}, Knowledges:{key:'knowledges',data:M20.KNOWLEDGES} };
+    const groups = {
+      Talents:    { key: 'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS },
+      Skills:     { key: 'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS },
+      Knowledges: { key: 'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES },
+    };
     let total = 0;
     ['Talents','Skills','Knowledges'].forEach(cat => {
       const alloc = [13,9,5][pri.indexOf(cat)] ?? 0;
-      const {key,data} = groups[cat];
-      const used = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
-      total += Math.max(0, used - alloc) * 2;
+      const { key, data, sec } = groups[cat];
+      // Primary ability over-allocation at 2 pts/dot
+      const primaryUsed = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
+      total += Math.max(0, primaryUsed - alloc) * 2;
+      // Secondary abilities cost 3 freebie pts/dot (all dots, regardless of alloc)
+      const addedSec = sec.filter(a => c[key][a.id] !== undefined);
+      const secDots  = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
+      total += secDots * 3;
     });
     return total;
   },
@@ -1948,17 +2628,25 @@ const Creator = {
   updateNatureWillpower() {
     const el = $('#nature-wp');
     if (!el) return;
-    const arch = M20.ARCHETYPES.find(a => a.name === this.char.nature);
-    el.textContent = arch ? `Regain Willpower when: ${arch.willpower}` : '';
+    const name = this.char.nature;
+    if (!name) { el.textContent = ''; return; }
+    const arch = M20.ARCHETYPES.find(a => a.name === name)
+      || (this.char.customArchetypes || []).find(a => a.name === name);
+    el.textContent = arch?.willpower ? `Regain Willpower when: ${arch.willpower}` : '';
+  },
+
+  // Sum a merit/flaw store value: number (single) or array (repeatable instances)
+  mfSum(v) {
+    return Array.isArray(v) ? v.reduce((a, b) => a + b, 0) : (typeof v === 'number' ? v : 0);
   },
 
   calcMeritCost() {
-    return Object.values(this.char.merits || {}).reduce((s, v) => s + v, 0);
+    return Object.values(this.char.merits || {}).reduce((s, v) => s + this.mfSum(v), 0);
   },
 
   calcFlawBonus() {
-    const raw = Object.values(this.char.flaws || {}).reduce((s, v) => s + v, 0);
-    return Math.min(raw, 7); // max +7 pts from flaws
+    const raw = Object.values(this.char.flaws || {}).reduce((s, v) => s + this.mfSum(v), 0);
+    return Math.min(raw, 7);
   },
 
   updateMFDisplay() {
@@ -1983,33 +2671,86 @@ const Creator = {
   },
 
   renderMFCards(container, list, selected, kind) {
-    // Don't re-render if nothing changed (avoids flicker)
     const key = JSON.stringify(selected);
     if (container.dataset.lastKey === key) return;
     container.dataset.lastKey = key;
 
-    const flawBonus = this.calcFlawBonus();
     container.innerHTML = list.map(item => {
-      const cost = Array.isArray(item.cost) ? item.cost : [item.cost];
-      const chosen = selected[item.id];
-      const isActive = chosen !== undefined;
-      const catClass = 'mf-cat-' + item.category.toLowerCase().replace(' ', '-');
-      const costLabel = cost.length > 1
-        ? cost.join('/') + ' pt'
-        : cost[0] + ' pt' + (cost[0] !== 1 ? 's' : '');
-      // For variable-cost items show a selector when active
-      const costSelect = (isActive && cost.length > 1)
-        ? '<select class="mf-cost-select" data-id="' + item.id + '">'
-          + cost.map(v => '<option value="' + v + '"' + (v === chosen ? ' selected' : '') + '>' + v + ' pt</option>').join('')
-          + '</select>'
+      const costs      = Array.isArray(item.cost) ? item.cost : [item.cost];
+      const isRepeat   = !!item.repeatable;
+      const catClass   = 'mf-cat-' + item.category.toLowerCase().replace(/\s+/g, '-');
+
+      // Resolve active instances
+      let instances = [];
+      let isActive  = false;
+      if (isRepeat) {
+        const raw = selected[item.id];
+        instances = Array.isArray(raw) ? raw : (raw !== undefined ? [raw] : []);
+        isActive  = instances.length > 0;
+      } else {
+        isActive = selected[item.id] !== undefined;
+      }
+
+      // ── Header cost display ─────────────────────────────────────
+      let costDisplay;
+      if (isRepeat) {
+        if (isActive) {
+          const tot = instances.reduce((s, v) => s + v, 0);
+          costDisplay = tot + ' pt' + (tot !== 1 ? 's' : '') + ' total';
+        } else {
+          costDisplay = costs.length > 1
+            ? costs.join('/') + ' pt ea'
+            : costs[0] + ' pt' + (costs[0] !== 1 ? 's' : '') + ' ea';
+        }
+      } else if (isActive) {
+        costDisplay = costs.length > 1
+          ? '<select class="mf-cost-select" data-id="' + item.id + '">'
+            + costs.map(v => '<option value="' + v + '"' + (v === selected[item.id] ? ' selected' : '') + '>' + v + ' pt</option>').join('')
+            + '</select>'
+          : selected[item.id] + ' pt' + (selected[item.id] !== 1 ? 's' : '');
+      } else {
+        costDisplay = costs.length > 1
+          ? costs.join('/') + ' pt'
+          : costs[0] + ' pt' + (costs[0] !== 1 ? 's' : '');
+      }
+
+      // ── Instance rows (repeatable only) ─────────────────────────
+      let instancesHtml = '';
+      if (isRepeat && isActive) {
+        instancesHtml = '<div class="mf-instances">'
+          + instances.map((instCost, idx) => {
+            const costEl = costs.length > 1
+              ? '<select class="mf-cost-select" data-id="' + item.id + '" data-idx="' + idx + '">'
+                + costs.map(v => '<option value="' + v + '"' + (v === instCost ? ' selected' : '') + '>' + v + ' pt</option>').join('')
+                + '</select>'
+              : '<span class="mf-instance-cost">' + instCost + ' pt' + (instCost !== 1 ? 's' : '') + '</span>';
+            return '<div class="mf-instance">'
+              + '<span class="mf-instance-label">#' + (idx + 1) + '</span>'
+              + costEl
+              + '<button class="mf-remove-btn" data-id="' + item.id + '" data-idx="' + idx + '" title="Remove">×</button>'
+              + '</div>';
+          }).join('')
+          + '</div>';
+      }
+
+      // ── Add button (repeatable only) ────────────────────────────
+      const addBtn = isRepeat
+        ? '<button class="mf-add-btn" data-id="' + item.id + '">'
+          + (isActive ? '+ Add Another' : '+ Take') + '</button>'
         : '';
-      return '<div class="mf-card' + (isActive ? ' mf-active' : '') + ' ' + catClass
-        + '" data-id="' + item.id + '" data-cost="' + cost[0] + '" data-kind="' + kind + '">'
+
+      return '<div class="mf-card'
+        + (isActive   ? ' mf-active'    : '')
+        + (isRepeat   ? ' mf-repeatable': '')
+        + ' ' + catClass
+        + '" data-id="' + item.id + '" data-kind="' + kind + '">'
         + '<div class="mf-card-top">'
         + '<span class="mf-card-name">' + item.name + '</span>'
-        + '<span class="mf-card-cost">' + (isActive ? (costSelect || chosen + ' pt') : costLabel) + '</span>'
+        + '<span class="mf-card-cost">' + costDisplay + '</span>'
         + '</div>'
         + '<div class="mf-card-desc">' + item.description + '</div>'
+        + instancesHtml
+        + addBtn
         + '<div class="mf-card-page">p. ' + item.page + '</div>'
         + '</div>';
     }).join('');
@@ -2044,8 +2785,20 @@ const Creator = {
 };
 
 /* ─── Bootstrap ──────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', () => {
-  App.showRoster();
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check if already logged in
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      const user = await r.json();
+      App.setUser(user);
+      App.showDashboard();
+    } else {
+      App.showPage('auth');
+    }
+  } catch {
+    App.showPage('auth');
+  }
 
   // Click any step in the sidebar to jump directly to it
   document.getElementById('step-list')?.addEventListener('click', e => {
