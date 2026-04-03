@@ -882,12 +882,23 @@ const Creator = {
     const builtinNames     = new Set(M20.ARCHETYPES.map(a => a.name));
     const isCustomNature   = !!(c.nature   && !builtinNames.has(c.nature));
     const isCustomDemeanor = !!(c.demeanor && !builtinNames.has(c.demeanor));
-    const archetypeOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${!isCustomNature && c.nature === a.name ? 'selected' : ''}>${a.name}</option>`).join('')
-      + `<option value="__custom__" ${isCustomNature ? 'selected' : ''}>Other (Custom)\u2026</option>`;
-    const demeanorOptions = M20.ARCHETYPES.map(a =>
-      `<option value="${a.name}" ${!isCustomDemeanor && c.demeanor === a.name ? 'selected' : ''}>${a.name}</option>`).join('')
-      + `<option value="__custom__" ${isCustomDemeanor ? 'selected' : ''}>Other (Custom)\u2026</option>`;
+
+    const archetypeCardGrid = (target, selectedVal, isCustom) => {
+      const cards = M20.ARCHETYPES.map(a => `
+        <div class="archetype-card ${!isCustom && selectedVal === a.name ? 'selected' : ''}"
+             data-archetype="${a.name}" data-target="${target}">
+          <div class="archetype-name">${a.name}</div>
+          <div class="archetype-wp">${a.willpower}</div>
+          <div class="archetype-desc">${a.description}</div>
+        </div>`).join('');
+      const customCard = `
+        <div class="archetype-card archetype-custom ${isCustom ? 'selected' : ''}"
+             data-archetype="__custom__" data-target="${target}">
+          <div class="archetype-name">Custom\u2026</div>
+          <div class="archetype-desc">Enter your own archetype name below.</div>
+        </div>`;
+      return `<div class="archetype-grid" id="${target}-archetype-grid">${cards}${customCard}</div>`;
+    };
     const conceptOptions = ['', ...M20.CONCEPTS].map(con =>
       `<option value="${con}" ${c.concept === con ? 'selected' : ''}>${con || '— choose or type below —'}</option>`).join('');
 
@@ -929,28 +940,30 @@ const Creator = {
     </div>
 
     <div class="ornate-divider">— Archetypes —</div>
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">
-      <strong style="color:var(--text-mid)">Nature</strong> is your true self — what drives you to regain Willpower.
-      <strong style="color:var(--text-mid)">Demeanor</strong> is how you present yourself to the world.
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:1rem">
+      <strong style="color:var(--text-mid)">Nature</strong> is your true self — fulfilling it is how you regain Willpower.
+      <strong style="color:var(--text-mid)">Demeanor</strong> is the face you show the world.
       <span class="page-ref">p. 267</span>
     </p>
-    <div class="form-grid">
-      <div class="form-group">
-        <label>Nature <span class="ref">p. 267</span></label>
-        <select id="f-nature"><option value="">— Select Nature —</option>${archetypeOptions}</select>
-        <input type="text" id="f-nature-custom" placeholder="Enter custom archetype name\u2026"
-          value="${isCustomNature ? c.nature : ''}"
-          style="margin-top:0.35rem${isCustomNature ? '' : ';display:none'}">
-        <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-top:0.3rem;font-style:italic"></div>
-      </div>
-      <div class="form-group">
-        <label>Demeanor <span class="ref">p. 267</span></label>
-        <select id="f-demeanor"><option value="">— Select Demeanor —</option>${demeanorOptions}</select>
-        <input type="text" id="f-demeanor-custom" placeholder="Enter custom archetype name\u2026"
-          value="${isCustomDemeanor ? c.demeanor : ''}"
-          style="margin-top:0.35rem${isCustomDemeanor ? '' : ';display:none'}">
-      </div>
-    </div>`;
+
+    <div class="archetype-section-header">
+      <span class="archetype-section-title">Nature <span class="page-ref">p. 267</span></span>
+      <span class="archetype-section-hint">Your true inner self — what fulfilling your Nature achieves</span>
+    </div>
+    ${archetypeCardGrid('nature', c.nature, isCustomNature)}
+    <input type="text" id="f-nature-custom" placeholder="Enter custom archetype name\u2026"
+      value="${isCustomNature ? c.nature : ''}"
+      style="margin-bottom:0.5rem${isCustomNature ? '' : ';display:none'}">
+    <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:1.5rem;font-style:italic"></div>
+
+    <div class="archetype-section-header">
+      <span class="archetype-section-title">Demeanor <span class="page-ref">p. 267</span></span>
+      <span class="archetype-section-hint">The mask you wear — does not affect Willpower recovery</span>
+    </div>
+    ${archetypeCardGrid('demeanor', c.demeanor, isCustomDemeanor)}
+    <input type="text" id="f-demeanor-custom" placeholder="Enter custom archetype name\u2026"
+      value="${isCustomDemeanor ? c.demeanor : ''}"
+      style="${isCustomDemeanor ? '' : 'display:none'}">`;
   },
 
   renderAffiliationSelector() {
@@ -1674,44 +1687,39 @@ const Creator = {
       conceptInp.addEventListener('input', () => { c.concept = conceptInp.value; });
     }
 
-    // Nature — standard archetype or custom freeform
-    const natureSel    = $('#f-nature', content);
-    const natureCustom = $('#f-nature-custom', content);
-    if (natureSel) {
-      natureSel.addEventListener('change', () => {
-        if (natureSel.value === '__custom__') {
-          natureCustom.style.display = '';
-          c.nature = natureCustom.value.trim() || '';
+    // Archetype cards — Nature and Demeanor
+    $$('.archetype-card', content).forEach(card => {
+      card.addEventListener('click', () => {
+        const target   = card.dataset.target;   // 'nature' or 'demeanor'
+        const value    = card.dataset.archetype;
+        const customEl = $(`#f-${target}-custom`, content);
+
+        // Update selection highlight
+        $$(`.archetype-card[data-target="${target}"]`, content)
+          .forEach(el => el.classList.remove('selected'));
+        card.classList.add('selected');
+
+        if (value === '__custom__') {
+          if (customEl) customEl.style.display = '';
+          c[target] = customEl ? customEl.value.trim() : '';
         } else {
-          natureCustom.style.display = 'none';
-          c.nature = natureSel.value;
+          if (customEl) customEl.style.display = 'none';
+          c[target] = value;
         }
-        this.updateNatureWillpower();
+        if (target === 'nature') this.updateNatureWillpower();
         this.updateFreebieDisplay();
       });
-    }
+    });
+
+    // Custom archetype text inputs
+    const natureCustom = $('#f-nature-custom', content);
     if (natureCustom) {
       natureCustom.addEventListener('input', () => {
         c.nature = natureCustom.value.trim();
         this.updateNatureWillpower();
       });
     }
-
-    // Demeanor — standard archetype or custom freeform
-    const demeanorSel    = $('#f-demeanor', content);
     const demeanorCustom = $('#f-demeanor-custom', content);
-    if (demeanorSel) {
-      demeanorSel.addEventListener('change', () => {
-        if (demeanorSel.value === '__custom__') {
-          demeanorCustom.style.display = '';
-          c.demeanor = demeanorCustom.value.trim() || '';
-        } else {
-          demeanorCustom.style.display = 'none';
-          c.demeanor = demeanorSel.value;
-        }
-        this.updateFreebieDisplay();
-      });
-    }
     if (demeanorCustom) {
       demeanorCustom.addEventListener('input', () => { c.demeanor = demeanorCustom.value.trim(); });
     }
