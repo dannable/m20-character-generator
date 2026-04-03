@@ -729,6 +729,7 @@ const Creator = {
 
   init() {
     this.step = 0;
+    this._lockedBaselines = null;
     this.char = this.defaultChar();
     this.editId = null;
     this.renderStep();
@@ -738,6 +739,7 @@ const Creator = {
 
   loadCharacter(char) {
     this.step = 0;
+    this._lockedBaselines = null;
     this.char = {
       ...this.defaultChar(),
       ...char,
