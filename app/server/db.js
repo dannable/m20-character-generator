@@ -108,6 +108,7 @@ db.exec(`
   try { db.exec(`ALTER TABLE characters ADD COLUMN ${col} TEXT DEFAULT '{}'`); } catch {}
 });
 try { db.exec(`ALTER TABLE characters ADD COLUMN user_id INTEGER`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN customArchetypes TEXT DEFAULT '[]'`); } catch {}
 
 // ── Seed admin user ──────────────────────────────────────────────────────────
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
