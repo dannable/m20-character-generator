@@ -444,8 +444,15 @@ const Auth = {
     const username = $('#reg-username').value.trim();
     const email    = $('#reg-email').value.trim();
     const password = $('#reg-password').value;
+    const confirm  = $('#reg-password-confirm').value;
     const errEl = $('#reg-error');
     errEl.style.display = 'none';
+    if (password !== confirm) {
+      errEl.textContent = 'Passwords do not match.';
+      errEl.style.display = 'block';
+      $('#reg-password-confirm').focus();
+      return;
+    }
     try {
       const r = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -965,8 +972,8 @@ const Creator = {
       <button class="btn-secondary" id="btn-show-custom-arch">＋ Create Custom Archetype</button>
       <div id="custom-archetype-form" style="display:none">
         <div class="custom-arch-fields">
-          <input id="f-custom-arch-name" placeholder="Archetype name\u2026" />
-          <input id="f-custom-arch-wp" placeholder="Willpower condition (optional)\u2026" />
+          <input type="text" id="f-custom-arch-name" placeholder="Archetype name\u2026" />
+          <input type="text" id="f-custom-arch-wp" placeholder="Willpower condition (optional)\u2026" />
           <textarea id="f-custom-arch-desc" placeholder="Description (optional)\u2026" rows="2"></textarea>
         </div>
         <div class="custom-arch-actions">
