@@ -286,6 +286,11 @@ const App = {
   },
 
   showPage(id) {
+    if (id !== 'auth' && !this.currentUser) {
+      $$('.page').forEach(p => p.classList.remove('active'));
+      $('#page-auth').classList.add('active');
+      return;
+    }
     $$('.page').forEach(p => p.classList.remove('active'));
     $(`#page-${id}`).classList.add('active');
     $$('.nav-btn').forEach(b => b.classList.remove('active'));
