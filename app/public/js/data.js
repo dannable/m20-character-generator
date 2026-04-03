@@ -136,7 +136,7 @@ const M20 = {
       name: 'Order of Hermes',
       shortName: 'Order of Hermes',
       description: 'Rigorous masters of High Magick and the Elemental Arts. Ceremonial magicians who encode reality in precise formulae, symbols, and structures.',
-      affinitySpheres: ['Forces'],
+      affinitySpheres: ['Forces', 'Life', 'Matter', 'Mind', 'Spirit'],
       paradigm: 'Reality obeys mathematical and symbolic laws. Through precise ritual and deep understanding of those laws, the mage commands the forces of creation.',
       page: 160,
     },
