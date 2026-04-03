@@ -195,7 +195,11 @@ const App = {
                 <td>
                   <span class="${u.role === 'admin' ? 'admin-badge' : ''}" style="${u.role !== 'admin' ? 'color:var(--text-dim);font-size:0.8rem' : ''}">${u.role}</span>
                 </td>
-                <td style="text-align:center">${u.character_count}</td>
+                <td style="text-align:center">
+                  ${u.character_count > 0
+                    ? `<button class="btn-ghost btn-sm" style="min-width:2rem" onclick="App.showUserCharacters(${u.id},'${u.username.replace(/'/g, "\\'")}')" title="View ${u.username}'s characters">${u.character_count}</button>`
+                    : '0'}
+                </td>
                 <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
                 <td>
                   <div class="admin-actions">
@@ -418,11 +422,36 @@ const App = {
     $('#modal-overlay').style.display = 'flex';
   },
 
+  async showUserCharacters(userId, username) {
+    // Reuse the modal — hide Confirm, relabel Cancel as Close
+    $('#modal-title').textContent = `${username}'s Characters`;
+    $('#modal-body').innerHTML = '<p style="color:var(--text-faint);font-style:italic;text-align:center;padding:1rem 0">Loading…</p>';
+    const confirmBtn = $('#modal-confirm');
+    if (confirmBtn) confirmBtn.style.display = 'none';
+    const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
+    if (cancelBtn) cancelBtn.textContent = 'Close';
+    $('#modal-overlay').style.display = 'flex';
+    try {
+      const r = await fetch(`/api/admin/users/${userId}/characters`);
+      if (!r.ok) throw new Error('Failed to load');
+      const { characters } = await r.json();
+      if (!characters.length) {
+        $('#modal-body').innerHTML = '<p style="color:var(--text-faint);text-align:center;padding:1.5rem 0">No characters yet.</p>';
+      } else {
+        $('#modal-body').innerHTML = `<div class="roster-grid" style="padding:0.25rem 0 0.5rem">${characters.map(c => this.renderCard(c)).join('')}</div>`;
+      }
+    } catch {
+      $('#modal-body').innerHTML = '<p style="color:var(--crimson);text-align:center">Failed to load characters.</p>';
+    }
+  },
+
   closeModal() {
     $('#modal-overlay').style.display = 'none';
-    // Reset confirm button to neutral state for next use
-    const btn = $('#modal-confirm');
-    if (btn) { btn.textContent = 'Confirm'; btn.className = 'btn-danger'; btn.onclick = null; }
+    // Reset confirm button and cancel button to neutral state for next use
+    const confirmBtn = $('#modal-confirm');
+    if (confirmBtn) { confirmBtn.textContent = 'Confirm'; confirmBtn.className = 'btn-danger'; confirmBtn.onclick = null; confirmBtn.style.display = ''; }
+    const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
+    if (cancelBtn) cancelBtn.textContent = 'Cancel';
   },
 };
 

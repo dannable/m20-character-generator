@@ -24,6 +24,19 @@ router.get('/users', (req, res) => {
   res.json(users);
 });
 
+// GET /api/admin/users/:id/characters — all characters belonging to a user
+router.get('/users/:id/characters', (req, res) => {
+  const SUMMARY_COLS = `id, user_id, name, player, chronicle, concept, affiliation,
+    tradition, essence, arete, willpower, quintessence, created_at, updated_at`;
+  try {
+    const userId = parseInt(req.params.id);
+    const user = db.prepare(`SELECT id, username FROM users WHERE id = ?`).get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const characters = db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC`).all(userId);
+    res.json({ user, characters });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // PUT /api/admin/users/:id
 router.put('/users/:id', (req, res) => {
   const id = parseInt(req.params.id);
