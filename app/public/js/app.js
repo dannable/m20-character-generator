@@ -754,7 +754,12 @@ const Creator = {
   },
 
   renderStep() {
-    const content = $('#step-content');
+    // Replace the element with a fresh clone to clear any stacked event listeners
+    // from previous renders — otherwise delegated handlers accumulate and fire
+    // multiple times, causing toggles to cancel each other out.
+    const old = $('#step-content');
+    const content = old.cloneNode(false);
+    old.parentNode.replaceChild(content, old);
     content.innerHTML = this[`renderStep${this.step}`]();
     this.attachStepListeners();
     this.updateNav();
