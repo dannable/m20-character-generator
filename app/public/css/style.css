@@ -867,9 +867,6 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 0.75rem;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 0.25rem;
 }
 
 .tradition-card {
@@ -2438,6 +2435,173 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .custom-arch-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+/* ─── View Toggle Buttons ────────────────────────────────── */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.view-toggle-label {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  margin-right: 0.15rem;
+}
+
+.view-toggle-btn {
+  font-size: 0.7rem;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.view-toggle-btn:hover {
+  border-color: var(--border-mid);
+  color: var(--text-mid);
+}
+
+.view-toggle-btn.vt-active {
+  border-color: var(--gold-mid);
+  color: var(--gold-bright);
+  background: var(--gold-faint);
+}
+
+/* ─── Archetype List View ────────────────────────────────── */
+.archetype-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.2rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .archetype-list { grid-template-columns: 1fr; }
+}
+
+.archetype-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.archetype-list-row:hover {
+  border-color: var(--border-mid);
+  background: var(--bg-hover);
+}
+
+.archetype-list-row.nd-nature {
+  border-color: var(--gold-dim);
+  background: var(--gold-faint);
+}
+
+.archetype-list-row.nd-demeanor {
+  border-color: var(--purple-dim);
+  background: var(--purple-faint);
+}
+
+.archetype-list-row.nd-nature.nd-demeanor {
+  border-color: var(--gold-mid);
+  background: linear-gradient(135deg, var(--gold-faint) 50%, var(--purple-faint) 100%);
+}
+
+.archetype-list-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-mid);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archetype-list-row.nd-nature .archetype-list-name      { color: var(--gold-bright); }
+.archetype-list-row.nd-demeanor .archetype-list-name    { color: var(--purple-bright); }
+.archetype-list-row.nd-nature.nd-demeanor .archetype-list-name { color: var(--gold-bright); }
+
+/* Tooltip for archetype list rows — opens leftward to stay on screen */
+.archetype-list-row .info-tip::after {
+  left: auto;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 230px;
+}
+
+/* ─── Merits & Flaws List View ───────────────────────────── */
+.mf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  padding: 0.4rem 0;
+}
+
+.mf-list .mf-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 4px;
+}
+
+.mf-list .mf-card-top {
+  flex: 1;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.mf-list .mf-card-desc,
+.mf-list .mf-card-page {
+  display: none;
+}
+
+/* Hover tooltip for description in list mode */
+.mf-list .mf-card::after {
+  content: attr(data-desc);
+  position: fixed;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-mid);
+  width: 250px;
+  z-index: 200;
+  white-space: normal;
+  line-height: 1.4;
+  font-family: var(--font-body);
+  pointer-events: none;
+  display: none;
+  right: 1rem;
+  top: auto;
+  transform: none;
+}
+
+.mf-list .mf-card:hover::after {
+  display: block;
+}
+
+/* Keep instances and add-button visible in list mode */
+.mf-list .mf-instances {
+  width: 100%;
+  margin: 0.2rem 0 0;
+}
+
+.mf-list .mf-add-btn {
+  width: 100%;
+  margin-top: 0.2rem;
 }
 
 @media (max-width: 900px) {

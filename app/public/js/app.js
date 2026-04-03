@@ -93,6 +93,25 @@ const API = {
   },
 };
 
+// Per-user UI preferences stored in localStorage (persists across logins on this device)
+const UiPrefs = {
+  _key() { return `m20-ui-prefs-${App.currentUser?.id || 'guest'}`; },
+  get(key, defaultVal = null) {
+    try {
+      const prefs = JSON.parse(localStorage.getItem(this._key()) || '{}');
+      return key in prefs ? prefs[key] : defaultVal;
+    } catch { return defaultVal; }
+  },
+  set(key, val) {
+    try {
+      const k = this._key();
+      const prefs = JSON.parse(localStorage.getItem(k) || '{}');
+      prefs[key] = val;
+      localStorage.setItem(k, JSON.stringify(prefs));
+    } catch {}
+  },
+};
+
 /* ═══════════════════════════════════════════════════════════════
    APP — Page routing & roster
    ═══════════════════════════════════════════════════════════════ */
@@ -957,12 +976,29 @@ const Creator = {
       ...c.customArchetypes.map(ca => ({ ...ca, isCustom: true })),
     ];
 
+    const archView = UiPrefs.get('archetypeView', 'card');
+
     const archetypeCards = allArchetypes.map(a => {
       const isNature   = c.nature   === a.name;
       const isDemeanor = c.demeanor === a.name;
       const deleteBtn  = a.isCustom
         ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">\u00d7</button>`
         : '';
+      if (archView === 'list') {
+        const classes = ['archetype-list-row', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
+        const tipParts = [a.description, a.willpower ? `Willpower: ${a.willpower}` : ''].filter(Boolean);
+        const tipAttr  = tipParts.length ? ` data-tip="${tipParts.join(' \u00b7 ').replace(/"/g, '&quot;')}"` : '';
+        return `
+          <div class="${classes}" data-archetype="${a.name}">
+            <div class="archetype-nd-row" style="margin-bottom:0;flex-shrink:0">
+              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
+              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+              ${deleteBtn}
+            </div>
+            <span class="archetype-list-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}</span>
+            ${tipParts.length ? `<span class="info-tip"${tipAttr}>?</span>` : ''}
+          </div>`;
+      }
       const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
       return `
         <div class="${classes}" data-archetype="${a.name}">
@@ -1025,8 +1061,15 @@ const Creator = {
     <div class="archetype-nd-legend">
       <span id="archetype-nd-legend-nature"><span class="nd-legend-n">N</span> Nature${c.nature ? ` \u2014 <em>${c.nature}</em>` : ''}</span>
       <span id="archetype-nd-legend-demeanor"><span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` \u2014 <em>${c.demeanor}</em>` : ''}</span>
+      <span style="margin-left:auto">
+        <span class="view-toggle">
+          <span class="view-toggle-label">View:</span>
+          <button class="view-toggle-btn${archView === 'card' ? ' vt-active' : ''}" data-pref="archetypeView" data-val="card" title="Card view">⊞ Cards</button>
+          <button class="view-toggle-btn${archView === 'list' ? ' vt-active' : ''}" data-pref="archetypeView" data-val="list" title="List view">☰ List</button>
+        </span>
+      </span>
     </div>
-    <div class="archetype-grid" id="archetype-grid">
+    <div class="${archView === 'list' ? 'archetype-list' : 'archetype-grid'}" id="archetype-grid">
       ${archetypeCards}
     </div>
     <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:0.75rem;font-style:italic"></div>
@@ -1460,6 +1503,7 @@ const Creator = {
     // Lock baselines if not already locked (e.g. when editing an existing character)
     if (!this._lockedBaselines) this._lockBaselines();
     const lb = this._lockedBaselines;
+    const mfView = UiPrefs.get('mfView', 'card');
 
     // Helper: greedily assign creation pool dots to traits (lowest-value first)
     // Used only as fallback; normally locked baselines are used directly.
@@ -1667,6 +1711,11 @@ const Creator = {
       <div id="fb-spheres" class="fb-group">${sphereSection}</div>
     </details>
 
+    <div class="view-toggle" style="margin: 0.75rem 0 0.25rem">
+      <span class="view-toggle-label">Merits &amp; Flaws view:</span>
+      <button class="view-toggle-btn${mfView === 'card' ? ' vt-active' : ''}" data-pref="mfView" data-val="card" title="Card view">⊞ Cards</button>
+      <button class="view-toggle-btn${mfView === 'list' ? ' vt-active' : ''}" data-pref="mfView" data-val="list" title="List view">☰ List</button>
+    </div>
     <!-- ── Merits ── -->
     <details class="fb-details mf-details">
       <summary class="fb-details-summary">
@@ -1674,7 +1723,7 @@ const Creator = {
         <span class="fb-details-hint">cost freebie points &middot; <span class="page-ref">p. 340</span></span>
       </summary>
       <div class="fb-section-note">Click a merit to add it; click again to remove. Each costs its listed freebie point value.</div>
-      <div id="fb-merits" class="mf-grid"></div>
+      <div id="fb-merits" class="${mfView === 'list' ? 'mf-list' : 'mf-grid'}"></div>
     </details>
 
     <!-- ── Flaws ── -->
@@ -1684,7 +1733,7 @@ const Creator = {
         <span class="fb-details-hint">grant bonus freebie points (max +7) &middot; <span class="page-ref">p. 350</span></span>
       </summary>
       <div class="fb-section-note">Taking a flaw grants you bonus freebie points equal to its cost. Maximum +7 pts from flaws total. Click to toggle.</div>
-      <div id="fb-flaws" class="mf-grid"></div>
+      <div id="fb-flaws" class="${mfView === 'list' ? 'mf-list' : 'mf-grid'}"></div>
     </details>
 
     <!-- ── Notes ── -->
@@ -1890,6 +1939,14 @@ const Creator = {
         this.renderStep();
         return;
       }
+    });
+
+    // View toggle buttons (archetype view, mf view)
+    $$('.view-toggle-btn[data-pref]', content).forEach(btn => {
+      btn.addEventListener('click', () => {
+        UiPrefs.set(btn.dataset.pref, btn.dataset.val);
+        this.renderStep();
+      });
     });
 
     // Essence cards
@@ -2546,6 +2603,26 @@ const Creator = {
         c.updateFreebieBank();
       });
     });
+
+    // M&F and other view toggle buttons in step 6
+    $$('.view-toggle-btn[data-pref]', content).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pref = btn.dataset.pref;
+        const val  = btn.dataset.val;
+        UiPrefs.set(pref, val);
+        // Update button active states
+        $$('.view-toggle-btn[data-pref="' + pref + '"]', content).forEach(b => {
+          b.classList.toggle('vt-active', b.dataset.val === val);
+        });
+        // Update the mf container classes and re-render cards
+        const newClass = val === 'list' ? 'mf-list' : 'mf-grid';
+        ['fb-merits', 'fb-flaws'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.className = newClass;
+        });
+        this.updateMFDisplay();
+      });
+    });
   },
 
   // Refresh a single fb-row's dots and cost display in place.
@@ -2853,11 +2930,12 @@ const Creator = {
           + (isActive ? '+ Add Another' : '+ Take') + '</button>'
         : '';
 
+      const safeDesc = (item.description || '').replace(/"/g, '&quot;');
       return '<div class="mf-card'
         + (isActive   ? ' mf-active'    : '')
         + (isRepeat   ? ' mf-repeatable': '')
         + ' ' + catClass
-        + '" data-id="' + item.id + '" data-kind="' + kind + '">'
+        + '" data-id="' + item.id + '" data-kind="' + kind + '" data-desc="' + safeDesc + '">'
         + '<div class="mf-card-top">'
         + '<span class="mf-card-name">' + item.name + '</span>'
         + '<span class="mf-card-cost">' + costDisplay + '</span>'
