@@ -351,6 +351,19 @@ const App = {
     this.showPage('auth');
   },
 
+  showAbout() {
+    // About is accessible without login — bypass the auth guard in showPage
+    $$('.page').forEach(p => p.classList.remove('active'));
+    $('#page-about').classList.add('active');
+    $$('.nav-btn').forEach(b => b.classList.remove('active'));
+    $('#nav-about').classList.add('active');
+    if (!this._popping) {
+      const state = { page: 'about' };
+      if (history.state === null) history.replaceState(state, '', location.pathname);
+      else history.pushState(state, '', location.pathname);
+    }
+  },
+
   showPage(id) {
     if (id !== 'auth' && !this.currentUser) {
       $$('.page').forEach(p => p.classList.remove('active'));
@@ -364,6 +377,7 @@ const App = {
     if (id === 'roster')    $('#nav-roster').classList.add('active');
     if (id === 'creator')   $('#nav-create').classList.add('active');
     if (id === 'admin')     $('#nav-admin').classList.add('active');
+    if (id === 'about')     $('#nav-about').classList.add('active');
     // Push browser history state (skip during popstate restoration)
     if (!this._popping && id !== 'auth') {
       const state = { page: id };
@@ -3253,6 +3267,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         await App.showDashboard();
       } else if (state.page === 'admin') {
         App.showPage('admin');
+      } else if (state.page === 'about') {
+        App.showAbout();
       }
     } finally {
       App._popping = false;
