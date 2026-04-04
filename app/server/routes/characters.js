@@ -4,7 +4,7 @@ const db      = require('../db');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
-  'customArchetypes'];
+  'customArchetypes','custom_ability_names'];
 
 function parseCharacter(row) {
   if (!row) return null;

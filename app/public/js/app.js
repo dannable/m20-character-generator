@@ -112,12 +112,16 @@ const UiPrefs = {
   },
 };
 
+// Abilities that require a specialty from 1 dot (M20 "Well-Skilled Craftsman" p. 279)
+const GENERAL_ABILITY_IDS = new Set(['art', 'crafts', 'academics', 'esoterica', 'science']);
+
 /* ═══════════════════════════════════════════════════════════════
    APP — Page routing & roster
    ═══════════════════════════════════════════════════════════════ */
 const App = {
   currentCharId: null,
   currentUser: null,
+  _popping: false,
 
   setUser(user) {
     this.currentUser = user;
@@ -134,6 +138,15 @@ const App = {
       $('#nav-admin').style.display = 'none';
       $('#admin-badge').style.display = 'none';
     }
+    // Apply user's saved theme preference (UiPrefs key uses currentUser.id, set before calling)
+    const savedTheme = UiPrefs.get('theme', null);
+    if (savedTheme) {
+      this.applyTheme(savedTheme);
+    } else {
+      // No per-user pref — keep whatever the device-level m20-theme is
+      const current = document.documentElement.getAttribute('data-theme');
+      this._updateThemeBtn(current === 'light' ? 'light' : 'dark');
+    }
   },
 
   clearUser() {
@@ -143,6 +156,36 @@ const App = {
       $(`#${id}`).style.display = 'none';
     });
     $('#admin-badge').style.display = 'none';
+  },
+
+  applyTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    try { localStorage.setItem('m20-theme', theme || 'dark'); } catch(e) {}
+    this._updateThemeBtn(theme);
+  },
+
+  toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    this.applyTheme(next);
+    // Persist per-user if logged in
+    if (this.currentUser) UiPrefs.set('theme', next);
+  },
+
+  _updateThemeBtn(theme) {
+    const btn = $('#btn-theme');
+    if (!btn) return;
+    if (theme === 'light') {
+      btn.textContent = '☀';
+      btn.title = 'Switch to dark mode';
+    } else {
+      btn.textContent = '☽';
+      btn.title = 'Switch to light mode';
+    }
   },
 
   async showDashboard() {
@@ -321,6 +364,22 @@ const App = {
     if (id === 'roster')    $('#nav-roster').classList.add('active');
     if (id === 'creator')   $('#nav-create').classList.add('active');
     if (id === 'admin')     $('#nav-admin').classList.add('active');
+    // Push browser history state (skip during popstate restoration)
+    if (!this._popping && id !== 'auth') {
+      const state = { page: id };
+      if (id === 'sheet' && this.currentCharId) state.charId = this.currentCharId;
+      if (id === 'creator') {
+        if (Creator.editId) state.charId = Creator.editId;
+        state.step = Creator.step || 0;
+      }
+      // Use replaceState on the very first navigation so there is no blank
+      // "before the app" entry in the stack — subsequent navigations push normally.
+      if (history.state === null) {
+        history.replaceState(state, '', location.pathname);
+      } else {
+        history.pushState(state, '', location.pathname);
+      }
+    }
   },
 
   async showRoster() {
@@ -725,6 +784,16 @@ const Sheet = {
   deleteCharacter() {
     if (this.char) App.confirmDelete(this.char.id, this.char.name);
   },
+
+  exportPDF() {
+    if (!this.char) return;
+    window.location.href = `/api/export/pdf/${this.char.id}`;
+  },
+
+  exportFoundry() {
+    if (!this.char) return;
+    window.location.href = `/api/export/foundry/${this.char.id}`;
+  },
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -771,6 +840,7 @@ const Creator = {
       attr_priority: ['Physical', 'Social', 'Mental'],
       ability_priority: ['Talents', 'Skills', 'Knowledges'],
       specialties: {},
+      custom_ability_names: {},
       customArchetypes: [],
     };
   },
@@ -798,6 +868,7 @@ const Creator = {
         ? char.ability_priority : ['Talents', 'Skills', 'Knowledges'],
     };
     this.editId = char.id;
+    if (!this.char.custom_ability_names) this.char.custom_ability_names = {};
     this.renderStep();
     this.updateSidebar();
     this.updateFreebieDisplay();
@@ -886,6 +957,10 @@ const Creator = {
       this.step++;
       if (this.step === 6) this._lockBaselines(); // lock creation baselines on entering step 6
       this.renderStep();
+      // Push a history entry so the browser back button steps back through creation
+      const stepState = { page: 'creator', step: this.step };
+      if (this.editId) stepState.charId = this.editId;
+      history.pushState(stepState, '', location.pathname);
     } else {
       this.saveCharacter();
     }
@@ -919,11 +994,18 @@ const Creator = {
     const attrs = {};
     ['Physical','Social','Mental'].forEach(cat => Object.assign(attrs, greedy(attrGroups[cat], id => c[id]||1, attrAllocs[cat], 1)));
 
-    const abilGroups = { Talents:{key:'talents',data:M20.TALENTS}, Skills:{key:'skills',data:M20.SKILLS}, Knowledges:{key:'knowledges',data:M20.KNOWLEDGES} };
+    const abilGroups = {
+      Talents:    { key:'talents',    data:M20.TALENTS,    sec:M20.SECONDARY_TALENTS },
+      Skills:     { key:'skills',     data:M20.SKILLS,     sec:M20.SECONDARY_SKILLS },
+      Knowledges: { key:'knowledges', data:M20.KNOWLEDGES, sec:M20.SECONDARY_KNOWLEDGES },
+    };
     const abilities = {};
     ['Talents','Skills','Knowledges'].forEach(cat => {
-      const {key,data} = abilGroups[cat];
-      Object.assign(abilities, greedy(data.map(a=>a.id), id => c[key][id]||0, abilAllocs[cat], 0));
+      const {key, data, sec} = abilGroups[cat];
+      const secIds  = sec.map(a=>a.id).filter(id => c[key][id] !== undefined);
+      const custIds = Object.keys(c.custom_ability_names || {}).filter(id => c[key][id] !== undefined);
+      const allIds  = [...data.map(a=>a.id), ...secIds, ...custIds];
+      Object.assign(abilities, greedy(allIds, id => c[key][id]||0, abilAllocs[cat], 0));
     });
 
     const bgAff = c.affiliation || 'Traditions';
@@ -970,6 +1052,7 @@ const Creator = {
         char = await API.create(this.char);
         toast('Character created. The Awakening is complete.');
       }
+      App.currentCharId = char.id;
       Sheet.render(char);
       App.showPage('sheet');
     } catch { toast('Failed to save character.', 'error'); }
@@ -1229,15 +1312,23 @@ const Creator = {
       { primary: 13, secondary: 9, tertiary: 5 }
     );
 
-    const abilityRow = (a, key, isSecondary = false) => {
-      const val     = c[key][a.id] || 0;
-      const specRow = `<div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
+    const abilityRow = (a, key, isSecondary = false, isCustom = false) => {
+      const val       = c[key][a.id] || 0;
+      const isGeneral = GENERAL_ABILITY_IDS.has(a.id);
+      const specThreshold = isGeneral ? 1 : 4;
+      const levelDesc = (val > 0 && a.levels) ? a.levels[val - 1]
+                      : (val > 0 ? a.description : '');
+      const wscLabel  = isGeneral
+        ? `<div class="wsc-label">Free Specialty <span class="wsc-rule">Well-Skilled Craftsman · p. 279</span></div>`
+        : '';
+      const specRow = `<div class="specialty-row" ${val < specThreshold ? 'style="display:none"' : ''}>
+            ${wscLabel}
             <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
               placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
             <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
           </div>`;
-      const removeBtn = isSecondary
-        ? `<button class="btn-remove-secondary" data-ability-id="${a.id}" data-category="${key}" title="Remove ${a.name}">\u00d7</button>`
+      const removeBtn = (isSecondary || isCustom)
+        ? `<button class="btn-remove-secondary${isCustom ? ' btn-remove-custom' : ''}" data-ability-id="${a.id}" data-category="${key}" title="Remove ${a.name}">\u00d7</button>`
         : '';
       return `
         <div class="attr-row${isSecondary ? ' secondary-ability-row' : ''}" data-ability="${a.id}" data-category="${key}">
@@ -1247,7 +1338,7 @@ const Creator = {
                 ${isSecondary ? '<span class="secondary-badge">Secondary</span>' : ''}
                 <span class="info-tip" data-tip="${a.description}">?</span>
               </div>
-              <div class="attr-desc">${a.description}</div>
+              <div class="attr-desc">${levelDesc}</div>
             </div>
             <div style="display:flex;align-items:center;gap:0.4rem">
               ${dotsClickable(val, 3, null, '')}
@@ -1268,17 +1359,27 @@ const Creator = {
 
       const rank      = pri.indexOf(cat);
       const total     = [13, 9, 5][rank] || 0;
-      // Only primary abilities count against the creation point pool
-      const used      = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
-      const remaining = total - used;
+      // Primary + secondary + custom abilities all draw from the same creation pool
+      const primaryUsed = data.reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
+      const secUsed     = secAll.filter(a => c[key][a.id] !== undefined)
+                                .reduce((sum, a) => sum + (c[key][a.id] || 0), 0);
+      const custIds     = Object.keys(c.custom_ability_names || {}).filter(id => c[key][id] !== undefined);
+      const custUsed    = custIds.reduce((sum, id) => sum + (c[key][id] || 0), 0);
+      const used        = primaryUsed + secUsed + custUsed;
+      const remaining   = total - used;
 
-      const adderHtml = secAvailable.length > 0 ? `
+      const adderHtml = `
+        ${secAvailable.length > 0 ? `
         <div class="secondary-ability-adder">
           <select class="secondary-add-select" data-category="${key}">
             <option value="">\uff0b Add Secondary Ability\u2026</option>
             ${secAvailable.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
           </select>
-        </div>` : '';
+        </div>` : ''}
+        <div class="secondary-ability-adder custom-ability-adder">
+          <input class="custom-ability-input" type="text" placeholder="\u270e Custom ability name\u2026" data-category="${key}" maxlength="40" />
+          <button class="btn-add-custom" data-category="${key}">\uff0b Add</button>
+        </div>`;
 
       return `
       <div class="attr-block">
@@ -1290,6 +1391,10 @@ const Creator = {
         </div>
         ${data.map(a => abilityRow(a, key, false)).join('')}
         ${secAdded.map(a => abilityRow(a, key, true)).join('')}
+        ${custIds.map(id => {
+          const name = (c.custom_ability_names || {})[id] || id;
+          return abilityRow({ id, name, levels: null, specialties: [], description: 'Custom ability' }, key, true, true);
+        }).join('')}
         ${adderHtml}
       </div>`;
     }).join('');
@@ -1562,7 +1667,7 @@ const Creator = {
     // Helper: dots row for the freebie panel
     // specOptions: array of suggestion strings (null = no specialty row)
     // currentSpec: currently saved specialty text for this trait
-    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '') => {
+    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '', specThreshold = 4) => {
       const spent     = Math.max(0, current - baseline) * costPer;
       const dotsHtml  = Array.from({length: max}, (_, i) => {
         const val = i + 1;
@@ -1576,7 +1681,7 @@ const Creator = {
         : `<span class="fb-cost-free">free</span>`;
       const dataAttr = stat ? `data-stat="${stat}"` : `data-fb-id="${id}"`;
       const specHtml = specOptions !== null
-        ? `<div class="specialty-row fb-specialty-row"${current < 4 ? ' style="display:none"' : ''}>` +
+        ? `<div class="specialty-row fb-specialty-row"${current < specThreshold ? ' style="display:none"' : ''}>` +
           `<input class="specialty-input" list="fb-spec-${id}" data-specialty-for="${id}" ` +
           `placeholder="Specialty\u2026" value="${currentSpec}">` +
           `<datalist id="fb-spec-${id}">${specOptions.map(s => `<option value="${s}">`).join('')}</datalist>` +
@@ -1624,14 +1729,25 @@ const Creator = {
       const rows  = g.data.map(a => {
         const cur = c[g.key][a.id] || 0;
         const baseline = lb.abilities[a.id] ?? 0;
-        return fbRow(a.id, a.name, cur, 5, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+        const specThreshold = GENERAL_ABILITY_IDS.has(a.id) ? 1 : 4;
+        return fbRow(a.id, a.name, cur, 5, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', specThreshold);
       }).join('');
-      // Secondary abilities that have been added — 3 pts/dot, no free baseline
+      // Secondary abilities — use locked baseline (may be > 0 if covered by allocation)
       const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
       const secRows  = addedSec.map(a => {
-        const cur = c[g.key][a.id] || 0;
+        const cur      = c[g.key][a.id] || 0;
+        const baseline = lb.abilities[a.id] ?? 0;
         const label = a.name + ' <span class="secondary-badge">Secondary</span>';
-        return fbRow(a.id, label, cur, 3, 0, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+        return fbRow(a.id, label, cur, 3, baseline, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '');
+      }).join('');
+      // Custom abilities — same as secondary
+      const custIds = Object.keys(c.custom_ability_names || {}).filter(id => c[g.key][id] !== undefined);
+      const custRows = custIds.map(id => {
+        const cur      = c[g.key][id] || 0;
+        const baseline = lb.abilities[id] ?? 0;
+        const name     = (c.custom_ability_names || {})[id] || id;
+        const label    = name + ' <span class="secondary-badge">Custom</span>';
+        return fbRow(id, label, cur, 3, baseline, 3, '3 pts/dot', null, [], c.specialties[id] || '');
       }).join('');
       return `
       <div class="fb-group">
@@ -1641,6 +1757,7 @@ const Creator = {
         </div>
         ${rows}
         ${secRows}
+        ${custRows}
       </div>`;
     }).join('');
 
@@ -1986,26 +2103,32 @@ const Creator = {
       });
     });
 
-    // Affiliation tabs
+    // Affiliation tabs — display only, never touch character data.
+    // Clicking a tab just shows that panel for browsing; the selection is
+    // committed only when a tradition card is actually clicked.
     $$('.affil-tab', content).forEach(tab => {
       tab.addEventListener('click', () => {
-        c.affiliation = tab.dataset.affil;
-        c.tradition = '';
-        c.affinity_sphere = '';
+        const panelId = tab.dataset.affil;
+        $$('.affil-tab', content).forEach(t => t.classList.toggle('active', t.dataset.affil === panelId));
+        $$('[id^="tradition-panel-"]', content).forEach(p => {
+          p.style.display = p.id.endsWith(panelId) ? 'grid' : 'none';
+        });
+      });
+    });
+
+    // Tradition cards — clicking a card commits both the tradition and the
+    // affiliation (so browsing other tabs never deselects a prior choice).
+    $$('.tradition-card', content).forEach(card => {
+      card.addEventListener('click', () => {
+        c.tradition  = card.dataset.tradition;
+        c.affiliation = card.dataset.type;           // Traditions / Technocracy / Disparates
+        $$('.tradition-card', content).forEach(t => t.classList.toggle('selected', t.dataset.tradition === c.tradition));
+        // Keep the active tab in sync with the chosen affiliation
         $$('.affil-tab', content).forEach(t => t.classList.toggle('active', t.dataset.affil === c.affiliation));
         $$('[id^="tradition-panel-"]', content).forEach(p => {
           p.style.display = p.id.endsWith(c.affiliation) ? 'grid' : 'none';
         });
-        $$('.tradition-card', content).forEach(t => t.classList.remove('selected'));
-      });
-    });
-
-    // Tradition cards
-    $$('.tradition-card', content).forEach(card => {
-      card.addEventListener('click', () => {
-        c.tradition = card.dataset.tradition;
-        $$('.tradition-card', content).forEach(t => t.classList.toggle('selected', t.dataset.tradition === c.tradition));
-        // Auto-set affinity sphere
+        // Auto-set affinity sphere if the tradition has exactly one
         const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY, ...M20.DISPARATES].find(t => t.name === c.tradition);
         if (trad?.affinitySpheres?.length === 1) c.affinity_sphere = trad.affinitySpheres[0];
         else c.affinity_sphere = '';
@@ -2092,11 +2215,22 @@ const Creator = {
             this.refreshDots(dotsEl, c[cat][id]);
             this.refreshAbilityPoints(block, cat);
             this.updateFreebieDisplay();
+            // Update level description in-place
+            const newVal = c[cat][id];
+            const allAbils = [...M20.TALENTS, ...M20.SKILLS, ...M20.KNOWLEDGES,
+                              ...M20.SECONDARY_TALENTS, ...M20.SECONDARY_SKILLS, ...M20.SECONDARY_KNOWLEDGES];
+            const abilDef = allAbils.find(a => a.id === id);
+            const descEl = attrRow.querySelector('.attr-desc');
+            if (descEl && abilDef) {
+              descEl.textContent = (newVal > 0 && abilDef.levels) ? abilDef.levels[newVal - 1]
+                                 : (newVal > 0 ? abilDef.description : '');
+            }
             // Show/hide specialty row
+            const specThreshold = GENERAL_ABILITY_IDS.has(id) ? 1 : 4;
             const specRow = attrRow.querySelector('.specialty-row');
             if (specRow) {
-              specRow.style.display = c[cat][id] >= 4 ? '' : 'none';
-              if (c[cat][id] < 4) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
+              specRow.style.display = newVal >= specThreshold ? '' : 'none';
+              if (newVal < specThreshold) { delete c.specialties[id]; const inp = specRow.querySelector('.specialty-input'); if (inp) inp.value = ''; }
             }
             return;
           }
@@ -2142,7 +2276,38 @@ const Creator = {
       if (!id || !cat) return;
       delete c[cat][id];
       delete c.specialties[id];
+      // Also remove from custom_ability_names if it's a custom ability
+      if (c.custom_ability_names && c.custom_ability_names[id]) {
+        delete c.custom_ability_names[id];
+      }
       this.renderStep();
+    });
+
+    // Custom ability — add (button click)
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('.btn-add-custom');
+      if (!btn) return;
+      const cat = btn.dataset.category;
+      const input = content.querySelector(`.custom-ability-input[data-category="${cat}"]`);
+      if (!input) return;
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      // Generate a unique ID
+      const id = 'cust_' + Date.now().toString(36);
+      if (!c.custom_ability_names) c.custom_ability_names = {};
+      c.custom_ability_names[id] = name;
+      c[cat][id] = 0;
+      this.renderStep();
+    });
+
+    // Custom ability — add on Enter key
+    content.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const input = e.target.closest('.custom-ability-input');
+      if (!input) return;
+      e.preventDefault();
+      const btn = content.querySelector(`.btn-add-custom[data-category="${input.dataset.category}"]`);
+      if (btn) btn.click();
     });
 
     // Background dots (step 3)
@@ -2428,10 +2593,11 @@ const Creator = {
         char[catKey][id] = cur === val ? Math.max(0, val-1) : Math.min(max, val);
         c.refreshFreebieRow(row, char[catKey][id]);
         // Show/hide specialty row
+        const specThreshold = GENERAL_ABILITY_IDS.has(id) ? 1 : 4;
         const specRow = row.nextElementSibling;
         if (specRow && specRow.classList.contains('fb-specialty-row')) {
-          specRow.style.display = char[catKey][id] >= 4 ? '' : 'none';
-          if (char[catKey][id] < 4) {
+          specRow.style.display = char[catKey][id] >= specThreshold ? '' : 'none';
+          if (char[catKey][id] < specThreshold) {
             delete char.specialties[id];
             const inp = specRow.querySelector('.specialty-input');
             if (inp) inp.value = '';
@@ -2763,22 +2929,33 @@ const Creator = {
         data.forEach(a => {
           total += Math.max(0, (c[key][a.id]||0) - (lb[a.id]??0)) * 2;
         });
-        // Secondary abilities: 3 pts/dot, no creation baseline
+        // Secondary abilities: use locked baseline (may be > 0 if covered by allocation)
         sec.filter(a => c[key][a.id] !== undefined).forEach(a => {
-          total += (c[key][a.id]||0) * 3;
+          total += Math.max(0, (c[key][a.id]||0) - (lb[a.id]??0)) * 3;
+        });
+        // Custom abilities: same as secondary
+        Object.keys(c.custom_ability_names || {}).filter(id => c[key][id] !== undefined).forEach(id => {
+          total += Math.max(0, (c[key][id]||0) - (lb[id]??0)) * 3;
         });
       });
     } else {
-      // Fallback: group-level calculation
+      // Fallback: group-level calculation (before step 6 baselines are locked)
       const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
       ['Talents','Skills','Knowledges'].forEach(cat => {
         const alloc = [13,9,5][pri.indexOf(cat)] ?? 0;
         const { key, data, sec } = groups[cat];
         const primaryUsed = data.reduce((s,a) => s + (c[key][a.id]||0), 0);
+        const addedSec    = sec.filter(a => c[key][a.id] !== undefined);
+        const secDots     = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
+        const custIds     = Object.keys(c.custom_ability_names || {}).filter(id => c[key][id] !== undefined);
+        const custDots    = custIds.reduce((s,id) => s + (c[key][id]||0), 0);
+        const nonPrimDots = secDots + custDots;
+        // Primary over-allocation: 2 pts/dot
         total += Math.max(0, primaryUsed - alloc) * 2;
-        const addedSec = sec.filter(a => c[key][a.id] !== undefined);
-        const secDots  = addedSec.reduce((s,a) => s + (c[key][a.id]||0), 0);
-        total += secDots * 3;
+        // Secondary/custom: consume remaining allocation first, then 3 pts/dot
+        const remainingAlloc = Math.max(0, alloc - primaryUsed);
+        const nonPrimOverAlloc = Math.max(0, nonPrimDots - remainingAlloc);
+        total += nonPrimOverAlloc * 3;
       });
     }
     return total;
@@ -2837,11 +3014,16 @@ const Creator = {
     if (!header) return;
     const c    = this.char;
     const data = cat === 'talents' ? M20.TALENTS : cat === 'skills' ? M20.SKILLS : M20.KNOWLEDGES;
+    const sec  = cat === 'talents' ? M20.SECONDARY_TALENTS : cat === 'skills' ? M20.SECONDARY_SKILLS : M20.SECONDARY_KNOWLEDGES;
     const pri  = c.ability_priority;
     const catLabel = cat === 'talents' ? 'Talents' : cat === 'skills' ? 'Skills' : 'Knowledges';
     const rank  = pri.indexOf(catLabel);
     const total = [13,9,5][rank] || 0;
-    const used  = data.reduce((s, a) => s + (c[cat][a.id] || 0), 0);
+    const primaryUsed = data.reduce((s, a) => s + (c[cat][a.id] || 0), 0);
+    const secUsed     = sec.filter(a => c[cat][a.id] !== undefined).reduce((s, a) => s + (c[cat][a.id] || 0), 0);
+    const custIds     = Object.keys(c.custom_ability_names || {}).filter(id => c[cat][id] !== undefined);
+    const custUsed    = custIds.reduce((s, id) => s + (c[cat][id] || 0), 0);
+    const used = primaryUsed + secUsed + custUsed;
     header.innerHTML = `<span class="pts">${total - used}</span> / ${total} pts · max 3 per ability`;
   },
 
@@ -3007,6 +3189,9 @@ const Creator = {
 
 /* ─── Bootstrap ──────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', async () => {
+  // Sync theme button icon with whatever the FOUC-prevention script applied
+  App._updateThemeBtn(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   // Check if already logged in
   try {
     const r = await fetch('/api/auth/me');
@@ -3029,6 +3214,44 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!isNaN(s) && s !== Creator.step) {
       Creator.step = s;
       Creator.renderStep();
+      // Push history so the back button can return to the previous step
+      const stepState = { page: 'creator', step: s };
+      if (Creator.editId) stepState.charId = Creator.editId;
+      history.pushState(stepState, '', location.pathname);
+    }
+  });
+
+  // Browser back/forward navigation
+  window.addEventListener('popstate', async (e) => {
+    const state = e.state;
+    if (!state || !App.currentUser) return;
+    App._popping = true;
+    try {
+      if (state.page === 'sheet' && state.charId) {
+        await App.viewCharacter(state.charId);
+      } else if (state.page === 'creator') {
+        const targetStep = state.step ?? 0;
+        // Re-load the character only if it's not already in memory or it's a different one
+        if (!Creator.char || (state.charId && Creator.editId !== state.charId)) {
+          if (state.charId) await App.editCharacter(state.charId);
+          else App.startNewCharacter();
+        } else {
+          App.showPage('creator');
+        }
+        // Override to the target step if different from what was just rendered
+        if (Creator.step !== targetStep) {
+          Creator.step = targetStep;
+          Creator.renderStep();
+        }
+      } else if (state.page === 'roster') {
+        await App.showRoster();
+      } else if (state.page === 'dashboard') {
+        await App.showDashboard();
+      } else if (state.page === 'admin') {
+        App.showPage('admin');
+      }
+    } finally {
+      App._popping = false;
     }
   });
 });

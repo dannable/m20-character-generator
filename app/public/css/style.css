@@ -50,6 +50,121 @@
   --font-ui:      'Cinzel', system-ui, sans-serif;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Light Mode — Aged parchment & ink, M20 manuscript aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+html[data-theme="light"] {
+  /* Backgrounds — warm vellum / aged parchment */
+  --bg-void:    #f3edd8;
+  --bg-deep:    #ece6d0;
+  --bg-surface: #e7e1cb;
+  --bg-raised:  #f0ead8;
+  --bg-hover:   #e2dcc8;
+  --bg-card:    #ede7d3;
+
+  /* Gold — deeper amber, legible on cream */
+  --gold-bright: #7a5808;
+  --gold-mid:    #9a7018;
+  --gold-dim:    #b89038;
+  --gold-faint:  #f0e6bc;
+
+  /* Purple — deep ink-violet, legible on cream */
+  --purple-bright: #4a1678;
+  --purple-mid:    #6832a8;
+  --purple-dim:    #8852c0;
+  --purple-faint:  #ece0f8;
+
+  /* Crimson */
+  --crimson:     #8c1515;
+  --crimson-dim: #fde8e8;
+
+  /* Text — warm dark ink */
+  --text-bright: #180e04;
+  --text-mid:    #2c1c0a;
+  --text-dim:    #543a20;
+  --text-faint:  #8a6a48;
+
+  /* Borders — warm paper tone */
+  --border-bright: #b8a07a;
+  --border-dim:    #d4c8a8;
+
+  /* Dots */
+  --dot-fill:   #9a7018;
+  --dot-empty:  #d4c8a8;
+  --dot-border: #b8a07a;
+
+  /* Shadows — warm, subtle */
+  --shadow-card: 0 2px 12px rgba(80,50,10,0.12), 0 1px 0 rgba(154,112,24,0.15) inset;
+  --shadow-glow: 0 0 20px rgba(154,112,24,0.2);
+}
+
+/* ── Light mode: element-level overrides for hardcoded values ── */
+html[data-theme="light"] body {
+  background-image:
+    radial-gradient(ellipse at 20% 0%,  rgba(104,50,168,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(154,112,24,0.04) 0%, transparent 50%);
+}
+
+html[data-theme="light"] #app-header {
+  background: linear-gradient(180deg, rgba(243,237,216,0.98) 0%, rgba(236,230,208,0.95) 100%);
+  box-shadow: 0 2px 12px rgba(80,50,10,0.18);
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg-deep); }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+html[data-theme="light"] .btn-primary { color: #f8f0d8; }
+
+html[data-theme="light"] .btn-danger {
+  color: var(--crimson);
+  background: var(--crimson-dim);
+}
+html[data-theme="light"] .btn-danger:hover { color: #f8e8e8; }
+
+html[data-theme="light"] .toast {
+  box-shadow: 0 4px 20px rgba(80,50,10,0.2);
+}
+html[data-theme="light"] .toast.error { color: var(--crimson); }
+
+html[data-theme="light"] .dot.filled {
+  box-shadow: 0 0 5px rgba(154,112,24,0.4);
+}
+html[data-theme="light"] .fb-row .dot.dot-freebie.filled {
+  box-shadow: 0 0 5px rgba(104,50,168,0.35);
+}
+html[data-theme="light"] .dots.sphere-dots .dot.filled {
+  box-shadow: 0 0 5px rgba(104,50,168,0.35);
+}
+
+html[data-theme="light"] #modal-overlay {
+  background: rgba(60,38,8,0.55);
+}
+html[data-theme="light"] .modal-box {
+  box-shadow: 0 20px 60px rgba(80,50,10,0.3);
+}
+
+html[data-theme="light"] .mf-instances {
+  background: rgba(154,112,24,0.06);
+}
+
+html[data-theme="light"] .priority-tertiary .priority-tier-badge {
+  background: rgba(20,80,20,0.08);
+  border-color: #5a9a5a;
+  color: #2a6a2a;
+}
+
+html[data-theme="light"] .archetype-delete-btn { color: var(--crimson); }
+
+html[data-theme="light"] .step-header-quote { color: var(--text-faint); }
+
+/* ─── Theme Toggle Button ────────────────────────────────────── */
+#btn-theme {
+  font-size: 1rem;
+  padding: 0.4rem 0.6rem;
+  line-height: 1;
+  min-width: 2.2rem;
+}
+
 /* ─── Reset & Base ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -784,10 +899,7 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   font-size: 0.78rem;
   color: var(--text-dim);
   font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 320px;
+  line-height: 1.4;
 }
 
 /* ─── Dot Rating ─────────────────────────────────────────────── */
@@ -1839,6 +1951,24 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   text-transform: uppercase;
 }
 
+/* Suppress generic "Specialty:" label when WSC label is present */
+.specialty-row:has(.wsc-label)::before { display: none; }
+
+/* Well-Skilled Craftsman free specialty label (M20 p. 279) */
+.wsc-label {
+  font-size: 0.68rem;
+  color: var(--gold-mid);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  font-family: var(--font-ui);
+}
+.wsc-rule {
+  color: var(--text-faint);
+  font-size: 0.62rem;
+  font-style: italic;
+  margin-left: 0.15rem;
+}
+
 .specialty-input {
   flex: 1;
   padding: 0.2rem 0.5rem;
@@ -2672,4 +2802,46 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .btn-remove-secondary:hover {
   opacity: 1;
   background: var(--crimson-dim);
+}
+
+/* Custom ability adder */
+.custom-ability-adder {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  border-top: 1px dashed var(--gold-dim, #5a4a20);
+  padding-top: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.custom-ability-input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: 1px dashed var(--gold-dim, #5a4a20);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.custom-ability-input:focus {
+  border-color: var(--gold-mid);
+}
+
+.btn-add-custom {
+  background: transparent;
+  border: 1px solid var(--gold-dim, #5a4a20);
+  color: var(--gold-mid);
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-add-custom:hover {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
 }
