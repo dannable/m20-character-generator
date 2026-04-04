@@ -128,8 +128,6 @@ const App = {
     $('#user-name').textContent = user.username;
     $('#user-info').style.display = 'flex';
     $('#nav-dashboard').style.display = '';
-    $('#nav-roster').style.display = '';
-    $('#nav-create').style.display = '';
     $('#nav-logout').style.display = '';
     if (user.role === 'admin') {
       $('#nav-admin').style.display = '';
@@ -152,7 +150,7 @@ const App = {
   clearUser() {
     this.currentUser = null;
     $('#user-info').style.display = 'none';
-    ['nav-dashboard','nav-roster','nav-create','nav-admin','nav-logout'].forEach(id => {
+    ['nav-dashboard','nav-admin','nav-logout'].forEach(id => {
       $(`#${id}`).style.display = 'none';
     });
     $('#admin-badge').style.display = 'none';
@@ -374,8 +372,6 @@ const App = {
     $(`#page-${id}`).classList.add('active');
     $$('.nav-btn').forEach(b => b.classList.remove('active'));
     if (id === 'dashboard') $('#nav-dashboard').classList.add('active');
-    if (id === 'roster')    $('#nav-roster').classList.add('active');
-    if (id === 'creator')   $('#nav-create').classList.add('active');
     if (id === 'admin')     $('#nav-admin').classList.add('active');
     if (id === 'about')     $('#nav-about').classList.add('active');
     // Push browser history state (skip during popstate restoration)
@@ -468,7 +464,6 @@ const App = {
       const char = await API.get(id);
       Creator.loadCharacter(char);
       this.showPage('creator');
-      $('#nav-create').classList.add('active');
     } catch (err) {
       toast('Failed to load character', 'error');
     }
