@@ -1471,21 +1471,25 @@ const Creator = {
     const builtinSet = new Set(M20.INSTRUMENTS);
     const customInstruments = selectedInstruments.filter(i => !builtinSet.has(i));
 
-    const instrumentRows = M20.INSTRUMENTS.map(inst => {
+    const builtinRows = M20.INSTRUMENTS.map(inst => {
       const checked = selectedInstruments.includes(inst);
       const safeId  = inst.replace(/[^a-zA-Z0-9]/g, '_');
-      return `
-      <label class="instrument-item ${checked ? 'checked' : ''}" for="inst-${safeId}">
+      return `<label class="instrument-item ${checked ? 'checked' : ''}" for="inst-${safeId}">
         <input type="checkbox" id="inst-${safeId}" value="${inst}" ${checked ? 'checked' : ''} />
         ${inst}
       </label>`;
     }).join('');
 
-    const customTags = customInstruments.map(inst => `
-      <span class="instrument-custom-tag">
+    const customRows = customInstruments.map(inst => {
+      const safeId = 'custom_' + inst.replace(/[^a-zA-Z0-9]/g, '_');
+      return `<label class="instrument-item instrument-item-custom checked" for="inst-${safeId}">
+        <input type="checkbox" id="inst-${safeId}" value="${inst}" checked data-custom="true" />
         ${inst}
         <button class="instrument-tag-remove" data-instrument="${inst.replace(/"/g, '&quot;')}" title="Remove">\u00d7</button>
-      </span>`).join('');
+      </label>`;
+    }).join('');
+
+    const instrumentRows = builtinRows + customRows;
 
     return `
     ${this.stepHeader('Step Five: Focus & Practice',
@@ -1510,13 +1514,9 @@ const Creator = {
       </p>
     </div>
     <div class="instrument-list">${instrumentRows}</div>
-
-    <div class="instrument-custom-section">
-      ${customTags.length ? `<div class="instrument-custom-tags">${customTags}</div>` : ''}
-      <div class="instrument-custom-adder">
-        <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
-        <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
-      </div>
+    <div class="instrument-custom-adder">
+      <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
+      <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
     </div>`;
   },
 
@@ -2428,18 +2428,22 @@ const Creator = {
       });
     });
 
-    // Instruments — standard checkboxes (step 4)
+    // Instruments — checkboxes (built-in toggle state; custom items re-render on uncheck)
     $$('.instrument-item input', content).forEach(inp => {
       inp.addEventListener('change', () => {
         const instruments = c.instruments || [];
         if (inp.checked) {
           if (!instruments.includes(inp.value)) instruments.push(inp.value);
+          c.instruments = instruments;
+          inp.closest('.instrument-item').classList.add('checked');
         } else {
-          const idx = instruments.indexOf(inp.value);
-          if (idx > -1) instruments.splice(idx, 1);
+          c.instruments = instruments.filter(i => i !== inp.value);
+          if (inp.dataset.custom) {
+            this.renderStep(); // custom items disappear when unchecked
+          } else {
+            inp.closest('.instrument-item').classList.remove('checked');
+          }
         }
-        c.instruments = instruments;
-        inp.closest('.instrument-item').classList.toggle('checked', inp.checked);
       });
     });
 
