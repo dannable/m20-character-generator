@@ -150,7 +150,7 @@ async function buildCharacterPDF(c) {
       color: filled ? ink.dark : undefined,
       borderColor: ink.dark, borderWidth: 0.5 });
   const DOTS = (x, y, val, max = 5, r = 2.5, sp = 7) => {
-    for (let i = 0; i < max; i++) CIRC(x + i * sp + r, y + r, i < val, r);
+    for (let i = 0; i < max; i++) CIRC(x + i * sp + r, y + r, r, i < val);
   };
   const SQR = (x, y, sz = 7) =>
     page.drawRectangle({ x, y, width: sz, height: sz, borderColor: ink.dark, borderWidth: 0.5 });
