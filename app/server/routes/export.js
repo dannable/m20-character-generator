@@ -9,7 +9,7 @@ const { PDFDocument, PDFName, PDFString } = require('pdf-lib');
 const TEMPLATE   = path.join('/data', 'template.pdf');
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
                      'instruments','freebie_spent','attr_priority','ability_priority',
-                     'merits','flaws','specialties'];
+                     'merits','flaws','specialties','custom_ability_names'];
 
 // Parse flat DB row — JSON fields become objects, everything else stays as-is
 function parseRow(row) {
@@ -56,24 +56,35 @@ function setDropdown(form, name, value) {
   setChoice(form, name, value);
 }
 
-// Fill N filled dots starting at `startDot` (consecutive field numbers)
-function checkDots(form, startDot, value, count = 5) {
+// Fill N dot checkboxes starting at `startDot` using the given prefix
+function checkDots(form, startDot, value, count = 5, prefix = 'dot') {
   for (let i = 0; i < count; i++) {
     try {
-      const cb = form.getCheckBox(`dot${startDot + i}`);
+      const cb = form.getCheckBox(`${prefix}${startDot + i}`);
       if (i < value) cb.check(); else cb.uncheck();
     } catch (_) {}
   }
 }
 
-// ── Layout constants ──────────────────────────────────────────────────────────
+// ── Layout constants (confirmed from PDF field enumeration) ──────────────────
 
-// Dot-row start numbers for each group (consecutive within a row, step 8 between rows)
-const ATTR_DOT_STARTS   = [1, 9, 17, 25, 33, 41, 49, 57, 65];
-const BG_DOT_STARTS     = [385, 393, 401, 409, 414, 419];
+// Attributes: dot1–dot72 (consecutive, 8 per row, 5 active + 3 padding)
+const ATTR_DOT_STARTS = [1, 9, 17, 25, 33, 41, 49, 57, 65];
 
-function abilityDotStart(i)  { return 73  + i * 8; }  // 0-based, 0-29
-function sphereDotStart(i)   { return 313 + i * 8; }  // 0-based, 0-8
+// Talents (11): 8 before backgrounds, then 3 after
+const TALENT_DOT_STARTS    = [73, 81, 89, 97, 105, 113, 121, 129, 153, 161, 169];
+
+// Skills (11): 5 before backgrounds, then 6 after
+const SKILL_DOT_STARTS     = [177, 185, 193, 201, 209, 233, 241, 249, 257, 265, 273];
+
+// Knowledges (11): 2 before backgrounds, then 9 after
+const KNOWLEDGE_DOT_STARTS = [281, 289, 313, 321, 329, 337, 345, 353, 361, 369, 377];
+
+// Backgrounds: interleaved between ability columns (2 per column)
+const BG_DOT_STARTS        = [137, 145, 217, 225, 297, 305];
+
+// Spheres: use 'sdot' prefix, 5 consecutive per sphere, starting at 1
+const SPHERE_DOT_STARTS    = [1, 6, 11, 16, 21, 26, 31, 36, 41];
 
 // Attribute display order (Physical → Social → Mental)
 const ATTR_KEYS  = ['strength','dexterity','stamina',
@@ -139,7 +150,7 @@ const KNOWLEDGES = [
 ];
 
 // Pick up to `limit` slots: highest-value first, then standard order
-function selectAbilities(list, section, limit = 10) {
+function selectAbilities(list, section, limit = 11) {
   const valued = list.filter(a => (section[a.id] || 0) > 0)
                      .sort((a,b) => (section[b.id]||0) - (section[a.id]||0));
   const zeroes = list.filter(a => !(section[a.id] || 0));
@@ -199,8 +210,8 @@ const BG_OPTION_MAP = {
   spies:'Spies', status:'Status', totem:'Totem', wonder:'Wonder',
 };
 
-// ── Export route ──────────────────────────────────────────────────────────────
-router.get('/:id', async (req, res) => {
+// ── PDF Export route ──────────────────────────────────────────────────────────
+router.get('/pdf/:id', async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
 
@@ -211,7 +222,6 @@ router.get('/:id', async (req, res) => {
     if (user.role !== 'admin' && row.user_id !== req.session.userId)
       return res.status(403).json({ error: 'Forbidden' });
 
-    // Parse the flat row into a usable character object
     const c = parseRow(row);
 
     if (!fs.existsSync(TEMPLATE))
@@ -221,40 +231,47 @@ router.get('/:id', async (req, res) => {
     const form   = pdfDoc.getForm();
 
     // ── Identity ───────────────────────────────────────────────────────────
-    setText  (form, 'Name',       c.name);
-    setText  (form, 'Player',     c.player);
-    setText  (form, 'Chronicle',  c.chronicle);
-    setText  (form, 'concept',    c.concept);
+    setText(form, 'name',        c.name);
+    setText(form, 'player',      c.player       || '');
+    setText(form, 'chronicle',   c.chronicle     || '');
+    setText(form, 'concept',     c.concept       || '');
+    setText(form, 'affiliation', c.tradition     || '');
+    setText(form, 'sect',        c.tradition     || '');
     setDropdown(form, 'tradition', TRADITION_MAP[c.tradition] || c.tradition || '');
-    setDropdown(form, 'nature',    c.nature);
-    setDropdown(form, 'Demeanor',  c.demeanor);
-    setDropdown(form, 'essence',   c.essence);
+    setDropdown(form, 'nature',    c.nature       || '');
+    setDropdown(form, 'Demeanor',  c.demeanor     || '');
+    setDropdown(form, 'essence',   c.essence      || '');
 
-    // ── Attributes (direct integer columns) ───────────────────────────────
+    // ── Attributes ────────────────────────────────────────────────────────
     ATTR_KEYS.forEach((key, i) => {
-      setText  (form, `attrib${i + 1}`, ATTR_NAMES[i]);
-      checkDots(form, ATTR_DOT_STARTS[i], c[key] || 1);
+      setText  (form, `attributes${i + 1}`, ATTR_NAMES[i]);
+      checkDots(form, ATTR_DOT_STARTS[i],   c[key] || 1);
     });
 
-    // ── Abilities (JSON object columns) ───────────────────────────────────
+    // ── Abilities ─────────────────────────────────────────────────────────
     const talents    = c.talents    || {};
     const skills     = c.skills     || {};
     const knowledges = c.knowledges || {};
 
-    const rows = [
-      ...selectAbilities(TALENTS,    talents,    10),
-      ...selectAbilities(SKILLS,     skills,     10),
-      ...selectAbilities(KNOWLEDGES, knowledges, 10),
-    ];
-    const sections = [
-      ...selectAbilities(TALENTS,    talents,    10).map(() => talents),
-      ...selectAbilities(SKILLS,     skills,     10).map(() => skills),
-      ...selectAbilities(KNOWLEDGES, knowledges, 10).map(() => knowledges),
-    ];
+    selectAbilities(TALENTS, talents, 11).forEach((ab, i) => {
+      const spec = (c.specialties || {})[ab.id];
+      const label = spec ? `${ab.name} (${spec})` : ab.name;
+      setText  (form, `skills${i + 1}`,         label);
+      checkDots(form, TALENT_DOT_STARTS[i],      talents[ab.id] || 0);
+    });
 
-    rows.forEach((ab, i) => {
-      setText  (form, `abilities${i + 1}`, ab.name);
-      checkDots(form, abilityDotStart(i),  sections[i][ab.id] || 0);
+    selectAbilities(SKILLS, skills, 11).forEach((ab, i) => {
+      const spec = (c.specialties || {})[ab.id];
+      const label = spec ? `${ab.name} (${spec})` : ab.name;
+      setText  (form, `skills${i + 12}`,         label);
+      checkDots(form, SKILL_DOT_STARTS[i],        skills[ab.id] || 0);
+    });
+
+    selectAbilities(KNOWLEDGES, knowledges, 11).forEach((ab, i) => {
+      const spec = (c.specialties || {})[ab.id];
+      const label = spec ? `${ab.name} (${spec})` : ab.name;
+      setText  (form, `skills${i + 23}`,          label);
+      checkDots(form, KNOWLEDGE_DOT_STARTS[i],    knowledges[ab.id] || 0);
     });
 
     // ── Spheres ────────────────────────────────────────────────────────────
@@ -262,7 +279,7 @@ router.get('/:id', async (req, res) => {
     SPHERES.forEach((sp, i) => {
       const label = sp.id === c.affinity_sphere ? `${sp.name} *` : sp.name;
       setText  (form, `spheres${i + 1}`, label);
-      checkDots(form, sphereDotStart(i),  spheres[sp.id] || 0);
+      checkDots(form, SPHERE_DOT_STARTS[i], spheres[sp.id] || 0, 5, 'sdot');
     });
 
     // ── Backgrounds ────────────────────────────────────────────────────────
@@ -276,16 +293,18 @@ router.get('/:id', async (req, res) => {
         checkDots  (form, BG_DOT_STARTS[i],      val);
       });
 
-    // ── Merits & Flaws (stored as { id: cost } objects) ──────────────────────
-    Object.entries(c.merits || {}).slice(0, 7).forEach(([id, cost], i) => {
+    // ── Merits & Flaws ────────────────────────────────────────────────────
+    Object.entries(c.merits || {}).slice(0, 4).forEach(([id, cost], i) => {
       const name = MERIT_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
       setDropdown(form, `Merit${i + 1}`, name);
       setDropdown(form, `cost${i + 1}`,  `${cost} pt.`);
+      checkDots  (form, i * 5 + 1,       cost, 5, 'xdot');
     });
-    Object.entries(c.flaws || {}).slice(0, 7).forEach(([id, cost], i) => {
+    Object.entries(c.flaws || {}).slice(0, 4).forEach(([id, cost], i) => {
       const name = FLAW_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
       setDropdown(form, `flaw${i + 1}`,  name);
-      setDropdown(form, `cost${i + 8}`,  `${cost} pt.`);
+      setDropdown(form, `cost${i + 5}`,  `${cost} pt.`);
+      checkDots  (form, i * 5 + 1,       cost, 5, 'xdotm');
     });
 
     // ── Willpower ──────────────────────────────────────────────────────────
@@ -296,19 +315,23 @@ router.get('/:id', async (req, res) => {
       } catch (_) {}
     }
 
-    // ── Arete / Quintessence / Paradox fields ──────────────────────────────
-    setText(form, 'res1', String(c.arete        || 1));
-    setText(form, 'res2', String(c.quintessence || 0));
-    setText(form, 'res3', String(c.paradox      || 0));
+    // ── Arete (bpdot1–bpdot10 checkboxes) ─────────────────────────────────
+    for (let i = 1; i <= 10; i++) {
+      try {
+        const cb = form.getCheckBox(`bpdot${i}`);
+        if (i <= (c.arete || 1)) cb.check(); else cb.uncheck();
+      } catch (_) {}
+    }
 
-    // Quintessence pool track (qpcheck1-10)
+    // ── Quintessence pool (qpcheck1–10) ───────────────────────────────────
     for (let i = 1; i <= 10; i++) {
       try {
         const cb = form.getCheckBox(`qpcheck${i}`);
         if (i <= (c.quintessence || 0)) cb.check(); else cb.uncheck();
       } catch (_) {}
     }
-    // Paradox track (qpcheck11-20)
+
+    // ── Paradox track (qpcheck11–20) ──────────────────────────────────────
     for (let i = 1; i <= 10; i++) {
       try {
         const cb = form.getCheckBox(`qpcheck${i + 10}`);
@@ -316,7 +339,7 @@ router.get('/:id', async (req, res) => {
       } catch (_) {}
     }
 
-    // ── Notes / Description ────────────────────────────────────────────────
+    // ── Notes / Rotes ─────────────────────────────────────────────────────
     if (c.notes) {
       c.notes.split('\n').filter(Boolean).slice(0, 15)
         .forEach((ln, i) => setText(form, `rotes${i + 1}`, ln));
@@ -340,6 +363,351 @@ router.get('/:id', async (req, res) => {
     console.error('PDF export error:', err);
     res.status(500).json({ error: 'Export failed: ' + err.message });
   }
+});
+
+// ── Foundry VTT Export route ──────────────────────────────────────────────────
+router.get('/foundry/:id', async (req, res) => {
+  try {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+    const row = db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Character not found' });
+
+    const user = db.prepare('SELECT role FROM users WHERE id = ?').get(req.session.userId);
+    if (user.role !== 'admin' && row.user_id !== req.session.userId)
+      return res.status(403).json({ error: 'Forbidden' });
+
+    const c = parseRow(row);
+
+    const items = [];
+
+    // ── Helper to create a minimal item id ────────────────────────────────
+    const makeId = () => Math.random().toString(36).slice(2, 18).padEnd(16, '0');
+
+    // ── Abilities (talent / skill / knowledge) ────────────────────────────
+    const abilityTypeMap = {
+      // Talents
+      alertness:'wod.abilities.talent', art:'wod.abilities.talent',
+      athletics:'wod.abilities.talent', awareness:'wod.abilities.talent',
+      brawl:'wod.abilities.talent',     empathy:'wod.abilities.talent',
+      expression:'wod.abilities.talent',intimidation:'wod.abilities.talent',
+      leadership:'wod.abilities.talent',streetwise:'wod.abilities.talent',
+      subterfuge:'wod.abilities.talent',
+      // Skills
+      crafts:'wod.abilities.skill',     drive:'wod.abilities.skill',
+      etiquette:'wod.abilities.skill',  firearms:'wod.abilities.skill',
+      martialArts:'wod.abilities.skill',meditation:'wod.abilities.skill',
+      melee:'wod.abilities.skill',      research:'wod.abilities.skill',
+      stealth:'wod.abilities.skill',    survival:'wod.abilities.skill',
+      technology:'wod.abilities.skill',
+      // Knowledges
+      academics:'wod.abilities.knowledge',  computer:'wod.abilities.knowledge',
+      cosmology:'wod.abilities.knowledge',  enigmas:'wod.abilities.knowledge',
+      esoterica:'wod.abilities.knowledge',  investigation:'wod.abilities.knowledge',
+      law:'wod.abilities.knowledge',        medicine:'wod.abilities.knowledge',
+      occult:'wod.abilities.knowledge',     politics:'wod.abilities.knowledge',
+      science:'wod.abilities.knowledge',
+    };
+
+    const allAbilities = [...TALENTS, ...SKILLS, ...KNOWLEDGES];
+    const allSections  = [
+      ...TALENTS.map(a    => ({ section: c.talents    || {}, a })),
+      ...SKILLS.map(a     => ({ section: c.skills     || {}, a })),
+      ...KNOWLEDGES.map(a => ({ section: c.knowledges || {}, a })),
+    ];
+
+    allSections.forEach(({ section, a }) => {
+      const val  = section[a.id] || 0;
+      const spec = (c.specialties || {})[a.id] || '';
+      if (val === 0 && !spec) return; // skip zero-dot abilities with no specialty
+      items.push({
+        _id: makeId(),
+        name: a.name,
+        type: 'ability',
+        system: {
+          id:         a.id,
+          reference:  `wod.abilities.${a.id.toLowerCase()}`,
+          type:       abilityTypeMap[a.id] || 'wod.abilities.ability',
+          label:      `wod.abilities.${a.id.toLowerCase()}`,
+          value:      val,
+          bonus:      0,
+          total:      val,
+          max:        5,
+          speciality: spec,
+          description: '',
+          settings: {
+            isvisible:       true,
+            isfavorited:     false,
+            alwaysspeciality:false,
+            ismeleeweapon:   false,
+            israngedeweapon: false,
+            ispower:         false,
+          },
+        },
+      });
+    });
+
+    // ── Spheres ────────────────────────────────────────────────────────────
+    const spheres = c.spheres || {};
+    SPHERES.forEach(sp => {
+      const val = spheres[sp.id] || 0;
+      if (val === 0 && sp.id !== c.affinity_sphere) return;
+      items.push({
+        _id: makeId(),
+        name: sp.name,
+        type: 'sphere',
+        system: {
+          id:         sp.id,
+          reference:  `wod.spheres.${sp.id}`,
+          label:      `wod.spheres.${sp.id}`,
+          value:      val,
+          max:        5,
+          speciality: '',
+          description: '',
+          settings: {
+            isvisible:     true,
+            istechnocracy: false,
+          },
+        },
+      });
+    });
+
+    // ── Backgrounds ────────────────────────────────────────────────────────
+    const backgrounds = c.backgrounds || {};
+    Object.entries(backgrounds).filter(([,v]) => v > 0).forEach(([key, val]) => {
+      const displayName = BG_OPTION_MAP[key] || key.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      items.push({
+        _id: makeId(),
+        name: displayName,
+        type: 'advantage',
+        system: {
+          id:        key,
+          reference: `wod.advantages.backgrounds.${key.toLowerCase()}`,
+          type:      'wod.advantages.backgrounds',
+          group:     'backgrounds',
+          label:     `wod.advantages.backgrounds.${key.toLowerCase()}`,
+          permanent: val,
+          temporary: 0,
+          max:       5,
+          description: '',
+          settings: {
+            isvisible:    true,
+            usepermanent: true,
+            usetemporary: false,
+          },
+        },
+      });
+    });
+
+    // ── Willpower ──────────────────────────────────────────────────────────
+    items.push({
+      _id: makeId(),
+      name: 'Willpower',
+      type: 'advantage',
+      system: {
+        id:        'willpower',
+        reference: 'wod.advantages.willpower',
+        type:      'wod.advantages.willpower',
+        group:     'virtues',
+        label:     'wod.advantages.willpower',
+        permanent: c.willpower || 3,
+        temporary: c.willpower || 3,
+        max:       10,
+        description: '',
+        settings: {
+          isvisible:    true,
+          usepermanent: true,
+          usetemporary: true,
+        },
+      },
+    });
+
+    // ── Arete ──────────────────────────────────────────────────────────────
+    items.push({
+      _id: makeId(),
+      name: 'Arete',
+      type: 'advantage',
+      system: {
+        id:        'arete',
+        reference: 'wod.advantages.arete',
+        type:      'wod.advantages.mage',
+        group:     'mage',
+        label:     'wod.advantages.arete',
+        permanent: c.arete || 1,
+        temporary: 0,
+        max:       10,
+        description: '',
+        settings: {
+          isvisible:    true,
+          usepermanent: true,
+          usetemporary: false,
+        },
+      },
+    });
+
+    // ── Quintessence ───────────────────────────────────────────────────────
+    if ((c.quintessence || 0) > 0) {
+      items.push({
+        _id: makeId(),
+        name: 'Quintessence',
+        type: 'advantage',
+        system: {
+          id:        'quintessence',
+          reference: 'wod.advantages.quintessence',
+          type:      'wod.advantages.mage',
+          group:     'mage',
+          label:     'wod.advantages.quintessence',
+          permanent: c.quintessence || 0,
+          temporary: c.quintessence || 0,
+          max:       20,
+          description: '',
+          settings: {
+            isvisible:    true,
+            usepermanent: false,
+            usetemporary: true,
+          },
+        },
+      });
+    }
+
+    // ── Paradox ────────────────────────────────────────────────────────────
+    if ((c.paradox || 0) > 0) {
+      items.push({
+        _id: makeId(),
+        name: 'Paradox',
+        type: 'advantage',
+        system: {
+          id:        'paradox',
+          reference: 'wod.advantages.paradox',
+          type:      'wod.advantages.mage',
+          group:     'mage',
+          label:     'wod.advantages.paradox',
+          permanent: 0,
+          temporary: c.paradox || 0,
+          max:       20,
+          description: '',
+          settings: {
+            isvisible:    true,
+            usepermanent: false,
+            usetemporary: true,
+          },
+        },
+      });
+    }
+
+    // ── Merits & Flaws ────────────────────────────────────────────────────
+    Object.entries(c.merits || {}).forEach(([id, cost]) => {
+      const name = MERIT_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      items.push({
+        _id: makeId(),
+        name,
+        type: 'advantage',
+        system: {
+          id, reference: `wod.merits.${id}`,
+          type: 'wod.advantages.merits', group: 'merits', label: name,
+          permanent: cost, temporary: 0, max: 5, description: '',
+          settings: { isvisible: true, usepermanent: true, usetemporary: false },
+        },
+      });
+    });
+    Object.entries(c.flaws || {}).forEach(([id, cost]) => {
+      const name = FLAW_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      items.push({
+        _id: makeId(),
+        name,
+        type: 'advantage',
+        system: {
+          id, reference: `wod.flaws.${id}`,
+          type: 'wod.advantages.flaws', group: 'flaws', label: name,
+          permanent: cost, temporary: 0, max: 5, description: '',
+          settings: { isvisible: true, usepermanent: true, usetemporary: false },
+        },
+      });
+    });
+
+    // ── Build actor document ───────────────────────────────────────────────
+    const buildAttr = (key, type, sort) => ({
+      value:       c[key] || 1,
+      bonus:       0,
+      total:       c[key] || 1,
+      max:         5,
+      type,
+      label:       `wod.attributes.${key.toLowerCase()}`,
+      speciality:  '',
+      sort,
+      isvisible:   true,
+      isfavorited: false,
+    });
+
+    const actor = {
+      name:  c.name || 'Unnamed Mage',
+      type:  'mage',
+      img:   'icons/svg/mystery-man.svg',
+      system: {
+        bio: {
+          worldanvil: '',
+          name:        c.name        || '',
+          nature:      c.nature      || '',
+          demeanor:    c.demeanor    || '',
+          derangement: '',
+          concept:     c.concept     || '',
+          splatfields: {
+            tradition:   c.tradition    || '',
+            affiliation: c.tradition    || '',
+            essence:     c.essence      || '',
+            sect:        c.tradition    || '',
+          },
+          appearance:  c.description  || '',
+          background:  '',
+          notes:       c.notes        || '',
+          roleplaytip: '',
+        },
+        attributes: {
+          strength:     buildAttr('strength',     'physical', 1),
+          dexterity:    buildAttr('dexterity',    'physical', 2),
+          stamina:      buildAttr('stamina',       'physical', 3),
+          charisma:     buildAttr('charisma',      'social',   4),
+          manipulation: buildAttr('manipulation',  'social',   5),
+          appearance:   buildAttr('appearance',    'social',   6),
+          perception:   buildAttr('perception',    'mental',   8),
+          intelligence: buildAttr('intelligence',  'mental',   9),
+          wits:         buildAttr('wits',          'mental',  10),
+        },
+        soak: { bashing: 0, lethal: 0, aggravated: 0 },
+        initiative: { base: 0, bonus: 0, total: 0 },
+        conditions: { isignoringpain: false, isstunned: false, isfrenzy: false },
+        movement: {
+          walk:  { value: 7,  isactive: true },
+          jog:   { value: 14, isactive: true },
+          run:   { value: 21, isactive: true },
+          fly:   { value: 0,  isactive: false },
+          vjump: { value: 0,  isactive: true },
+          hjump: { value: 0,  isactive: true },
+        },
+        gear: { notes: '', money: { carried: 0, bank: 0 } },
+        favoriterolls: [],
+      },
+      items,
+    };
+
+    const safeName = (c.name || 'character').replace(/[^a-z0-9\-_. ]/gi, '_');
+    const json     = JSON.stringify(actor, null, 2);
+    res.set({
+      'Content-Type':        'application/json',
+      'Content-Disposition': `attachment; filename="${safeName} - Foundry Actor.json"`,
+      'Content-Length':      Buffer.byteLength(json),
+    });
+    res.end(json);
+
+  } catch (err) {
+    console.error('Foundry export error:', err);
+    res.status(500).json({ error: 'Export failed: ' + err.message });
+  }
+});
+
+// ── Legacy route compatibility (old /:id maps to PDF) ────────────────────────
+router.get('/:id', (req, res) => {
+  res.redirect(307, `/api/export/pdf/${req.params.id}`);
 });
 
 module.exports = router;

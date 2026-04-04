@@ -7,7 +7,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="/mage20.png" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script>
+    // Apply saved theme before first paint to prevent flash
+    (function() {
+      try {
+        var t = localStorage.getItem('m20-theme');
+        if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
 
@@ -43,6 +53,7 @@
       <button class="nav-btn" id="nav-logout" onclick="App.logout()" style="display:none;">
         <span class="nav-icon">↩</span> Sign Out
       </button>
+      <button class="nav-btn" id="btn-theme" onclick="App.toggleTheme()" title="Toggle light/dark mode">☽</button>
     </nav>
   </div>
 </header>
@@ -195,7 +206,7 @@
           <!-- Dynamically rendered -->
         </div>
         <div class="creator-nav">
-          <button class="btn-secondary" id="btn-back" onclick="Creator.prevStep()" style="display:none;">← Back</button>
+          <button class="btn-secondary" id="btn-back" onclick="history.back()" style="display:none;">← Back</button>
           <div class="creator-nav-right">
             <button class="btn-ghost" onclick="Creator.saveDraft()">Save Draft</button>
             <button class="btn-primary" id="btn-next" onclick="Creator.nextStep()">Next →</button>
@@ -213,6 +224,7 @@
       <div class="sheet-toolbar-right">
         <button class="btn-secondary" onclick="Sheet.editCharacter()">Edit Character</button>
         <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
+        <button class="btn-secondary" onclick="Sheet.exportFoundry()" title="Export as Foundry VTT actor (worldofdarkness system)">Export Foundry</button>
         <button class="btn-ghost" onclick="window.print()">Print</button>
         <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
       </div>

@@ -4,7 +4,7 @@ const db      = require('../db');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
-  'customArchetypes'];
+  'customArchetypes','custom_ability_names'];
 
 function parseCharacter(row) {
   if (!row) return null;
@@ -34,26 +34,18 @@ function serializeCharacter(data) {
 const SUMMARY_COLS = `id, user_id, name, player, chronicle, concept, affiliation,
   tradition, essence, arete, willpower, quintessence, created_at, updated_at`;
 
-// GET /recent — last 4 characters for current user
+// GET /recent — last 4 characters for the current user only
 router.get('/recent', (req, res) => {
   try {
-    const userId = req.session.userId;
-    const isAdmin = req.session.role === 'admin';
-    const rows = isAdmin
-      ? db.prepare(`SELECT ${SUMMARY_COLS} FROM characters ORDER BY updated_at DESC LIMIT 4`).all()
-      : db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC LIMIT 4`).all(userId);
+    const rows = db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC LIMIT 4`).all(req.session.userId);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// GET all characters
+// GET all characters for the current user only
 router.get('/', (req, res) => {
   try {
-    const userId = req.session.userId;
-    const isAdmin = req.session.role === 'admin';
-    const rows = isAdmin
-      ? db.prepare(`SELECT ${SUMMARY_COLS} FROM characters ORDER BY updated_at DESC`).all()
-      : db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC`).all(userId);
+    const rows = db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC`).all(req.session.userId);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
