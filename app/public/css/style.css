@@ -1186,19 +1186,20 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 }
 
 /* ─── Instruments ────────────────────────────────────────────── */
-.instrument-section-header {
+/* Sticky bar — full-width, provides the tall containing-block sticky needs */
+.instrument-tally-bar {
+  position: sticky;
+  top: 4.5rem; /* just below the sticky app header (~72 px) */
+  z-index: 5;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  justify-content: flex-end;
+  pointer-events: none; /* let clicks fall through to list items below */
+  margin-bottom: 0.4rem;
 }
 
+/* The visual badge inside the bar */
 .instrument-tally {
-  position: sticky;
-  top: 4.5rem; /* sits just below the sticky app header */
-  z-index: 5;
-  flex-shrink: 0;
+  pointer-events: auto;
   display: inline-flex;
   align-items: baseline;
   gap: 0.2rem;
@@ -1214,7 +1215,7 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 }
 .instrument-tally.at-target {
   border-color: var(--purple-dim);
-  box-shadow: 0 2px 12px rgba(var(--purple-rgb, 120, 80, 180), 0.25);
+  box-shadow: 0 2px 12px rgba(120, 80, 180, 0.25);
 }
 .inst-count {
   font-size: 1.05rem;

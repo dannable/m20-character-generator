@@ -1995,13 +1995,13 @@ const Creator = {
       <input type="text" id="f-practice" value="${c.practice}" placeholder="e.g. Ceremonial Magic, Scientific Method, Shamanic Journeywork, Martial Discipline..." />
     </div>
 
-    <div class="instrument-section-header">
-      <div>
-        <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
-        <p style="font-size:0.82rem;color:var(--text-dim);margin:0.2rem 0 0">
-          Narrative tools describing <em>how</em> you work magic. Most mages use roughly 7.
-        </p>
-      </div>
+    <div style="margin-bottom:0.6rem">
+      <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
+      <p style="font-size:0.82rem;color:var(--text-dim);margin:0.2rem 0 0">
+        Narrative tools describing <em>how</em> you work magic. Most mages use roughly 7.
+      </p>
+    </div>
+    <div class="instrument-tally-bar">
       <div class="instrument-tally${selectedInstruments.length >= 7 ? ' at-target' : ''}" id="instrument-tally">
         <span class="inst-count">${selectedInstruments.length}</span>
         <span class="inst-label"> selected</span>
