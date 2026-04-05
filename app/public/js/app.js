@@ -3748,34 +3748,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Sync theme button icon with whatever the FOUC-prevention script applied
   App._updateThemeBtn(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 
-  // If a shared sheet URL (/s/:token), load in shared mode (no login required)
-  const shareMatch = window.location.pathname.match(/^\/s\/([a-f0-9]{32})$/);
-  if (shareMatch) {
-    await App.loadSharedSheet(shareMatch[1]);
-    // still wire up sidebar step-list and popstate below, but skip the login check
-    return;
-  }
-
-  // If a password reset token is in the URL, show the reset form immediately
-  if (new URLSearchParams(window.location.search).get('token')) {
-    App.showPage('auth');
-    Auth.showReset();
-    return; // skip the normal session check
-  }
-
-  // Check if already logged in
-  try {
-    const r = await fetch('/api/auth/me');
-    if (r.ok) {
-      const user = await r.json();
-      App.setUser(user);
-      App.showDashboard();
-    } else {
-      App.showPage('auth');
-    }
-  } catch {
-    App.showPage('auth');
-  }
+  // ── Register persistent UI listeners first, before any async routing ─────────
+  // (Must happen unconditionally so they're available even when the user later
+  //  navigates from a shared-sheet URL into the main app within the same SPA session.)
 
   // Click any step in the sidebar to jump directly to it
   document.getElementById('step-list')?.addEventListener('click', e => {
@@ -3829,4 +3804,34 @@ window.addEventListener('DOMContentLoaded', async () => {
       App._popping = false;
     }
   });
+
+  // ── URL-based routing (async — runs after listeners are registered) ───────────
+
+  // If a shared sheet URL (/s/:token), load in shared mode (no login required)
+  const shareMatch = window.location.pathname.match(/^\/s\/([a-f0-9]{32})$/);
+  if (shareMatch) {
+    await App.loadSharedSheet(shareMatch[1]);
+    return;
+  }
+
+  // If a password reset token is in the URL, show the reset form immediately
+  if (new URLSearchParams(window.location.search).get('token')) {
+    App.showPage('auth');
+    Auth.showReset();
+    return;
+  }
+
+  // Check if already logged in
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.ok) {
+      const user = await r.json();
+      App.setUser(user);
+      App.showDashboard();
+    } else {
+      App.showPage('auth');
+    }
+  } catch {
+    App.showPage('auth');
+  }
 });
