@@ -1995,13 +1995,20 @@ const Creator = {
       <input type="text" id="f-practice" value="${c.practice}" placeholder="e.g. Ceremonial Magic, Scientific Method, Shamanic Journeywork, Martial Discipline..." />
     </div>
 
-    <div style="margin-bottom:0.6rem">
-      <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
-      <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem">
-        Choose the instruments your mage uses to work magic. Most mages use roughly 7. These are narrative tools — they describe <em>how</em> you work Effects, not hard mechanical limits.
-      </p>
+    <div class="instrument-section-header">
+      <div>
+        <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin:0.2rem 0 0">
+          Narrative tools describing <em>how</em> you work magic. Most mages use roughly 7.
+        </p>
+      </div>
+      <div class="instrument-tally${selectedInstruments.length >= 7 ? ' at-target' : ''}" id="instrument-tally">
+        <span class="inst-count">${selectedInstruments.length}</span>
+        <span class="inst-label"> selected</span>
+        <span class="inst-hint">${selectedInstruments.length >= 7 ? ' ✓' : ' (~7 recommended)'}</span>
+      </div>
     </div>
-    <div class="instrument-list">${instrumentRows}</div>
+    <div class="instrument-list" id="instrument-list">${instrumentRows}</div>
     <div class="instrument-custom-adder">
       <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
       <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
@@ -2964,36 +2971,73 @@ const Creator = {
       });
     });
 
-    // Instruments — checkboxes (built-in toggle state; custom items re-render on uncheck)
-    $$('.instrument-item input', content).forEach(inp => {
+    // Instruments — live tally update (no-op if not on step 4)
+    const updateInstrumentTally = () => {
+      const tally = $('#instrument-tally', content);
+      if (!tally) return;
+      const count = (c.instruments || []).length;
+      const atTarget = count >= 7;
+      tally.className = 'instrument-tally' + (atTarget ? ' at-target' : '');
+      tally.innerHTML = `<span class="inst-count">${count}</span>`
+        + `<span class="inst-label"> selected</span>`
+        + `<span class="inst-hint">${atTarget ? ' ✓' : ' (~7 recommended)'}</span>`;
+    };
+
+    // Helper: attach listeners to a single instrument label element
+    const attachInstrumentItemListeners = (label, inp) => {
       inp.addEventListener('change', () => {
         const instruments = c.instruments || [];
         if (inp.checked) {
           if (!instruments.includes(inp.value)) instruments.push(inp.value);
           c.instruments = instruments;
-          inp.closest('.instrument-item').classList.add('checked');
+          label.classList.add('checked');
         } else {
           c.instruments = instruments.filter(i => i !== inp.value);
           if (inp.dataset.custom) {
-            this.renderStep(); // custom items disappear when unchecked
+            label.remove(); // DOM remove — no renderStep(), no scroll jump
           } else {
-            inp.closest('.instrument-item').classList.remove('checked');
+            label.classList.remove('checked');
           }
         }
+        updateInstrumentTally();
       });
+    };
+
+    // Instruments — checkboxes (built-in + any already-rendered custom)
+    $$('.instrument-item', content).forEach(label => {
+      const inp = label.querySelector('input[type="checkbox"]');
+      if (inp) attachInstrumentItemListeners(label, inp);
     });
 
-    // Instruments — add custom
+    // Instruments — add custom (DOM append; no renderStep() so no scroll jump)
     const customInstrumentInput = $('#f-custom-instrument', content);
+    const instrumentListEl = $('#instrument-list', content);
     const addCustomBtn = $('#btn-add-instrument', content);
     const addCustomInstrument = () => {
       if (!customInstrumentInput) return;
       const val = customInstrumentInput.value.trim();
       if (!val) return;
-      if (!(c.instruments || []).includes(val)) {
-        c.instruments = [...(c.instruments || []), val];
+      if ((c.instruments || []).includes(val)) {
+        customInstrumentInput.value = '';
+        return;
       }
-      this.renderStep();
+      c.instruments = [...(c.instruments || []), val];
+      // Append new label to DOM directly — avoids full re-render + scroll reset
+      if (instrumentListEl) {
+        const safeId = 'custom_' + val.replace(/[^a-zA-Z0-9]/g, '_');
+        const label = document.createElement('label');
+        label.className = 'instrument-item instrument-item-custom checked';
+        label.htmlFor = `inst-${safeId}`;
+        label.innerHTML = `<input type="checkbox" id="inst-${safeId}" value="${val.replace(/"/g, '&quot;')}" checked data-custom="true" />`
+          + val
+          + `<button class="instrument-tag-remove" data-instrument="${val.replace(/"/g, '&quot;')}" title="Remove">\u00d7</button>`;
+        const inp = label.querySelector('input');
+        attachInstrumentItemListeners(label, inp);
+        instrumentListEl.appendChild(label);
+      }
+      customInstrumentInput.value = '';
+      customInstrumentInput.focus();
+      updateInstrumentTally();
     };
     if (addCustomBtn) addCustomBtn.addEventListener('click', addCustomInstrument);
     if (customInstrumentInput) {
@@ -3002,13 +3046,14 @@ const Creator = {
       });
     }
 
-    // Instruments — remove custom tag
+    // Instruments — remove custom tag (× button) — DOM remove, no scroll jump
     content.addEventListener('click', e => {
       const btn = e.target.closest('.instrument-tag-remove');
       if (!btn) return;
       const val = btn.dataset.instrument;
       c.instruments = (c.instruments || []).filter(i => i !== val);
-      this.renderStep();
+      btn.closest('.instrument-item').remove();
+      updateInstrumentTally();
     });
 
     this.updateNatureWillpower();
