@@ -37,6 +37,7 @@ app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/admin',      require('./routes/admin'));
 app.use('/api/characters', requireAuth, require('./routes/characters'));
 app.use('/api/export',     require('./routes/export'));
+app.use('/api/share',      require('./routes/share'));
 
 // Health check (no auth)
 app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'M20 Character Generator' }));

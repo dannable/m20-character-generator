@@ -1335,7 +1335,64 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   margin-bottom: 1.5rem;
 }
 
-.sheet-toolbar-right { display: flex; gap: 0.5rem; }
+.sheet-toolbar-right { display: flex; gap: 0.5rem; align-items: center; }
+
+/* ── Share / Like ──────────────────────────────────────────────────────────── */
+.like-count {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-right: 0.25rem;
+}
+
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-dim);
+  background: transparent;
+  color: var(--text-mid);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.like-btn:hover {
+  border-color: var(--gold-mid);
+  color: var(--gold-mid);
+}
+.like-btn.liked {
+  border-color: var(--crimson);
+  color: var(--crimson);
+  background: var(--crimson-dim);
+}
+.like-btn:disabled { opacity: 0.6; cursor: default; }
+
+.like-hint {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.share-url-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.share-url-input {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  background: var(--bg-input, var(--bg-deep));
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--text-mid);
+  font-size: 0.82rem;
+  font-family: monospace;
+  outline: none;
+  cursor: text;
+}
+.share-url-input:focus { border-color: var(--gold-mid); }
 
 .char-sheet {
   background: var(--bg-card);

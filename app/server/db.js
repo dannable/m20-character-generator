@@ -103,6 +103,27 @@ db.exec(`
   );
 `);
 
+// ── Share tokens table ────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS share_tokens (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL,
+    token        TEXT NOT NULL UNIQUE,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+// ── Character likes table ─────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_likes (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL,
+    user_id      INTEGER NOT NULL,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(character_id, user_id)
+  );
+`);
+
 // ── Safe migrations for older installs ───────────────────────────────────────
 ['merits', 'flaws', 'specialties'].forEach(col => {
   try { db.exec(`ALTER TABLE characters ADD COLUMN ${col} TEXT DEFAULT '{}'`); } catch {}

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css?v=10" />
+  <link rel="stylesheet" href="/css/style.css?v=11" />
   <script>
     // Apply saved theme before first paint to prevent flash
     (function() {
@@ -299,12 +299,14 @@
   <!-- ─── CHARACTER SHEET PAGE ──────────────────────────────────── -->
   <section id="page-sheet" class="page">
     <div class="sheet-toolbar">
-      <button class="btn-ghost" onclick="App.showRoster()">← Back to Roster</button>
-      <div class="sheet-toolbar-right">
+      <div id="sheet-toolbar-left">
+        <button class="btn-ghost" onclick="App.showRoster()">← Back to Roster</button>
+      </div>
+      <div class="sheet-toolbar-right" id="sheet-toolbar-right">
         <button class="btn-secondary" onclick="Sheet.editCharacter()">Edit Character</button>
         <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
         <button class="btn-secondary" onclick="Sheet.exportFoundry()" title="Export as Foundry VTT actor (worldofdarkness system)">Export Foundry</button>
-        <button class="btn-ghost" onclick="window.print()">Print</button>
+        <button class="btn-secondary" onclick="Sheet.shareSheet()">Share Sheet</button>
         <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
       </div>
     </div>
@@ -334,7 +336,7 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
-<script src="/js/data.js?v=10"></script>
-<script src="/js/app.js?v=10"></script>
+<script src="/js/data.js?v=11"></script>
+<script src="/js/app.js?v=11"></script>
 </body>
 </html>

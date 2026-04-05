@@ -387,6 +387,50 @@ const App = {
     this.showPage('auth');
   },
 
+  // ── Shared sheet view — accessible without login ─────────────────────────────
+  async loadSharedSheet(token) {
+    Sheet.sharedToken = token;
+
+    // Check if user is logged in (silently — shared view works either way)
+    try {
+      const r = await fetch('/api/auth/me');
+      if (r.ok) {
+        const user = await r.json();
+        this.setUser(user);
+      }
+    } catch {}
+
+    // Fetch the shared character data
+    try {
+      const r = await fetch(`/api/share/${token}`);
+      if (!r.ok) {
+        // Show a minimal not-found state inside the sheet page
+        $$('.page').forEach(p => p.classList.remove('active'));
+        $('#page-sheet').classList.add('active');
+        $('#sheet-toolbar-left').innerHTML =
+          `<button class="btn-ghost" onclick="window.location.href='/'">← Home</button>`;
+        $('#sheet-toolbar-right').innerHTML = '';
+        $('#sheet-content').innerHTML = `
+          <div style="text-align:center;padding:4rem 2rem;color:var(--text-faint)">
+            <div style="font-size:2rem;margin-bottom:1rem">☽✦☾</div>
+            <p style="font-size:1.1rem">This share link is no longer valid or the character has been removed.</p>
+          </div>`;
+        return;
+      }
+      const { character, likeCount, userLiked } = await r.json();
+      Sheet.render(character);
+      Sheet.renderToolbar('shared', { token, likeCount, userLiked });
+
+      // Show sheet page bypassing the login guard
+      $$('.page').forEach(p => p.classList.remove('active'));
+      $('#page-sheet').classList.add('active');
+
+      history.replaceState({ page: 'shared', token }, '', `/s/${token}`);
+    } catch {
+      toast('Failed to load shared character', 'error');
+    }
+  },
+
   showAbout() {
     // About is accessible without login — bypass the auth guard in showPage
     $$('.page').forEach(p => p.classList.remove('active'));
@@ -490,7 +534,9 @@ const App = {
     this.currentCharId = id;
     try {
       const char = await API.get(id);
+      Sheet.sharedToken = null;
       Sheet.render(char);
+      Sheet.renderToolbar('owner');
       this.showPage('sheet');
     } catch (err) {
       toast('Failed to load character', 'error');
@@ -725,6 +771,116 @@ const Auth = {
    ═══════════════════════════════════════════════════════════════ */
 const Sheet = {
   char: null,
+  sharedToken: null,
+
+  // ── Toolbar ──────────────────────────────────────────────────────────────────
+  // mode: 'owner' | 'shared'
+  // opts (shared): { token, likeCount, userLiked }
+  renderToolbar(mode, opts = {}) {
+    const left  = $('#sheet-toolbar-left');
+    const right = $('#sheet-toolbar-right');
+    if (!left || !right) return;
+
+    if (mode === 'owner') {
+      left.innerHTML = `<button class="btn-ghost" onclick="App.showRoster()">← Back to Roster</button>`;
+      right.innerHTML = `
+        <button class="btn-secondary" onclick="Sheet.editCharacter()">Edit Character</button>
+        <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
+        <button class="btn-secondary" onclick="Sheet.exportFoundry()" title="Export as Foundry VTT actor (worldofdarkness system)">Export Foundry</button>
+        <button class="btn-secondary" onclick="Sheet.shareSheet()">Share Sheet</button>
+        <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
+      `;
+    } else if (mode === 'shared') {
+      const { likeCount = 0, userLiked = false } = opts;
+      const backBtn = App.currentUser
+        ? `<button class="btn-ghost" onclick="App.showRoster()">← My Characters</button>`
+        : `<button class="btn-ghost" onclick="window.location.href='/'">← Sign In</button>`;
+      left.innerHTML = backBtn;
+
+      const countLabel = likeCount === 1 ? '1 like' : `${likeCount} likes`;
+      const likeBtn = App.currentUser
+        ? `<button class="like-btn${userLiked ? ' liked' : ''}" id="btn-like" onclick="Sheet.toggleLike()">
+             ${userLiked ? '❤' : '♡'} ${userLiked ? 'Liked' : 'Like'}
+           </button>`
+        : `<span class="like-hint">Sign in to like</span>`;
+
+      right.innerHTML = `
+        <span class="like-count" id="sheet-like-count">${countLabel}</span>
+        ${likeBtn}
+      `;
+    }
+  },
+
+  // ── Share sheet — generate link and show copy modal ──────────────────────────
+  async shareSheet() {
+    if (!this.char) return;
+    try {
+      const r = await fetch(`/api/share/${this.char.id}`, { method: 'POST' });
+      if (!r.ok) throw new Error('Failed');
+      const { token } = await r.json();
+      const url = `${window.location.origin}/s/${token}`;
+
+      $('#modal-title').textContent = 'Share Character Sheet';
+      $('#modal-body').innerHTML = `
+        <p style="color:var(--text-dim);font-size:0.9rem;margin-bottom:1rem">
+          Anyone with this link can view this sheet — no account required.
+        </p>
+        <div class="share-url-row">
+          <input type="text" class="share-url-input" id="share-url-input"
+            value="${url}" readonly onclick="this.select()" />
+          <button class="btn-secondary" onclick="Sheet._copyShareUrl()">Copy</button>
+        </div>
+        <div id="share-copy-feedback" style="color:var(--gold-mid);font-size:0.82rem;margin-top:0.5rem;min-height:1.2em"></div>
+      `;
+      const confirmBtn = $('#modal-confirm');
+      if (confirmBtn) confirmBtn.style.display = 'none';
+      const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
+      if (cancelBtn) cancelBtn.textContent = 'Close';
+      $('#modal-overlay').style.display = 'flex';
+    } catch {
+      toast('Failed to generate share link', 'error');
+    }
+  },
+
+  _copyShareUrl() {
+    const input = $('#share-url-input');
+    if (!input) return;
+    input.select();
+    const fb = $('#share-copy-feedback');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(input.value).then(() => {
+        if (fb) fb.textContent = '✓ Copied to clipboard!';
+      }).catch(() => {
+        try { document.execCommand('copy'); if (fb) fb.textContent = '✓ Copied!'; } catch {}
+      });
+    } else {
+      try { document.execCommand('copy'); if (fb) fb.textContent = '✓ Copied!'; } catch {}
+    }
+  },
+
+  // ── Like toggle ──────────────────────────────────────────────────────────────
+  async toggleLike() {
+    if (!this.sharedToken) return;
+    const btn = $('#btn-like');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`/api/share/${this.sharedToken}/like`, { method: 'POST' });
+      if (!r.ok) throw new Error('Failed');
+      const { likeCount, userLiked } = await r.json();
+
+      const countEl = $('#sheet-like-count');
+      if (countEl) countEl.textContent = likeCount === 1 ? '1 like' : `${likeCount} likes`;
+
+      if (btn) {
+        btn.className = `like-btn${userLiked ? ' liked' : ''}`;
+        btn.innerHTML = `${userLiked ? '❤' : '♡'} ${userLiked ? 'Liked' : 'Like'}`;
+        btn.disabled = false;
+      }
+    } catch {
+      toast('Failed to update like', 'error');
+      if (btn) btn.disabled = false;
+    }
+  },
 
   render(char) {
     this.char = char;
@@ -1369,7 +1525,9 @@ const Creator = {
         toast('Character created. The Awakening is complete.');
       }
       App.currentCharId = char.id;
+      Sheet.sharedToken = null;
       Sheet.render(char);
+      Sheet.renderToolbar('owner');
       App.showPage('sheet');
     } catch { toast('Failed to save character.', 'error'); }
   },
@@ -3590,6 +3748,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Sync theme button icon with whatever the FOUC-prevention script applied
   App._updateThemeBtn(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 
+  // If a shared sheet URL (/s/:token), load in shared mode (no login required)
+  const shareMatch = window.location.pathname.match(/^\/s\/([a-f0-9]{32})$/);
+  if (shareMatch) {
+    await App.loadSharedSheet(shareMatch[1]);
+    // still wire up sidebar step-list and popstate below, but skip the login check
+    return;
+  }
+
   // If a password reset token is in the URL, show the reset form immediately
   if (new URLSearchParams(window.location.search).get('token')) {
     App.showPage('auth');
@@ -3656,6 +3822,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         App.showPage('admin');
       } else if (state.page === 'about') {
         App.showAbout();
+      } else if (state.page === 'shared' && state.token) {
+        await App.loadSharedSheet(state.token);
       }
     } finally {
       App._popping = false;
