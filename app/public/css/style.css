@@ -865,6 +865,12 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   margin-bottom: 0.8rem;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border-dim);
+  position: sticky;
+  top: 72px;
+  background: var(--bg-raised);
+  z-index: 5;
+  margin-top: -0.2rem;
+  padding-top: 0.2rem;
 }
 
 .attr-block-title {
@@ -882,6 +888,7 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 }
 
 .attr-block-points .pts { color: var(--gold-bright); font-size: 1rem; }
+.attr-block-points .pts-freebie { color: var(--purple-mid); font-size: 0.7rem; display: block; margin-top: 0.1rem; }
 
 .attr-row {
   display: flex;
@@ -1420,6 +1427,102 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+}
+
+/* ─── Sheet band layout ──────────────────────────────────────────────────── */
+.sheet-band {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+.sheet-band-title {
+  background: var(--bg-dark);
+  color: var(--gold-bright);
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.6rem;
+}
+.sheet-cols-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.sheet-group {
+  padding: 0.5rem 0.6rem;
+  border-right: 1px solid var(--border);
+}
+.sheet-group:last-child { border-right: none; }
+.sheet-group-title {
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  background: var(--bg-elevated);
+  padding: 0.15rem 0.4rem;
+  text-align: center;
+  margin-bottom: 0.35rem;
+  border-radius: 2px;
+}
+.sheet-group-title .affinity-note {
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  color: var(--gold-dim);
+  font-style: italic;
+  margin-left: 0.4rem;
+}
+.sheet-trait-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.1rem 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.sheet-trait-row:last-child { border-bottom: none; }
+.sheet-trait-name {
+  font-size: 0.78rem;
+  color: var(--text-mid);
+}
+.sheet-trait-name.affinity { color: var(--gold-mid); font-weight: 600; }
+.sheet-trait-name em.sheet-specialty {
+  font-size: 0.68rem;
+  color: var(--gold-dim);
+  margin-left: 0.3rem;
+}
+.sheet-focus-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+}
+.sheet-focus-item {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-faint);
+  padding-bottom: 0.25rem;
+}
+.sheet-focus-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.sheet-focus-value {
+  color: var(--text-mid);
+  font-size: 0.82rem;
+}
+/* Core stats row */
+.sheet-core-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding: 0.75rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
 }
 
 /* ─── Background inline description ─────────────────────────── */
@@ -2141,6 +2244,45 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   text-align: left;
 }
 
+.auth-forgot-link {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.auth-forgot-link:hover { color: var(--gold-mid); }
+
+.auth-success {
+  background: color-mix(in srgb, var(--gold-faint) 60%, transparent);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--gold-bright);
+}
+
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  margin-top: -0.25rem;
+}
+.auth-remember input[type="checkbox"] {
+  accent-color: var(--gold-mid);
+  width: 1em;
+  height: 1em;
+  cursor: pointer;
+}
+
 .auth-submit {
   margin-top: 0.5rem;
   width: 100%;
@@ -2219,6 +2361,126 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   margin-bottom: 2.5rem;
   flex-wrap: wrap;
 }
+
+.dashboard-recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.dashboard-recent-header h3 { margin-bottom: 0; }
+
+.card-owner {
+  font-size: 0.65rem;
+  color: var(--purple-mid);
+  letter-spacing: 0.06em;
+  margin-bottom: 0.1rem;
+}
+
+/* ─── Health Track ───────────────────────────────────────────── */
+.sheet-health-section { margin-top: 0.75rem; }
+
+.health-track { display: flex; flex-direction: column; gap: 0.1rem; }
+
+.health-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.3rem;
+  border-bottom: 1px solid var(--border-dim);
+  font-size: 0.78rem;
+}
+
+.health-level-name { color: var(--text-bright); }
+
+.health-penalty {
+  font-size: 0.68rem;
+  color: var(--crimson);
+  font-weight: bold;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.health-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--border-bright);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ─── Willpower spent boxes ──────────────────────────────────── */
+.wp-spent-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.wp-spent-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+
+.wp-spent-box {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--border-bright);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ─── Quintessence / Paradox wheel ──────────────────────────── */
+.wheel-svg { display: block; margin: 0 auto; overflow: visible; }
+
+.wheel-dot {
+  fill: none;
+  stroke: var(--gold-mid);
+  stroke-width: 1;
+}
+.wheel-dot.filled { fill: var(--gold-bright); stroke: var(--gold-bright); }
+/* Start marker — always shown, thicker border; gold when filled */
+.wheel-dot.start { stroke: var(--text-mid); stroke-width: 2; }
+.wheel-dot.start.filled { fill: var(--gold-bright); stroke: var(--gold-bright); stroke-width: 2; }
+/* Paradox dots — crimson */
+.wheel-dot.paradox { fill: var(--crimson); stroke: var(--crimson); }
+
+.wheel-value {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  fill: var(--gold-bright);
+  text-anchor: middle;
+}
+/* Paradox value inside wheel */
+.wheel-value-p { fill: var(--crimson); font-size: 11px; }
+
+/* ─── Q/P wheel label layout ─────────────────────────────── */
+.qp-wheel-box { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.qp-stat-label { display: flex; gap: 0.4rem; align-items: baseline; }
+.qp-label-name {
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-mid);
+}
+.qp-label-value {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  color: var(--gold-bright);
+}
+.qp-paradox-value { color: var(--crimson); }
+
+/* ─── Core stats middle column ───────────────────────────── */
+.core-stats-group { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.core-stats-group .core-stat-box { width: 100%; }
+.core-stats-group .core-stat-dots { flex-wrap: nowrap !important; }
 
 .dashboard-recent h3.dashboard-section-title {
   font-family: var(--font-heading);

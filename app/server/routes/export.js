@@ -152,6 +152,13 @@ async function buildCharacterPDF(c) {
   const DOTS = (x, y, val, max = 5, r = 2.5, sp = 7) => {
     for (let i = 0; i < max; i++) CIRC(x + i * sp + r, y + r, r, i < val);
   };
+  // Dots arranged in a circle; start = 9 o'clock, clockwise
+  const WHEEL = (cx, cy, r, val, max, dotR = 3) => {
+    for (let i = 0; i < max; i++) {
+      const angle = Math.PI - (i / max) * 2 * Math.PI;
+      CIRC(cx + r * Math.cos(angle), cy + r * Math.sin(angle), dotR, i < val);
+    }
+  };
   const SQR = (x, y, sz = 7) =>
     page.drawRectangle({ x, y, width: sz, height: sz, borderColor: ink.dark, borderWidth: 0.5 });
 
@@ -209,7 +216,7 @@ async function buildCharacterPDF(c) {
      TITLE BANNER
   ══════════════════════════════════════════════════════════════════════════ */
   FR(ML - 5, H - 39, W - (ML - 5) * 2, 28, ink.dark);
-  const banner = 'MAGE: THE ASCENSION  \u2014  20th Anniversary Edition  \u2014  Character Record';
+  const banner = 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Character Record';
   const bw = fB.widthOfTextAtSize(banner, 9.5);
   T(banner, (W - bw) / 2, H - 30, 9.5, fB, ink.white);
 
@@ -231,183 +238,218 @@ async function buildCharacterPDF(c) {
   iy -= 11;
   HL(ML - 5, iy + 2, W - (ML - 5) * 2, 1.2, ink.dark);
 
-  const TOP_Y = iy - 2;   // top of three-column section
+  const TOP_Y = iy - 2;   // top of banded section
+  let y = TOP_Y;
+
+  // Full-width section header helper
+  const SH_full = (yy, lbl) => {
+    FR(ML - 5, yy - 1, W - (ML - 5) * 2, 12, ink.dark);
+    T(lbl.toUpperCase(), ML - 2, yy + 1.5, 7.5, fB, ink.white);
+    return yy - 14;
+  };
 
   /* ══════════════════════════════════════════════════════════════════════════
-     COLUMN 1  —  ATTRIBUTES  /  FOCUS  /  HEALTH
+     BAND 1  —  ATTRIBUTES
   ══════════════════════════════════════════════════════════════════════════ */
-  let y1 = TOP_Y;
+  y = SH_full(y, 'Attributes');
+  let y1 = y, y2 = y, y3 = y;
 
-  /* ── Attributes ── */
-  y1 = SH(C1, y1, CW, 'Attributes');
   [
-    { lbl: 'Physical', keys: ['strength',   'dexterity', 'stamina'    ], names: ['Strength',   'Dexterity', 'Stamina'    ] },
-    { lbl: 'Social',   keys: ['charisma',   'manipulation','appearance'], names: ['Charisma',   'Manipulation','Appearance'] },
-    { lbl: 'Mental',   keys: ['perception', 'intelligence','wits'      ], names: ['Perception', 'Intelligence','Wits'      ] },
-  ].forEach(g => {
-    y1 = GH(C1, y1, CW, g.lbl);
-    g.keys.forEach((k, i) => { y1 = TR(C1, y1, CW, g.names[i], c[k] || 1); });
+    { col: C1, lbl: 'Physical', keys: ['strength','dexterity','stamina'],       names: ['Strength','Dexterity','Stamina'] },
+    { col: C2, lbl: 'Social',   keys: ['charisma','manipulation','appearance'],  names: ['Charisma','Manipulation','Appearance'] },
+    { col: C3, lbl: 'Mental',   keys: ['perception','intelligence','wits'],      names: ['Perception','Intelligence','Wits'] },
+  ].forEach((g, gi) => {
+    let yc = y;
+    yc = GH(g.col, yc, CW, g.lbl);
+    g.keys.forEach((k, i) => { yc = TR(g.col, yc, CW, g.names[i], c[k] || 1); });
+    if (gi === 0) y1 = yc;
+    else if (gi === 1) y2 = yc;
+    else y3 = yc;
   });
-
-  y1 -= 6;
-
-  /* ── Focus & Practice ── */
-  y1 = SH(C1, y1, CW, 'Focus & Practice');
-
-  T('Paradigm:', C1 + 2, y1, 6.5, fB, ink.mid);
-  y1 -= 9;
-  const pLines = wrapText(c.paradigm || '', CW - 5, fI, 6.5, 3);
-  if (pLines.length) { pLines.forEach(l => { T(l, C1 + 3, y1, 6.5, fI, ink.black); y1 -= 8; }); }
-  else { HL(C1 + 2, y1 + 2, CW - 4, 0.3, ink.rule); y1 -= 8; }
-
-  y1 -= 3;
-  T('Practice:', C1 + 2, y1, 6.5, fB, ink.mid);
-  T(fit(c.practice || '', CW - 55, fR, 7), C1 + 54, y1, 7, fR, ink.black);
-  HL(C1 + 54, y1 - 1.5, CW - 56, 0.3, ink.rule);
-  y1 -= 12;
-
-  y1 -= 3;
-  T('Instruments:', C1 + 2, y1, 6.5, fB, ink.mid);
-  y1 -= 9;
-  const instrArr = Array.isArray(c.instruments) ? c.instruments : [];
-  const iLines   = wrapText(instrArr.join(', '), CW - 5, fR, 6.5, 5);
-  if (iLines.length) { iLines.forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; }); }
-  else { T('None selected', C1 + 3, y1, 6.5, fI, ink.dim); y1 -= 8; }
-
-  y1 -= 6;
-
-  /* ── Health ── */
-  y1 = SH(C1, y1, CW, 'Health');
-  // B / L / A column labels above the checkboxes
-  T('B', C1 + CW - 24, y1 + 1.5, 5.5, fB, ink.dim);
-  T('L', C1 + CW - 15, y1 + 1.5, 5.5, fB, ink.dim);
-  T('A', C1 + CW - 6,  y1 + 1.5, 5.5, fB, ink.dim);
-  y1 -= 10;
-  ['Bruised (+0)', 'Hurt (\u22121)', 'Injured (\u22121)', 'Wounded (\u22122)',
-   'Mauled (\u22122)', 'Crippled (\u22125)', 'Incapacitated'].forEach(lbl => {
-    T(lbl, C1 + 2, y1 + 2, 6.5, fR, ink.black);
-    SQR(C1 + CW - 26, y1 + 0.5, 7);
-    SQR(C1 + CW - 17, y1 + 0.5, 7);
-    SQR(C1 + CW - 8,  y1 + 0.5, 7);
-    HL(C1, y1, CW, 0.3, ink.rule);
-    y1 -= RH;
-  });
+  y = Math.min(y1, y2, y3) - 4;
 
   /* ══════════════════════════════════════════════════════════════════════════
-     COLUMN 2  —  ABILITIES  (Talents / Skills / Knowledges)
+     BAND 2  —  ABILITIES
   ══════════════════════════════════════════════════════════════════════════ */
-  let y2 = TOP_Y;
-  y2 = SH(C2, y2, CW, 'Abilities');
+  y = SH_full(y, 'Abilities');
+  y1 = y; y2 = y; y3 = y;
 
   const custNames = c.custom_ability_names || {};
 
-  const drawAbilGrp = (y, grpLbl, base, sect) => {
-    y = GH(C2, y, CW, grpLbl);
-    // Standard abilities
+  const drawAbilGrp = (col, yy, grpLbl, base, sect) => {
+    yy = GH(col, yy, CW, grpLbl);
     base.forEach(ab => {
       const spec  = (c.specialties || {})[ab.id];
       const label = spec ? `${ab.name} (${spec})` : ab.name;
-      y = TR(C2, y, CW, label, sect[ab.id] || 0);
+      yy = TR(col, yy, CW, label, sect[ab.id] || 0);
     });
-    // Any custom abilities that belong to this section
     Object.entries(sect).forEach(([id, val]) => {
       if (base.find(a => a.id === id)) return;
       const name  = custNames[id] || id;
       const spec  = (c.specialties || {})[id];
       const label = spec ? `${name} (${spec})` : name;
-      y = TR(C2, y, CW, label, val || 0);
+      yy = TR(col, yy, CW, label, val || 0);
     });
-    return y;
+    return yy;
   };
 
-  y2 = drawAbilGrp(y2, 'Talents',    TALENTS,    c.talents    || {});
-  y2 = drawAbilGrp(y2, 'Skills',     SKILLS,     c.skills     || {});
-  y2 = drawAbilGrp(y2, 'Knowledges', KNOWLEDGES, c.knowledges || {});
+  y1 = drawAbilGrp(C1, y1, 'Talents',    TALENTS,    c.talents    || {});
+  y2 = drawAbilGrp(C2, y2, 'Skills',     SKILLS,     c.skills     || {});
+  y3 = drawAbilGrp(C3, y3, 'Knowledges', KNOWLEDGES, c.knowledges || {});
+  y = Math.min(y1, y2, y3) - 4;
 
   /* ══════════════════════════════════════════════════════════════════════════
-     COLUMN 3  —  ADVANTAGES
-     (Spheres / Backgrounds / Willpower / Arete / Quintessence / Paradox /
-      Merits / Flaws)
+     BAND 3  —  SPHERES
   ══════════════════════════════════════════════════════════════════════════ */
-  let y3 = TOP_Y;
-  y3 = SH(C3, y3, CW, 'Advantages');
+  y = SH_full(y, 'Spheres');
+  y1 = y; y2 = y; y3 = y;
 
-  /* Spheres */
-  y3 = GH(C3, y3, CW, 'Spheres');
   const sph = c.spheres || {};
-  SPHERES.forEach(sp => {
-    const lbl = sp.id === c.affinity_sphere ? `${sp.name} *` : sp.name;
-    y3 = TR(C3, y3, CW, lbl, sph[sp.id] || 0);
+  const affMark = (id) => id === c.affinity_sphere ? ' *' : '';
+
+  // Col 1: Correspondence, Entropy, Forces
+  [['Correspondence','correspondence'],['Entropy','entropy'],['Forces','forces']].forEach(([name, id]) => {
+    y1 = TR(C1, y1, CW, name + affMark(id), sph[id] || 0);
   });
-  y3 -= 4;
 
-  /* Backgrounds */
-  y3 = GH(C3, y3, CW, 'Backgrounds');
+  // Col 2: Life, Matter, Mind
+  [['Life','life'],['Matter','matter'],['Mind','mind']].forEach(([name, id]) => {
+    y2 = TR(C2, y2, CW, name + affMark(id), sph[id] || 0);
+  });
+
+  // Col 3: Prime, Spirit, Time
+  [['Prime','prime'],['Spirit','spirit'],['Time','time']].forEach(([name, id]) => {
+    y3 = TR(C3, y3, CW, name + affMark(id), sph[id] || 0);
+  });
+
+  y = Math.min(y1, y2, y3) - 4;
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     BAND 4  —  ADVANTAGES / CORE STATS
+  ══════════════════════════════════════════════════════════════════════════ */
+  y = SH_full(y, 'Advantages');
+  y1 = y; y2 = y; y3 = y;
+
+  /* ── C1: Backgrounds + Merits + Flaws + Magical Focus ── */
+  y1 = GH(C1, y1, CW, 'Backgrounds');
   const bgs = Object.entries(c.backgrounds || {}).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
-  if (!bgs.length) {
-    T('None selected', C3 + 2, y3 + 2, 6.5, fI, ink.dim);
-    y3 -= RH;
-  } else {
-    bgs.forEach(([k, v]) => {
-      const nm = BG_OPTION_MAP[k] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      y3 = TR(C3, y3, CW, nm, v);
-    });
-  }
-  y3 -= 4;
+  if (!bgs.length) { T('None selected', C1 + 2, y1 + 2, 6.5, fI, ink.dim); y1 -= RH; }
+  else { bgs.forEach(([k, v]) => { const nm = BG_OPTION_MAP[k] || k.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase()); y1 = TR(C1, y1, CW, nm, v); }); }
 
-  /* Willpower (10-dot track) */
-  y3 = GH(C3, y3, CW, 'Willpower');
-  DOTS(C3 + 4, y3 + 2, c.willpower || 3, 10, 4, 16);
-  y3 -= 18;
-
-  /* Arete (10-dot track) */
-  y3 = GH(C3, y3, CW, 'Arete');
-  DOTS(C3 + 4, y3 + 2, c.arete || 1, 10, 4, 16);
-  y3 -= 18;
-
-  /* Quintessence + Paradox */
-  y3 = GH(C3, y3, CW, 'Quintessence / Paradox');
-  T('Quintessence', C3 + 2, y3 + 1.5, 6, fR, ink.mid);
-  y3 -= 9;
-  DOTS(C3 + 4, y3 + 2, c.quintessence || 0, 10, 3, 11);
-  y3 -= 13;
-  HL(C3, y3, CW, 0.3, ink.rule);
-  T('Paradox', C3 + 2, y3 + 1.5, 6, fR, ink.mid);
-  y3 -= 9;
-  DOTS(C3 + 4, y3 + 2, c.paradox || 0, 10, 3, 11);
-  y3 -= 13;
-  y3 -= 4;
-
-  /* Merits */
   const merits = Object.entries(c.merits || {});
   if (merits.length) {
-    y3 = GH(C3, y3, CW, 'Merits');
+    y1 -= 2; y1 = GH(C1, y1, CW, 'Merits');
     merits.forEach(([id, cost]) => {
-      const nm = MERIT_NAMES[id] || id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      y3 = TR(C3, y3, CW, `${nm} (${cost})`, cost, 5);
+      const nm = MERIT_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      y1 = TR(C1, y1, CW, `${nm} (${cost})`, cost, 5);
     });
   }
 
-  /* Flaws */
   const flaws = Object.entries(c.flaws || {});
   if (flaws.length) {
-    y3 = GH(C3, y3, CW, 'Flaws');
+    y1 -= 2; y1 = GH(C1, y1, CW, 'Flaws');
     flaws.forEach(([id, cost]) => {
-      const nm = FLAW_NAMES[id] || id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      y3 = TR(C3, y3, CW, `${nm} (${cost})`, cost, 5);
+      const nm = FLAW_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      y1 = TR(C1, y1, CW, `${nm} (${cost})`, cost, 5);
     });
   }
 
-  /* ── Column separator rules ──────────────────────────────────────────────── */
-  const colBot = Math.min(y1, y2, y3) - 6;
-  VL(C2 - 4, colBot, TOP_Y - colBot, 0.5, ink.rule);
-  VL(C3 - 4, colBot, TOP_Y - colBot, 0.5, ink.rule);
+  y1 -= 4; y1 = GH(C1, y1, CW, 'Magical Focus');
+  T('Paradigm:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
+  const pLines = wrapText(c.paradigm || '', CW - 5, fI, 6.5, 3);
+  if (pLines.length) { pLines.forEach(l => { T(l, C1 + 3, y1, 6.5, fI, ink.black); y1 -= 8; }); }
+  else { HL(C1 + 2, y1 + 2, CW - 4, 0.3, ink.rule); y1 -= 8; }
+  y1 -= 3;
+  T('Practice:', C1 + 2, y1, 6.5, fB, ink.mid);
+  T(fit(c.practice || '', CW - 55, fR, 7), C1 + 54, y1, 7, fR, ink.black);
+  HL(C1 + 54, y1 - 1.5, CW - 56, 0.3, ink.rule);
+  y1 -= 12; y1 -= 3;
+  T('Instruments:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
+  const instrArr = Array.isArray(c.instruments) ? c.instruments : [];
+  const iLines = wrapText(instrArr.join(', '), CW - 5, fR, 6.5, 5);
+  if (iLines.length) { iLines.forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; }); }
+  else { T('None selected', C1 + 3, y1, 6.5, fI, ink.dim); y1 -= 8; }
+
+  /* ── C2: Arete + Willpower + Q/P Wheel (vertically stacked) ── */
+  {
+    const dotsR = 4, dotsSp = 16;
+    const dotsMax = 10;
+    const dotsW = (dotsMax - 1) * dotsSp + 2 * dotsR;  // 9×16+8 = 152 pts
+    const dotsX = C2 + (CW - dotsW) / 2;
+
+    // Arete
+    const arLbl = 'Arete';
+    T(arLbl, C2 + (CW - fB.widthOfTextAtSize(arLbl, 7)) / 2, y2, 7, fB, ink.mid);
+    y2 -= 14;
+    DOTS(dotsX, y2, Math.min(c.arete || 1, dotsMax), dotsMax, dotsR, dotsSp);
+    y2 -= 14;
+
+    // Willpower
+    const wpLbl = 'Willpower';
+    T(wpLbl, C2 + (CW - fB.widthOfTextAtSize(wpLbl, 7)) / 2, y2, 7, fB, ink.mid);
+    y2 -= 14;
+    DOTS(dotsX, y2, c.willpower || 5, dotsMax, dotsR, dotsSp);
+    // Spent boxes aligned under each dot
+    y2 -= 10;
+    T('Spent:', C2 + 2, y2, 5.5, fB, ink.dim);
+    for (let i = 0; i < dotsMax; i++) {
+      SQR(dotsX + i * dotsSp + dotsR - 4.5, y2 - 10, 9);
+    }
+    y2 -= 22;
+
+    // Q/P Wheel — label above, wheel, label below
+    const qVal = c.quintessence || 0;
+    const pVal = c.paradox || 0;
+    const wMax = 20, wR = 22, wDotR = 2.8;
+    const wCx = C2 + Math.round(CW / 2);
+
+    const qLbl = `Quintessence: ${qVal}`;
+    T(qLbl, C2 + (CW - fR.widthOfTextAtSize(qLbl, 6.5)) / 2, y2, 6.5, fB, ink.mid);
+    y2 -= 8;
+
+    const wCy = y2 - wR - wDotR - 2;
+    for (let i = 0; i < wMax; i++) {
+      const angle = Math.PI - (i / wMax) * 2 * Math.PI;
+      const dx = wCx + wR * Math.cos(angle);
+      const dy = wCy + wR * Math.sin(angle);
+      if (i === 0) { CIRC(dx, dy, wDotR * 1.4, true); }
+      else {
+        CIRC(dx, dy, wDotR, i <= qVal || (pVal > 0 && i >= wMax - pVal));
+      }
+    }
+    y2 = wCy - wR - wDotR - 6;
+
+    const pLbl = `Paradox: ${pVal}`;
+    T(pLbl, C2 + (CW - fR.widthOfTextAtSize(pLbl, 6.5)) / 2, y2, 6.5, fB, ink.mid);
+    y2 -= 8;
+  }
+
+  /* ── C3: Health track ── */
+  {
+    const hLbl = 'Health';
+    T(hLbl, C3 + (CW - fB.widthOfTextAtSize(hLbl, 7)) / 2, y3, 7, fB, ink.mid);
+    y3 -= 12;
+    const boxX = C3 + CW - 12;
+    [['Bruised',''],['Hurt','-1'],['Injured','-1'],['Wounded','-2'],
+     ['Mauled','-2'],['Crippled','-5'],['Incapacitated','']].forEach(([name, pen]) => {
+      T(name, C3 + 2, y3 + 2, 6, fR, ink.black);
+      if (pen) {
+        const pw = fB.widthOfTextAtSize(pen, 6.5);
+        T(pen, boxX - pw - 5, y3 + 1.5, 6.5, fB, ink.dark);
+      }
+      SQR(boxX, y3 + 0.5, 8);
+      HL(C3, y3, CW, 0.3, ink.rule);
+      y3 -= RH;
+    });
+  }
+
+  y = Math.min(y1, y2, y3) - 4;
 
   /* ══════════════════════════════════════════════════════════════════════════
      BOTTOM SECTION  —  NOTES / ROTES  +  DESCRIPTION / BACKGROUND
   ══════════════════════════════════════════════════════════════════════════ */
   const BOT_MARGIN = 26;
-  const botSep     = colBot - 8;
+  const botSep     = y - 8;
 
   if (botSep > BOT_MARGIN + 30) {
     HL(ML - 5, botSep, W - (ML - 5) * 2, 1, ink.dark);
@@ -418,7 +460,7 @@ async function buildCharacterPDF(c) {
     bL = SH(ML, bL, HW, 'Notes / Rotes');
     const nLines = wrapText(c.notes || '', HW - 5, fR, 7, 18);
     if (nLines.length) { nLines.forEach(l => { T(l, ML + 2, bL, 7, fR, ink.black); bL -= 9; }); }
-    else { T('\u2014', ML + 2, bL, 7, fI, ink.dim); }
+    else { T('--', ML + 2, bL, 7, fI, ink.dim); }
 
     // Right: Description / Background
     const DX = ML + HW + 8;
@@ -426,7 +468,7 @@ async function buildCharacterPDF(c) {
     bR = SH(DX, bR, HW, 'Description / Background');
     const dLines = wrapText(c.description || '', HW - 5, fR, 7, 18);
     if (dLines.length) { dLines.forEach(l => { T(l, DX + 2, bR, 7, fR, ink.black); bR -= 9; }); }
-    else { T('\u2014', DX + 2, bR, 7, fI, ink.dim); }
+    else { T('--', DX + 2, bR, 7, fI, ink.dim); }
   }
 
   /* ══════════════════════════════════════════════════════════════════════════

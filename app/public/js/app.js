@@ -186,14 +186,44 @@ const App = {
     }
   },
 
+  _recentShowAll: false,
+
   async showDashboard() {
     this.showPage('dashboard');
     const greeting = $('#dashboard-greeting');
     if (this.currentUser) greeting.textContent = `Welcome back, ${this.currentUser.username}`;
+
+    // Render the toggle for admins
+    const toggleWrap = $('#dashboard-recent-toggle');
+    if (toggleWrap) {
+      if (this.currentUser?.role === 'admin') {
+        toggleWrap.innerHTML = `
+          <button id="btn-recent-mine" class="btn-sm ${this._recentShowAll ? 'btn-ghost' : 'btn-secondary'}"
+            onclick="App._recentShowAll=false;App.loadRecentCards()">Mine</button>
+          <button id="btn-recent-all" class="btn-sm ${this._recentShowAll ? 'btn-secondary' : 'btn-ghost'}"
+            onclick="App._recentShowAll=true;App.loadRecentCards()">All Users</button>`;
+        toggleWrap.style.display = 'flex';
+      } else {
+        toggleWrap.style.display = 'none';
+      }
+    }
+
+    await this.loadRecentCards();
+  },
+
+  async loadRecentCards() {
     const grid  = $('#dashboard-cards');
     const empty = $('#dashboard-empty');
+    // Update toggle button styles
+    $('#btn-recent-mine')?.classList.toggle('btn-secondary', !this._recentShowAll);
+    $('#btn-recent-mine')?.classList.toggle('btn-ghost',     this._recentShowAll);
+    $('#btn-recent-all')?.classList.toggle('btn-secondary',  this._recentShowAll);
+    $('#btn-recent-all')?.classList.toggle('btn-ghost',     !this._recentShowAll);
     try {
-      const r = await fetch('/api/characters/recent');
+      const url = (this._recentShowAll && this.currentUser?.role === 'admin')
+        ? '/api/characters/recent/all'
+        : '/api/characters/recent';
+      const r = await fetch(url);
       if (!r.ok) throw new Error();
       const chars = await r.json();
       if (!Array.isArray(chars) || chars.length === 0) {
@@ -203,7 +233,7 @@ const App = {
       } else {
         empty.style.display = 'none';
         grid.style.display = 'grid';
-        grid.innerHTML = chars.map(c => this.renderCard(c)).join('');
+        grid.innerHTML = chars.map(c => this.renderCard(c, !!c.owner_username)).join('');
       }
     } catch {
       grid.innerHTML = '';
@@ -217,14 +247,20 @@ const App = {
     try {
       const r = await fetch('/api/admin/users');
       if (!r.ok) throw new Error('Access denied');
-      const users = await r.json();
+      const { users, purged } = await r.json();
       const me = this.currentUser;
+      const formatDate = iso => {
+        if (!iso) return '<span style="color:var(--text-faint)">Never</span>';
+        const d = new Date(iso);
+        return `<span title="${d.toLocaleString()}">${d.toLocaleDateString()}</span>`;
+      };
       content.innerHTML = `
+        ${purged > 0 ? `<p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem">♻ Auto-purged ${purged} ghost account${purged > 1 ? 's' : ''} (≤1 login, 0 characters, &gt;30 days old).</p>` : ''}
         <table class="admin-table">
           <thead>
             <tr>
               <th>Username</th><th>Email</th><th>Role</th>
-              <th>Chars</th><th>Status</th><th>Actions</th>
+              <th>Chars</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -241,6 +277,8 @@ const App = {
                     ? `<button class="btn-ghost btn-sm" style="min-width:2rem" onclick="App.showUserCharacters(${u.id},'${u.username.replace(/'/g, "\\'")}')" title="View ${u.username}'s characters">${u.character_count}</button>`
                     : '0'}
                 </td>
+                <td style="font-size:0.8rem;color:var(--text-dim)">${formatDate(u.last_login)}</td>
+                <td style="text-align:center;font-size:0.8rem;color:var(--text-dim)">${u.login_count ?? 0}</td>
                 <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
                 <td>
                   <div class="admin-actions">
@@ -416,13 +454,14 @@ const App = {
     }
   },
 
-  renderCard(c) {
+  renderCard(c, showOwner = false) {
     const tradition = c.tradition || c.affiliation || '—';
     const concept   = c.concept || '—';
     return `
       <div class="character-card" onclick="App.viewCharacter(${c.id})">
         <div class="card-tradition">${tradition}</div>
         <div class="card-name">${c.name}</div>
+        ${showOwner && c.owner_username ? `<div class="card-owner">✦ ${c.owner_username}</div>` : ''}
         <div class="card-concept">${concept}</div>
         <div class="card-stats">
           <div class="card-stat">
@@ -528,23 +567,109 @@ const App = {
    ═══════════════════════════════════════════════════════════════ */
 const Auth = {
   showTab(tab) {
-    $('#form-login').style.display  = tab === 'login'    ? 'flex' : 'none';
+    $('#form-login').style.display    = tab === 'login'    ? 'flex' : 'none';
     $('#form-register').style.display = tab === 'register' ? 'flex' : 'none';
+    $('#form-forgot').style.display   = 'none';
+    $('#form-reset').style.display    = 'none';
     $$('.auth-tab').forEach(t => t.classList.remove('active'));
-    $(`#tab-${tab}`).classList.add('active');
+    $(`#tab-${tab}`)?.classList.add('active');
+    $$('.auth-tabs').forEach(el => el.style.display = '');
+  },
+
+  showForgot() {
+    $('#form-login').style.display    = 'none';
+    $('#form-register').style.display = 'none';
+    $('#form-forgot').style.display   = 'flex';
+    $('#form-reset').style.display    = 'none';
+    $$('.auth-tab').forEach(t => t.classList.remove('active'));
+    $$('.auth-tabs').forEach(el => el.style.display = 'none');
+    $('#forgot-email').value = '';
+    $('#forgot-error').style.display   = 'none';
+    $('#forgot-success').style.display = 'none';
+  },
+
+  showReset() {
+    $('#form-login').style.display    = 'none';
+    $('#form-register').style.display = 'none';
+    $('#form-forgot').style.display   = 'none';
+    $('#form-reset').style.display    = 'flex';
+    $$('.auth-tabs').forEach(el => el.style.display = 'none');
+    $('#reset-error').style.display   = 'none';
+    $('#reset-success').style.display = 'none';
+  },
+
+  async forgotPassword(e) {
+    e.preventDefault();
+    const email   = $('#forgot-email').value.trim();
+    const errEl   = $('#forgot-error');
+    const succEl  = $('#forgot-success');
+    errEl.style.display = succEl.style.display = 'none';
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      // Always show success — don't reveal whether email exists
+      succEl.textContent = 'If that email is registered, a reset link is on its way. Check your inbox.';
+      succEl.style.display = 'block';
+      $('#forgot-email').value = '';
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
+  },
+
+  async resetPassword(e) {
+    e.preventDefault();
+    const password = $('#reset-password').value;
+    const confirm  = $('#reset-password-confirm').value;
+    const errEl    = $('#reset-error');
+    const succEl   = $('#reset-success');
+    errEl.style.display = succEl.style.display = 'none';
+    if (password !== confirm) {
+      errEl.textContent = 'Passwords do not match.';
+      errEl.style.display = 'block';
+      return;
+    }
+    const token = new URLSearchParams(window.location.search).get('token');
+    try {
+      const r    = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        errEl.textContent = data.error || 'Reset failed.';
+        errEl.style.display = 'block';
+        return;
+      }
+      succEl.textContent = 'Password updated! You can now sign in.';
+      succEl.style.display = 'block';
+      $('#reset-password').value = '';
+      $('#reset-password-confirm').value = '';
+      // Clear token from URL and switch to login after a short delay
+      history.replaceState({}, '', location.pathname);
+      setTimeout(() => Auth.showTab('login'), 2500);
+    } catch {
+      errEl.textContent = 'Could not connect to server. Please try again.';
+      errEl.style.display = 'block';
+    }
   },
 
   async login(e) {
     e.preventDefault();
-    const username = $('#login-username').value.trim();
-    const password = $('#login-password').value;
+    const username     = $('#login-username').value.trim();
+    const password     = $('#login-password').value;
+    const staySignedIn = $('#login-remember').checked;
     const errEl = $('#login-error');
     errEl.style.display = 'none';
     try {
       const r = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, staySignedIn })
       });
       const data = await r.json();
       if (!r.ok) {
@@ -606,21 +731,14 @@ const Sheet = {
     const content = $('#sheet-content');
 
     const specialties = char.specialties || {};
+    const instruments = (Array.isArray(char.instruments) ? char.instruments : []).join(', ') || '—';
 
-    const allSpheres = M20.SPHERES.map(s => {
-      const val  = (char.spheres || {})[s.id] || 0;
-      if (val === 0) return null;
-      const spec = specialties[s.id];
-      return `<div class="sheet-trait-row">
-        <span class="sheet-trait-name">${s.name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
-        ${dots(val, 5, 'readonly sphere-dots')}
-      </div>`;
-    }).filter(Boolean).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No spheres allocated</p>';
-
+    // All abilities (show all, including 0)
     const allTalents = M20.TALENTS.map(a => this.traitRow(a, (char.talents || {})[a.id], specialties)).join('');
     const allSkills  = M20.SKILLS.map(a => this.traitRow(a, (char.skills || {})[a.id], specialties)).join('');
     const allKnow    = M20.KNOWLEDGES.map(a => this.traitRow(a, (char.knowledges || {})[a.id], specialties)).join('');
 
+    // Backgrounds
     const bgs = Object.entries(char.backgrounds || {})
       .filter(([,v]) => v > 0)
       .map(([k, v]) => {
@@ -628,7 +746,28 @@ const Sheet = {
         return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
       }).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
 
-    const instruments = (Array.isArray(char.instruments) ? char.instruments : []).join(', ') || '—';
+    // Merits
+    const meritsHTML = Object.entries(char.merits || {}).map(([k, v]) => {
+      const name = k.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      return `<div class="sheet-trait-row"><span class="sheet-trait-name">${name}</span>${dots(v, 5, 'readonly')}</div>`;
+    }).join('');
+
+    // Flaws
+    const flawsHTML = Object.entries(char.flaws || {}).map(([k, v]) => {
+      const name = k.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      return `<div class="sheet-trait-row"><span class="sheet-trait-name">${name}</span>${dots(v, 5, 'readonly')}</div>`;
+    }).join('');
+
+    // All spheres (show all 9, mark affinity)
+    const allSpheres = M20.SPHERES.map(s => {
+      const val  = (char.spheres || {})[s.id] || 0;
+      const spec = specialties[s.id];
+      const isAff = s.id === char.affinity_sphere;
+      return `<div class="sheet-trait-row">
+        <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${s.name}${isAff ? ' ✦' : ''}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+        ${dots(val, 5, 'readonly sphere-dots')}
+      </div>`;
+    }).join('');
 
     content.innerHTML = `
     <div class="char-sheet">
@@ -660,85 +799,120 @@ const Sheet = {
         </div>
       </div>
 
-      <div class="sheet-body">
-        <!-- Attributes Column -->
-        <div class="sheet-column">
-          <div class="sheet-section">
-            <div class="sheet-section-title">Physical <span class="page-ref">p. 258</span></div>
+      <!-- Band 1: ATTRIBUTES -->
+      <div class="sheet-band">
+        <div class="sheet-band-title">Attributes</div>
+        <div class="sheet-cols-3">
+          <div class="sheet-group">
+            <div class="sheet-group-title">Physical</div>
             ${this.attrRow('Strength',    char.strength,    specialties)}
             ${this.attrRow('Dexterity',   char.dexterity,   specialties)}
             ${this.attrRow('Stamina',     char.stamina,     specialties)}
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Social <span class="page-ref">p. 258</span></div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Social</div>
             ${this.attrRow('Charisma',    char.charisma,    specialties)}
             ${this.attrRow('Manipulation',char.manipulation,specialties)}
             ${this.attrRow('Appearance',  char.appearance,  specialties)}
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Mental <span class="page-ref">p. 258</span></div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Mental</div>
             ${this.attrRow('Perception',  char.perception,  specialties)}
             ${this.attrRow('Intelligence',char.intelligence,specialties)}
             ${this.attrRow('Wits',        char.wits,        specialties)}
           </div>
         </div>
+      </div>
 
-        <!-- Abilities Column -->
-        <div class="sheet-column">
-          <div class="sheet-section">
-            <div class="sheet-section-title">Talents <span class="page-ref">p. 275</span></div>
+      <!-- Band 2: ABILITIES -->
+      <div class="sheet-band">
+        <div class="sheet-band-title">Abilities</div>
+        <div class="sheet-cols-3">
+          <div class="sheet-group">
+            <div class="sheet-group-title">Talents</div>
             ${allTalents}
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Skills <span class="page-ref">p. 279</span></div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Skills</div>
             ${allSkills}
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Knowledges <span class="page-ref">p. 285</span></div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Knowledges</div>
             ${allKnow}
           </div>
         </div>
+      </div>
 
-        <!-- Advantages Column -->
-        <div class="sheet-column">
-          <div class="sheet-section">
-            <div class="sheet-section-title">Backgrounds <span class="page-ref">p. 301</span></div>
-            ${bgs}
+      <!-- Band 3: SPHERES -->
+      <div class="sheet-band">
+        <div class="sheet-band-title">Spheres</div>
+        <div class="sheet-cols-3">
+          <div class="sheet-group">
+            ${M20.SPHERES.filter(s => ['correspondence','entropy','forces'].includes(s.id)).map(s => {
+              const val = (char.spheres || {})[s.id] || 0;
+              const isAff = s.id === char.affinity_sphere;
+              return `<div class="sheet-trait-row">
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                ${dots(val, 5, 'readonly')}
+              </div>`;
+            }).join('')}
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Spheres <span class="page-ref">p. 512</span></div>
-            <div style="margin-bottom:0.4rem">
-              <span style="font-size:0.72rem;color:var(--gold-dim)">Affinity: ${char.affinity_sphere || '—'}</span>
-            </div>
-            ${allSpheres}
+          <div class="sheet-group">
+            ${M20.SPHERES.filter(s => ['life','matter','mind'].includes(s.id)).map(s => {
+              const val = (char.spheres || {})[s.id] || 0;
+              const isAff = s.id === char.affinity_sphere;
+              return `<div class="sheet-trait-row">
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                ${dots(val, 5, 'readonly')}
+              </div>`;
+            }).join('')}
+          </div>
+          <div class="sheet-group">
+            ${M20.SPHERES.filter(s => ['prime','spirit','time'].includes(s.id)).map(s => {
+              const val = (char.spheres || {})[s.id] || 0;
+              const isAff = s.id === char.affinity_sphere;
+              return `<div class="sheet-trait-row">
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                ${dots(val, 5, 'readonly')}
+              </div>`;
+            }).join('')}
           </div>
         </div>
+      </div>
 
-        <!-- Full-width advantages row -->
-        <div class="sheet-advantages">
-          <div class="sheet-section">
-            <div class="sheet-section-title">Magical Focus <span class="page-ref">p. 259</span></div>
-            <div class="summary-row">
-              <span class="summary-row-label">Paradigm</span>
-              <span class="summary-row-value" style="font-size:0.82rem;text-align:right;max-width:60%">${char.paradigm || '—'}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-row-label">Practice</span>
-              <span class="summary-row-value" style="font-size:0.82rem;text-align:right;max-width:60%">${char.practice || '—'}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-row-label">Instruments</span>
-              <span class="summary-row-value" style="font-size:0.78rem;text-align:right;max-width:60%;line-height:1.4">${instruments}</span>
+      <!-- Band 4: ADVANTAGES -->
+      <div class="sheet-band">
+        <div class="sheet-band-title">Advantages</div>
+        <div class="sheet-cols-3">
+          <div class="sheet-group">
+            <div class="sheet-group-title">Backgrounds</div>
+            ${bgs}
+            ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits</div>${meritsHTML}` : ''}
+            ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws</div>${flawsHTML}` : ''}
+            <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus</div>
+            <div class="sheet-focus-row">
+              <div class="sheet-focus-item">
+                <span class="sheet-focus-label">Paradigm</span>
+                <span class="sheet-focus-value">${char.paradigm || '—'}</span>
+              </div>
+              <div class="sheet-focus-item">
+                <span class="sheet-focus-label">Practice</span>
+                <span class="sheet-focus-value">${char.practice || '—'}</span>
+              </div>
+              <div class="sheet-focus-item">
+                <span class="sheet-focus-label">Instruments</span>
+                <span class="sheet-focus-value">${instruments}</span>
+              </div>
             </div>
           </div>
-          <div class="sheet-section">
-            <div class="sheet-section-title">Core Statistics</div>
-            <div class="core-stats-row">
-              ${this.coreStatBox('Arete', char.arete || 1, 10)}
-              ${this.coreStatBox('Willpower', char.willpower || 5, 10)}
-              ${this.coreStatBox('Quintessence', char.quintessence || 0, 10)}
-              ${this.coreStatBox('Paradox', char.paradox || 0, 10)}
-            </div>
+          <div class="sheet-group core-stats-group">
+            <div class="sheet-group-title">Core Statistics</div>
+            ${this.coreStatBox('Arete', char.arete || 1, 10)}
+            ${this.willpowerBox(char.willpower || 5)}
+            ${this.qpWheelSVG(char.quintessence || 0, char.paradox || 0)}
+          </div>
+          <div class="sheet-group">
+            ${this.healthTrack()}
           </div>
         </div>
       </div>
@@ -768,12 +942,12 @@ const Sheet = {
     </div>`;
   },
 
-  traitRow(trait, val = 0, specialties = {}) {
-    if (!val) return '';
+  traitRow(trait, val, specialties = {}) {
+    const v = val == null ? 0 : val;
     const spec = specialties[trait.id];
     return `<div class="sheet-trait-row">
       <span class="sheet-trait-name">${trait.name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
-      ${dots(val, 5, 'readonly')}
+      ${dots(v, 5, 'readonly')}
     </div>`;
   },
 
@@ -782,6 +956,74 @@ const Sheet = {
       <div class="core-stat-label">${label}</div>
       <div class="dots core-stat-dots readonly" style="justify-content:center;flex-wrap:wrap;gap:3px;max-width:120px;margin:0 auto">
         ${Array.from({length: max}, (_, i) => `<span class="dot ${i < val ? 'filled' : ''}"></span>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  willpowerBox(val) {
+    return `<div class="core-stat-box">
+      <div class="core-stat-label">Willpower</div>
+      <div class="dots core-stat-dots readonly" style="justify-content:center;flex-wrap:nowrap;gap:3px;margin:0 auto 4px">
+        ${Array.from({length: 10}, (_, i) => `<span class="dot ${i < val ? 'filled' : ''}"></span>`).join('')}
+      </div>
+      <div class="wp-spent-row">
+        <span class="wp-spent-label">Spent</span>
+        ${Array.from({length: 10}, () => `<span class="wp-spent-box"></span>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  // Single combined Quintessence/Paradox wheel with start marker
+  qpWheelSVG(q, p) {
+    const max = 20, r = 72, dotR = 9, pad = 16;
+    const size = (r + dotR + pad) * 2;
+    const cx = size / 2, cy = size / 2;
+    const startR = (dotR * 1.25).toFixed(1);
+    const dotsSVG = Array.from({length: max}, (_, i) => {
+      const angle = (i / max) * 2 * Math.PI + Math.PI;
+      const x = (cx + r * Math.cos(angle)).toFixed(1);
+      const y = (cy + r * Math.sin(angle)).toFixed(1);
+      const isStart = i === 0;
+      const isQ = i < q;
+      const isP = !isQ && p > 0 && i >= max - p;
+      let cls = 'wheel-dot';
+      if (isStart) cls += ' start';
+      if (isQ) cls += ' filled';
+      else if (isP) cls += ' paradox';
+      return `<circle cx="${x}" cy="${y}" r="${isStart ? startR : dotR}" class="${cls}"/>`;
+    }).join('');
+    return `<div class="core-stat-box qp-wheel-box">
+      <div class="qp-stat-label">
+        <span class="qp-label-name">Quintessence</span>
+        <span class="qp-label-value">${q}</span>
+      </div>
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="wheel-svg">${dotsSVG}</svg>
+      <div class="qp-stat-label qp-paradox">
+        <span class="qp-label-name">Paradox</span>
+        <span class="qp-label-value qp-paradox-value">${p}</span>
+      </div>
+    </div>`;
+  },
+
+  healthTrack() {
+    const levels = [
+      ['Bruised', ''],
+      ['Hurt', '−1'],
+      ['Injured', '−1'],
+      ['Wounded', '−2'],
+      ['Mauled', '−2'],
+      ['Crippled', '−5'],
+      ['Incapacitated', ''],
+    ];
+    return `<div class="sheet-section sheet-health-section">
+      <div class="sheet-section-title">Health</div>
+      <div class="health-track">
+        ${levels.map(([name, pen]) => `
+        <div class="health-row">
+          <span class="health-level-name">${name}</span>
+          ${pen ? `<span class="health-penalty">${pen}</span>` : '<span class="health-penalty"></span>'}
+          <span class="health-box"></span>
+        </div>`).join('')}
       </div>
     </div>`;
   },
@@ -884,6 +1126,8 @@ const Creator = {
   },
 
   renderStep() {
+    // Scroll to top of page when switching steps
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     // Replace the element with a fresh clone to clear any stacked event listeners
     // from previous renders — otherwise delegated handlers accumulate and fire
     // multiple times, causing toggles to cancel each other out.
@@ -1264,12 +1508,15 @@ const Creator = {
       const totalExtra = [7, 5, 3][rank] || 0;
       const usedExtra  = attrs.reduce((sum, a) => sum + Math.max(0, (c[a.id] || 1) - 1), 0);
       const remaining  = totalExtra - usedExtra;
+      const overBy     = Math.max(0, -remaining);
+      const displayRem = Math.max(0, remaining);
       return `
       <div class="attr-block">
         <div class="attr-block-header">
           <span class="attr-block-title">${cat} Attributes</span>
           <span class="attr-block-points">
-            <span class="pts">${remaining}</span> / ${totalExtra} pts remaining
+            <span class="pts">${displayRem}</span> / ${totalExtra} pts remaining
+            ${overBy > 0 ? `<span class="pts-freebie">+${overBy} via freebies</span>` : ''}
           </span>
         </div>
         ${attrs.map(a => `
@@ -1376,6 +1623,8 @@ const Creator = {
       const custUsed    = custIds.reduce((sum, id) => sum + (c[key][id] || 0), 0);
       const used        = primaryUsed + secUsed + custUsed;
       const remaining   = total - used;
+      const overBy      = Math.max(0, -remaining);
+      const displayRem  = Math.max(0, remaining);
 
       const adderHtml = `
         ${secAvailable.length > 0 ? `
@@ -1395,7 +1644,8 @@ const Creator = {
         <div class="attr-block-header">
           <span class="attr-block-title">${cat}</span>
           <span class="attr-block-points">
-            <span class="pts">${remaining}</span> / ${total} pts · max 3 per ability
+            <span class="pts">${displayRem}</span> / ${total} pts · max 3 per ability
+            ${overBy > 0 ? `<span class="pts-freebie">+${overBy} via freebies</span>` : ''}
           </span>
         </div>
         ${data.map(a => abilityRow(a, key, false)).join('')}
@@ -1424,6 +1674,8 @@ const Creator = {
     const totalDots = M20.CREATION.backgroundDots;
     const usedDots = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
+    const bgOverBy = Math.max(0, -remaining);
+    const bgDisplayRem = Math.max(0, remaining);
 
     const aff = c.affiliation || 'Traditions';
     const bgRows = filteredBackgrounds(aff).map(bg => {
@@ -1452,7 +1704,8 @@ const Creator = {
       <div class="attr-block-header">
         <span class="attr-block-title">Backgrounds <span class="page-ref">p. 301</span></span>
         <span class="attr-block-points">
-          <span class="pts" id="bg-remaining">${remaining}</span> / ${totalDots} pts remaining
+          <span class="pts" id="bg-remaining">${bgDisplayRem}</span> / ${totalDots} pts remaining
+          ${bgOverBy > 0 ? `<span class="pts-freebie" id="bg-freebie-note">+${bgOverBy} via freebies</span>` : '<span class="pts-freebie" id="bg-freebie-note" style="display:none">+0 via freebies</span>'}
         </span>
       </div>
       <div id="bg-rows">${bgRows}</div>
@@ -1519,7 +1772,7 @@ const Creator = {
     <div style="margin-bottom:0.6rem">
       <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
       <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:0.75rem">
-        Choose the instruments your mage uses to work magic. Most mages use 3–5 regularly. These are narrative tools — they describe <em>how</em> you work Effects, not hard mechanical limits.
+        Choose the instruments your mage uses to work magic. Most mages use roughly 7. These are narrative tools — they describe <em>how</em> you work Effects, not hard mechanical limits.
       </p>
     </div>
     <div class="instrument-list">${instrumentRows}</div>
@@ -1552,6 +1805,8 @@ const Creator = {
     const totalDots = M20.CREATION.sphereDots;
     const usedDots  = Object.values(c.spheres).reduce((s, v) => s + v, 0);
     const remaining = totalDots - usedDots;
+    const sphOverBy = Math.max(0, -remaining);
+    const sphDisplayRem = Math.max(0, remaining);
 
     // Affinity sphere selector for multiple options (includes Disparates — all spheres)
     let affinitySelectHtml = '';
@@ -1605,8 +1860,10 @@ const Creator = {
 
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <span style="font-size:0.85rem;color:var(--text-dim)">Affinity Sphere: <strong style="color:var(--gold-mid)">${selectedAffinity || 'Not set'}</strong></span>
+      <span style="font-size:0.85rem;color:var(--text-dim)">Arete: <strong style="color:var(--gold-mid)" id="sphere-step-arete">${c.arete || 1}</strong> <span style="color:var(--text-faint);font-size:0.75rem">(follows highest Sphere)</span></span>
       <span class="attr-block-points">
-        <span class="pts" id="sphere-remaining">${remaining}</span> / ${totalDots} pts remaining
+        <span class="pts" id="sphere-remaining">${sphDisplayRem}</span> / ${totalDots} pts remaining
+        ${sphOverBy > 0 ? `<span class="pts-freebie" id="sphere-freebie-note">+${sphOverBy} via freebies</span>` : '<span class="pts-freebie" id="sphere-freebie-note" style="display:none">+0 via freebies</span>'}
       </span>
     </div>
 
@@ -2333,9 +2590,16 @@ const Creator = {
         this.refreshDots(dotsEl, c.backgrounds[bgId]);
         const total = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
         const remEl = $('#bg-remaining', content);
+        const noteEl = $('#bg-freebie-note', content);
         if (remEl) {
-          remEl.textContent = M20.CREATION.backgroundDots - total;
-          remEl.style.color = total > M20.CREATION.backgroundDots ? 'var(--crimson)' : 'var(--gold-bright)';
+          const rem = M20.CREATION.backgroundDots - total;
+          const over = Math.max(0, -rem);
+          remEl.textContent = Math.max(0, rem);
+          remEl.style.color = over > 0 ? 'var(--gold-bright)' : 'var(--gold-bright)';
+          if (noteEl) {
+            noteEl.textContent = `+${over} via freebies`;
+            noteEl.style.display = over > 0 ? 'block' : 'none';
+          }
         }
         this.updateFreebieDisplay();
       });
@@ -2358,7 +2622,14 @@ const Creator = {
 
         // Auto-set Arete to match highest sphere (min 1, max 3 at creation)
         const maxSphere = Object.values(c.spheres).reduce((m, v) => Math.max(m, v), 0);
-        c.arete = Math.max(c.arete || 1, Math.min(3, maxSphere));
+        const oldArete = c.arete || 1;
+        const newArete = Math.max(1, Math.min(3, maxSphere));
+        c.arete = newArete;
+        const areteIndicator = $('#sphere-step-arete', content);
+        if (areteIndicator) areteIndicator.textContent = newArete;
+        if (newArete < oldArete) {
+          toast(`Arete reduced to ${newArete} to match highest Sphere -- freebie points refunded.`);
+        }
 
         // Show/hide specialty row (always hidden at creation; spheres capped at 3)
         const specRow = card.querySelector('.specialty-row');
@@ -2374,9 +2645,16 @@ const Creator = {
         // Update points display
         const total = Object.values(c.spheres).reduce((s, v) => s + v, 0);
         const remEl = $('#sphere-remaining', content);
+        const sphNoteEl = $('#sphere-freebie-note', content);
         if (remEl) {
-          remEl.textContent = M20.CREATION.sphereDots - total;
-          remEl.style.color = total > M20.CREATION.sphereDots ? 'var(--crimson)' : 'var(--gold-bright)';
+          const rem = M20.CREATION.sphereDots - total;
+          const over = Math.max(0, -rem);
+          remEl.textContent = Math.max(0, rem);
+          remEl.style.color = 'var(--gold-bright)';
+          if (sphNoteEl) {
+            sphNoteEl.textContent = `+${over} via freebies`;
+            sphNoteEl.style.display = over > 0 ? 'block' : 'none';
+          }
         }
         this.updateFreebieDisplay();
 
@@ -3019,7 +3297,9 @@ const Creator = {
     const rank = pri.indexOf(cat);
     const total = [7,5,3][rank] || 0;
     const used  = attrs.reduce((s, a) => s + Math.max(0, (c[a] || 1) - 1), 0);
-    header.innerHTML = `<span class="pts">${total - used}</span> / ${total} pts remaining`;
+    const rem = total - used;
+    const over = Math.max(0, -rem);
+    header.innerHTML = `<span class="pts">${Math.max(0, rem)}</span> / ${total} pts remaining${over > 0 ? ` <span class="pts-freebie">+${over} via freebies</span>` : ''}`;
   },
 
   refreshAbilityPoints(block, cat) {
@@ -3037,7 +3317,9 @@ const Creator = {
     const custIds     = Object.keys(c.custom_ability_names || {}).filter(id => c[cat][id] !== undefined);
     const custUsed    = custIds.reduce((s, id) => s + (c[cat][id] || 0), 0);
     const used = primaryUsed + secUsed + custUsed;
-    header.innerHTML = `<span class="pts">${total - used}</span> / ${total} pts · max 3 per ability`;
+    const rem = total - used;
+    const over = Math.max(0, -rem);
+    header.innerHTML = `<span class="pts">${Math.max(0, rem)}</span> / ${total} pts · max 3 per ability${over > 0 ? ` <span class="pts-freebie">+${over} via freebies</span>` : ''}`;
   },
 
   updateNatureWillpower() {
@@ -3204,6 +3486,13 @@ const Creator = {
 window.addEventListener('DOMContentLoaded', async () => {
   // Sync theme button icon with whatever the FOUC-prevention script applied
   App._updateThemeBtn(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
+  // If a password reset token is in the URL, show the reset form immediately
+  if (new URLSearchParams(window.location.search).get('token')) {
+    App.showPage('auth');
+    Auth.showReset();
+    return; // skip the normal session check
+  }
 
   // Check if already logged in
   try {

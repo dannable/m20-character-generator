@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style.css?v=6" />
   <script>
     // Apply saved theme before first paint to prevent flash
     (function() {
@@ -79,8 +79,43 @@
           <input type="password" id="login-password" class="form-input" autocomplete="current-password" required />
         </div>
         <div id="login-error" class="auth-error" style="display:none;"></div>
+        <label class="auth-remember">
+          <input type="checkbox" id="login-remember" />
+          Stay signed in for 30 days
+        </label>
         <button type="submit" class="btn-primary auth-submit">Enter the Ascension</button>
+        <button type="button" class="auth-forgot-link" onclick="Auth.showForgot()">Forgot your password?</button>
       </form>
+
+      <!-- Forgot password panel -->
+      <form id="form-forgot" class="auth-form" style="display:none;" onsubmit="Auth.forgotPassword(event)">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Enter your email address and we'll send you a reset link.</p>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="forgot-email" class="form-input" autocomplete="email" required />
+        </div>
+        <div id="forgot-error" class="auth-error" style="display:none;"></div>
+        <div id="forgot-success" class="auth-success" style="display:none;"></div>
+        <button type="submit" class="btn-primary auth-submit">Send Reset Link</button>
+        <button type="button" class="auth-forgot-link" onclick="Auth.showTab('login')">← Back to Sign In</button>
+      </form>
+
+      <!-- Reset password panel (shown when ?token= is in the URL) -->
+      <form id="form-reset" class="auth-form" style="display:none;" onsubmit="Auth.resetPassword(event)">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Choose a new password for your account.</p>
+        <div class="form-group">
+          <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
+          <input type="password" id="reset-password" class="form-input" autocomplete="new-password" required minlength="6" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" id="reset-password-confirm" class="form-input" autocomplete="new-password" required minlength="6" />
+        </div>
+        <div id="reset-error" class="auth-error" style="display:none;"></div>
+        <div id="reset-success" class="auth-success" style="display:none;"></div>
+        <button type="submit" class="btn-primary auth-submit">Set New Password</button>
+      </form>
+
       <form id="form-register" class="auth-form" style="display:none;" onsubmit="Auth.register(event)">
         <div class="form-group">
           <label class="form-label">Username</label>
@@ -115,7 +150,10 @@
       <button class="btn-secondary" onclick="App.showRoster()">⚝ View All Characters</button>
     </div>
     <div class="dashboard-recent">
-      <h3 class="dashboard-section-title">Recently Edited</h3>
+      <div class="dashboard-recent-header">
+        <h3 class="dashboard-section-title">Recently Edited</h3>
+        <div id="dashboard-recent-toggle" style="display:none;gap:0.35rem;align-items:center"></div>
+      </div>
       <div id="dashboard-cards" class="roster-grid"></div>
       <div id="dashboard-empty" class="roster-empty" style="display:none;">
         <div class="empty-sigil">☽✦☾</div>
@@ -295,7 +333,7 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
-<script src="/js/data.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/data.js?v=6"></script>
+<script src="/js/app.js?v=6"></script>
 </body>
 </html>
