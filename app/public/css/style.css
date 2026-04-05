@@ -2649,6 +2649,73 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 }
 
 /* ─── Admin Table ─────────────────────────────────────────────── */
+/* ─── Admin Controls (search + filters) ─────────────────────── */
+.admin-purge-notice {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 0.65rem;
+}
+
+.admin-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.admin-search-wrap { flex: 1 1 200px; }
+
+.admin-search {
+  width: 100%;
+  padding: 0.42rem 0.7rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--text-bright);
+  font-size: 0.87rem;
+  font-family: var(--font-body);
+  outline: none;
+  box-sizing: border-box;
+}
+.admin-search:focus { border-color: var(--gold-mid); }
+
+.admin-filters {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-filter-select {
+  padding: 0.4rem 0.55rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  color: var(--text-mid);
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  outline: none;
+}
+.admin-filter-select:focus { border-color: var(--gold-mid); }
+
+.admin-result-count {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ─── Admin scrollable table ─────────────────────────────────── */
+.admin-table-wrap {
+  overflow-y: auto;
+  max-height: calc(100vh - 290px);
+  min-height: 200px;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -2657,6 +2724,10 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 }
 
 .admin-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-raised);
   font-family: var(--font-ui);
   font-size: 0.65rem;
   letter-spacing: 0.1em;
@@ -2674,12 +2745,22 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   vertical-align: middle;
 }
 
-.admin-table tr:hover td {
-  background: var(--bg-raised);
-}
+.admin-table tr:hover td { background: var(--bg-raised); }
 
-.admin-table .status-active { color: #70c070; }
+.admin-table .status-active  { color: #70c070; }
 .admin-table .status-disabled { color: var(--text-faint); }
+.admin-td-email { font-size: 0.8rem; color: var(--text-dim); }
+.admin-td-date  { font-size: 0.8rem; color: var(--text-dim); }
+.admin-role-user { color: var(--text-dim); font-size: 0.8rem; }
+.admin-zero { color: var(--text-faint); }
+.admin-char-btn { min-width: 2rem; }
+
+.admin-empty-row {
+  text-align: center !important;
+  color: var(--text-faint) !important;
+  padding: 2.5rem !important;
+  font-style: italic;
+}
 
 .admin-actions {
   display: flex;

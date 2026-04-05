@@ -248,64 +248,159 @@ const App = {
       const r = await fetch('/api/admin/users');
       if (!r.ok) throw new Error('Access denied');
       const { users, purged } = await r.json();
-      const me = this.currentUser;
-      const formatDate = iso => {
-        if (!iso) return '<span style="color:var(--text-faint)">Never</span>';
-        const d = new Date(iso);
-        return `<span title="${d.toLocaleString()}">${d.toLocaleDateString()}</span>`;
-      };
+      this._adminUsers = users;
+
       content.innerHTML = `
-        ${purged > 0 ? `<p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem">♻ Auto-purged ${purged} ghost account${purged > 1 ? 's' : ''} (≤1 login, 0 characters, &gt;30 days old).</p>` : ''}
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Username</th><th>Email</th><th>Role</th>
-              <th>Chars</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.map(u => {
-              const isSelf = me && u.id === me.id;
-              return `<tr>
-                <td>${u.username}</td>
-                <td style="font-size:0.8rem;color:var(--text-dim)">${u.email}</td>
-                <td>
-                  <span class="${u.role === 'admin' ? 'admin-badge' : ''}" style="${u.role !== 'admin' ? 'color:var(--text-dim);font-size:0.8rem' : ''}">${u.role}</span>
-                </td>
-                <td style="text-align:center">
-                  ${u.character_count > 0
-                    ? `<button class="btn-ghost btn-sm" style="min-width:2rem" onclick="App.showUserCharacters(${u.id},'${u.username.replace(/'/g, "\\'")}')" title="View ${u.username}'s characters">${u.character_count}</button>`
-                    : '0'}
-                </td>
-                <td style="font-size:0.8rem;color:var(--text-dim)">${formatDate(u.last_login)}</td>
-                <td style="text-align:center;font-size:0.8rem;color:var(--text-dim)">${u.login_count ?? 0}</td>
-                <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
-                <td>
-                  <div class="admin-actions">
-                    <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})"
-                      ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>
-                      ${u.is_active ? 'Disable' : 'Enable'}
-                    </button>
-                    <button class="btn-ghost btn-sm" onclick="App.changeRole(${u.id}, '${u.role}', '${u.username}')"
-                      ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>
-                      ${u.role === 'admin' ? 'Demote' : 'Promote'}
-                    </button>
-                    <button class="btn-secondary btn-sm" onclick="App.resetPassword(${u.id}, '${u.username}')">
-                      Reset PW
-                    </button>
-                    <button class="btn-danger btn-sm" onclick="App.deleteUser(${u.id}, '${u.username}')"
-                      ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>`;
+        ${purged > 0 ? `<p class="admin-purge-notice">♻ Auto-purged ${purged} ghost account${purged > 1 ? 's' : ''} (≤1 login, 0 characters, &gt;30 days old).</p>` : ''}
+        <div class="admin-controls">
+          <div class="admin-search-wrap">
+            <input type="search" id="admin-search" class="admin-search"
+              placeholder="Search username or email…" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="admin-filters">
+            <select id="admin-filter-status" class="admin-filter-select">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <select id="admin-filter-chars" class="admin-filter-select">
+              <option value="">All Characters</option>
+              <option value="has">Has Characters</option>
+              <option value="none">No Characters</option>
+            </select>
+            <select id="admin-filter-role" class="admin-filter-select">
+              <option value="">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+            </select>
+            <button class="btn-ghost btn-sm" id="admin-clear-filters" style="display:none">✕ Clear</button>
+          </div>
+          <div class="admin-result-count" id="admin-count"></div>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th><th>Email</th><th>Role</th>
+                <th>Chars</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-tbody"></tbody>
+          </table>
+        </div>`;
+
+      // Restore filter state that was saved before an in-page action reload
+      if (this._adminSearchState) {
+        const s = this._adminSearchState;
+        if ($('#admin-search'))        $('#admin-search').value = s.search;
+        if ($('#admin-filter-status')) $('#admin-filter-status').value = s.status;
+        if ($('#admin-filter-chars'))  $('#admin-filter-chars').value = s.chars;
+        if ($('#admin-filter-role'))   $('#admin-filter-role').value = s.role;
+      }
+
+      this._renderAdminTable();
+
+      $('#admin-search')?.addEventListener('input', () => this._renderAdminTable());
+      ['admin-filter-status', 'admin-filter-chars', 'admin-filter-role'].forEach(id => {
+        $(`#${id}`)?.addEventListener('change', () => this._renderAdminTable());
+      });
+      $('#admin-clear-filters')?.addEventListener('click', () => {
+        $('#admin-search').value = '';
+        $('#admin-filter-status').value = '';
+        $('#admin-filter-chars').value = '';
+        $('#admin-filter-role').value = '';
+        this._adminSearchState = null;
+        this._renderAdminTable();
+      });
+
     } catch (err) {
       content.innerHTML = `<p style="color:var(--crimson)">Failed to load users: ${err.message}</p>`;
     }
+  },
+
+  _renderAdminTable() {
+    const tbody    = $('#admin-tbody');
+    const countEl  = $('#admin-count');
+    const clearBtn = $('#admin-clear-filters');
+    if (!tbody) return;
+
+    const search       = ($('#admin-search')?.value || '').toLowerCase().trim();
+    const filterStatus = $('#admin-filter-status')?.value || '';
+    const filterChars  = $('#admin-filter-chars')?.value  || '';
+    const filterRole   = $('#admin-filter-role')?.value   || '';
+
+    // Persist so filter state survives a full reload triggered by an action
+    this._adminSearchState = { search, status: filterStatus, chars: filterChars, role: filterRole };
+
+    const hasFilters = !!(search || filterStatus || filterChars || filterRole);
+    if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
+
+    const formatDate = iso => {
+      if (!iso) return '<span style="color:var(--text-faint)">Never</span>';
+      const d = new Date(iso);
+      return `<span title="${d.toLocaleString()}">${d.toLocaleDateString()}</span>`;
+    };
+
+    const me  = this.currentUser;
+    const all = this._adminUsers || [];
+
+    const filtered = all.filter(u => {
+      if (search && !u.username.toLowerCase().includes(search) && !u.email.toLowerCase().includes(search)) return false;
+      if (filterStatus === 'active'   && !u.is_active)         return false;
+      if (filterStatus === 'disabled' &&  u.is_active)         return false;
+      if (filterChars  === 'has'      && !u.character_count)   return false;
+      if (filterChars  === 'none'     &&  u.character_count > 0) return false;
+      if (filterRole && u.role !== filterRole) return false;
+      return true;
+    });
+
+    if (countEl) {
+      const t = all.length, f = filtered.length;
+      countEl.textContent = f === t ? `${t} user${t !== 1 ? 's' : ''}` : `${f} of ${t}`;
+    }
+
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="admin-empty-row">No users match the current filters.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(u => {
+      const isSelf = me && u.id === me.id;
+      return `<tr>
+        <td>${u.username}</td>
+        <td class="admin-td-email">${u.email}</td>
+        <td>
+          <span class="${u.role === 'admin' ? 'admin-badge' : 'admin-role-user'}">${u.role}</span>
+        </td>
+        <td style="text-align:center">
+          ${u.character_count > 0
+            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserCharacters(${u.id},'${u.username.replace(/'/g, "\\'")}')" title="View characters">${u.character_count}</button>`
+            : '<span class="admin-zero">0</span>'}
+        </td>
+        <td class="admin-td-date">${formatDate(u.last_login)}</td>
+        <td style="text-align:center" class="admin-td-date">${u.login_count ?? 0}</td>
+        <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
+        <td>
+          <div class="admin-actions">
+            <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})"
+              ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>
+              ${u.is_active ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn-ghost btn-sm" onclick="App.changeRole(${u.id}, '${u.role}', '${u.username}')"
+              ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>
+              ${u.role === 'admin' ? 'Demote' : 'Promote'}
+            </button>
+            <button class="btn-secondary btn-sm" onclick="App.resetPassword(${u.id}, '${u.username}')">
+              Reset PW
+            </button>
+            <button class="btn-danger btn-sm" onclick="App.deleteUser(${u.id}, '${u.username}')"
+              ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
   },
 
   async toggleUser(id, isActive) {
