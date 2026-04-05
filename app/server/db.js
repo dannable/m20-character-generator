@@ -111,6 +111,21 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN user_id INTEGER`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN customArchetypes TEXT DEFAULT '[]'`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN custom_ability_names TEXT DEFAULT '{}'`); } catch {}
 
+// ── User login tracking migrations ───────────────────────────────────────────
+try { db.exec(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0`); } catch {}
+
+// ── Password reset tokens ─────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    token      TEXT NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    used       INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
 // ── Seed admin user ──────────────────────────────────────────────────────────
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
 const adminEmail    = process.env.ADMIN_EMAIL    || 'admin@localhost';

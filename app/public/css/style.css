@@ -592,6 +592,56 @@ a:hover { color: var(--gold-bright); }
   border-radius: var(--radius-md);
   padding: 0.8rem;
   text-align: center;
+  cursor: default;
+  transition: border-color 0.2s;
+}
+
+.sidebar-points:hover {
+  border-color: var(--gold-mid);
+}
+
+.freebie-tooltip {
+  display: none;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-dim);
+  font-size: 0.78rem;
+  color: var(--text-mid);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sidebar-points:hover .freebie-tooltip {
+  display: block;
+}
+
+.fb-tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding: 0.12rem 0;
+}
+
+.fb-tip-cost  { color: var(--gold-mid); font-family: var(--font-heading); }
+.fb-tip-bonus { color: var(--purple-mid); font-family: var(--font-heading); }
+.fb-tip-over  { color: var(--crimson); }
+
+.fb-tip-empty {
+  color: var(--text-faint);
+  font-style: italic;
+  margin-bottom: 0.4rem;
+}
+
+.fb-tip-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding-top: 0.35rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-dim);
+  color: var(--text-bright);
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
 }
 
 .pts-label {
@@ -1714,6 +1764,12 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+}
+
+.fb-row-desc {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .fb-cost-hint {

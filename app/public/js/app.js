@@ -1156,6 +1156,55 @@ const Creator = {
   },
 
   // ── Freebie point calculation ─────────────────────────────────
+  calcFreebieBreakdown() {
+    const c = this.char;
+    const lines = [];
+    const attrCost = this.calcAttrFreebies();
+    if (attrCost)  lines.push({ label: 'Attributes',   cost: attrCost });
+    const abilCost = this.calcAbilityFreebies();
+    if (abilCost)  lines.push({ label: 'Abilities',    cost: abilCost });
+    const bgCost = this.calcBgFreebies();
+    if (bgCost)    lines.push({ label: 'Backgrounds',  cost: bgCost });
+    const sphCost = this.calcSphereFreebies();
+    if (sphCost)   lines.push({ label: 'Spheres',      cost: sphCost });
+    const areteCost = Math.max(0, (c.arete || 1) - 1) * 4;
+    if (areteCost) lines.push({ label: 'Arete',        cost: areteCost });
+    const wpCost = Math.max(0, (c.willpower || 5) - 5);
+    if (wpCost)    lines.push({ label: 'Willpower',    cost: wpCost });
+    const avatarRating = (c.backgrounds || {})['avatar'] || 0;
+    const quintCost = Math.ceil(Math.max(0, (c.quintessence || 0) - avatarRating) / 4);
+    if (quintCost) lines.push({ label: 'Quintessence', cost: quintCost });
+    const meritCost = this.calcMeritCost();
+    if (meritCost) lines.push({ label: 'Merits',       cost: meritCost });
+    const flawBonus = this.calcFlawBonus();
+    if (flawBonus) lines.push({ label: 'Flaws',        cost: -flawBonus });
+    Object.entries(c.freebie_spent || {}).forEach(([key, v]) => {
+      if (v) lines.push({ label: key, cost: v });
+    });
+    return lines;
+  },
+
+  updateFreebieTooltip() {
+    const bdEl = $('#freebie-breakdown');
+    if (!bdEl) return;
+    const lines = this.calcFreebieBreakdown();
+    const total = M20.CREATION.freebiePoints;
+    const spent = this.freebieSpent();
+    const remaining = total - spent;
+    if (lines.length === 0) {
+      bdEl.innerHTML = `<div class="fb-tip-empty">No points spent yet</div>
+        <div class="fb-tip-total"><span>Remaining</span><span>${remaining} / ${total}</span></div>`;
+    } else {
+      bdEl.innerHTML = lines.map(l =>
+        `<div class="fb-tip-row">
+          <span>${l.label}</span>
+          <span class="${l.cost < 0 ? 'fb-tip-bonus' : 'fb-tip-cost'}">${l.cost < 0 ? '+' + (-l.cost) : '\u2212' + l.cost}</span>
+        </div>`
+      ).join('') +
+        `<div class="fb-tip-total"><span>Remaining</span><span class="${remaining < 0 ? 'fb-tip-over' : ''}">${remaining} / ${total}</span></div>`;
+    }
+  },
+
   calcFreebies() {
     const c = this.char;
     // Merits cost freebies; flaws grant them (max +7)
@@ -1179,6 +1228,7 @@ const Creator = {
       el.textContent = remaining;
       el.style.color = remaining < 0 ? 'var(--crimson)' : 'var(--gold-bright)';
     }
+    this.updateFreebieTooltip();
     // On step 6, use the richer bank update
     if (this.step === 6) this.updateFreebieBank();
   },
@@ -1262,8 +1312,21 @@ const Creator = {
     });
 
     const bgAff = c.affiliation || 'Traditions';
-    const bgIds = filteredBackgrounds(bgAff).map(bg => bg.id);
-    const backgrounds = greedy(bgIds, id => c.backgrounds[id]||0, M20.CREATION.backgroundDots, 0);
+    const filteredBgs = filteredBackgrounds(bgAff);
+    // Custom greedy for backgrounds: double-cost backgrounds use 2 creation dots per rating
+    const backgrounds = {};
+    filteredBgs.forEach(bg => { backgrounds[bg.id] = 0; });
+    const sortedBgs = [...filteredBgs].sort((a, b) => (c.backgrounds[a.id]||0) - (c.backgrounds[b.id]||0));
+    let bgRem = M20.CREATION.backgroundDots;
+    for (const bg of sortedBgs) {
+      if (bgRem <= 0) break;
+      const val = c.backgrounds[bg.id] || 0;
+      if (val === 0) continue;
+      const costPer = bg.doubleCost ? 2 : 1;
+      const allocDots = Math.min(Math.floor(bgRem / costPer), val);
+      backgrounds[bg.id] = allocDots;
+      bgRem -= allocDots * costPer;
+    }
 
     const spheres = greedy(M20.SPHERES.map(s=>s.id), id => c.spheres[id]||0, M20.CREATION.sphereDots, 0);
 
@@ -1519,23 +1582,27 @@ const Creator = {
             ${overBy > 0 ? `<span class="pts-freebie">+${overBy} via freebies</span>` : ''}
           </span>
         </div>
-        ${attrs.map(a => `
+        ${attrs.map(a => {
+          const val = c[a.id] || 1;
+          const levelDesc = a.levels ? a.levels[val - 1] : a.description;
+          return `
         <div class="attr-row" data-attr-id="${a.id}">
           <div class="attr-row-main">
             <div class="attr-info">
               <div class="attr-name">${a.name}
                 <span class="info-tip" data-tip="${a.description}">?</span>
               </div>
-              <div class="attr-desc">${a.description}</div>
+              <div class="attr-desc">${levelDesc}</div>
             </div>
-            ${dotsClickable(c[a.id] || 1, 5, null, '')}
+            ${dotsClickable(val, 5, null, '')}
           </div>
-          <div class="specialty-row" ${(c[a.id] || 1) < 4 ? 'style="display:none"' : ''}>
+          <div class="specialty-row" ${val < 4 ? 'style="display:none"' : ''}>
             <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
               placeholder="Specialty\u2026" value="${c.specialties[a.id] || ''}">
             <datalist id="spec-${a.id}">${(a.specialties || []).map(s => `<option value="${s}">`).join('')}</datalist>
           </div>
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
       </div>`;
     }).join('');
 
@@ -1671,27 +1738,28 @@ const Creator = {
      ══════════════════════════════════════════════════════════════ */
   renderStep3() {
     const c = this.char;
+    const aff = c.affiliation || 'Traditions';
     const totalDots = M20.CREATION.backgroundDots;
-    const usedDots = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
+    const usedDots = filteredBackgrounds(aff).reduce((s, bg) => s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1), 0);
     const remaining = totalDots - usedDots;
     const bgOverBy = Math.max(0, -remaining);
     const bgDisplayRem = Math.max(0, remaining);
-
-    const aff = c.affiliation || 'Traditions';
     const bgRows = filteredBackgrounds(aff).map(bg => {
       const val = c.backgrounds[bg.id] || 0;
       const dispName = bgDisplayName(bg, aff);
+      const bgMax = bg.max || 5;
+      const levelDesc = bg.levels && val > 0 ? bg.levels[val - 1] : bg.description;
       return `
-      <div class="attr-row" data-bg="${bg.id}">
+      <div class="attr-row" data-bg="${bg.id}" data-bg-max="${bgMax}">
         <div class="attr-info">
           <div class="attr-name">${dispName}
-            ${bg.doubleCost ? '<span style="font-size:0.6rem;color:var(--crimson);margin-left:0.3rem">[2× cost]</span>' : ''}
+            ${bg.doubleCost ? '<span style="font-size:0.6rem;color:var(--crimson);margin-left:0.3rem">[2\u00d7 cost]</span>' : ''}
             <span class="info-tip" data-tip="${bg.description}${bg.note ? ' (' + bg.note + ')' : ''}">?</span>
           </div>
-          <div class="attr-desc">${bg.description}</div>
+          <div class="attr-desc">${levelDesc}</div>
           ${bg.page ? `<div class="page-ref">p. ${bg.page}</div>` : ''}
         </div>
-        ${dotsClickable(val, 5, null, '')}
+        ${dotsClickable(val, bgMax, null, '')}
       </div>`;
     }).join('');
 
@@ -1933,7 +2001,7 @@ const Creator = {
     // Helper: dots row for the freebie panel
     // specOptions: array of suggestion strings (null = no specialty row)
     // currentSpec: currently saved specialty text for this trait
-    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '', specThreshold = 4) => {
+    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '', specThreshold = 4, desc = '') => {
       const spent     = Math.max(0, current - baseline) * costPer;
       const dotsHtml  = Array.from({length: max}, (_, i) => {
         const val = i + 1;
@@ -1955,7 +2023,10 @@ const Creator = {
         : '';
       return `
       <div class="fb-row" ${dataAttr} data-baseline="${baseline}" data-cost="${costPer}" data-max="${max}">
-        <div class="fb-row-label">${label}${costNote ? `<span class="fb-cost-hint">${costNote}</span>` : ''}</div>
+        <div class="fb-row-label">
+          <span>${label}${costNote ? `<span class="fb-cost-hint">${costNote}</span>` : ''}</span>
+          ${desc ? `<span class="fb-row-desc">${desc}</span>` : ''}
+        </div>
         <span class="dots" data-max="${max}">${dotsHtml}</span>
         <div class="fb-row-cost">${costDisplay}</div>
       </div>${specHtml}`;
@@ -2033,7 +2104,13 @@ const Creator = {
     const bgSection = filteredBgs.map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
       const baseline = lb.backgrounds[bg.id] ?? 0;
-      return fbRow(bg.id, bgDisplayName(bg, bgAff), cur, 5, baseline, 1, '1 pt/dot', null);
+      const bgMax = bg.max || 5;
+      const costPer = bg.doubleCost ? 2 : 1;
+      const costNote = bg.doubleCost ? '2 pts/dot' : '1 pt/dot';
+      const tipText = (bg.description + (bg.note ? ' (' + bg.note + ')' : '')).replace(/"/g, '&quot;');
+      const label = `${bgDisplayName(bg, bgAff)} <span class="info-tip" data-tip="${tipText}">?</span>`;
+      const levelDesc = bg.levels && cur > 0 ? bg.levels[cur - 1] : '';
+      return fbRow(bg.id, label, cur, bgMax, baseline, costPer, costNote, null, null, '', 4, levelDesc);
     }).join('');
 
     // Sphere rows
@@ -2512,6 +2589,12 @@ const Creator = {
           this.refreshDots(dotsEl, c[attrId]);
           this.refreshAttrPoints(block, attrId);
           this.updateFreebieDisplay();
+          // Update level description in-place
+          const descEl = attrRow.querySelector('.attr-desc');
+          if (descEl) {
+            const attrDef = Object.values(M20.ATTRIBUTES).flat().find(a => a.id === attrId);
+            descEl.textContent = attrDef?.levels ? attrDef.levels[c[attrId] - 1] : (attrDef?.description || '');
+          }
           // Show/hide specialty row
           const specRow = attrRow.querySelector('.specialty-row');
           if (specRow) {
@@ -2583,12 +2666,20 @@ const Creator = {
       dotsEl.addEventListener('click', e => {
         const dot = e.target.closest('.dot');
         if (!dot) return;
-        const bgId = row.dataset.bg;
-        const val  = parseInt(dot.dataset.val);
-        const cur  = c.backgrounds[bgId] || 0;
-        c.backgrounds[bgId] = cur === val ? Math.max(0, val - 1) : val;
+        const bgId  = row.dataset.bg;
+        const bgMax = parseInt(row.dataset.bgMax) || 5;
+        const val   = parseInt(dot.dataset.val);
+        const cur   = c.backgrounds[bgId] || 0;
+        c.backgrounds[bgId] = cur === val ? Math.max(0, val - 1) : Math.min(bgMax, val);
         this.refreshDots(dotsEl, c.backgrounds[bgId]);
-        const total = Object.values(c.backgrounds).reduce((s, v) => s + v, 0);
+        // Update level description in-place
+        const descEl = row.querySelector('.attr-desc');
+        if (descEl) {
+          const bgDef = M20.BACKGROUNDS.find(b => b.id === bgId);
+          const newVal = c.backgrounds[bgId];
+          descEl.textContent = bgDef?.levels && newVal > 0 ? bgDef.levels[newVal - 1] : (bgDef?.description || '');
+        }
+        const total = filteredBackgrounds(c.affiliation || 'Traditions').reduce((s, bg) => s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1), 0);
         const remEl = $('#bg-remaining', content);
         const noteEl = $('#bg-freebie-note', content);
         if (remEl) {
@@ -2911,6 +3002,11 @@ const Creator = {
         const cur = char.backgrounds[id] || 0;
         char.backgrounds[id] = cur === val ? Math.max(0,val-1) : Math.min(max,val);
         c.refreshFreebieRow(row, char.backgrounds[id]);
+        const descEl = row.querySelector('.fb-row-desc');
+        if (descEl) {
+          const bgDef = M20.BACKGROUNDS.find(b => b.id === id);
+          descEl.textContent = bgDef?.levels && char.backgrounds[id] > 0 ? bgDef.levels[char.backgrounds[id] - 1] : '';
+        }
         c.updateFreebieBank();
       });
     });
@@ -3151,6 +3247,7 @@ const Creator = {
       sideEl.textContent = remaining;
       sideEl.style.color = remaining < 0 ? 'var(--crimson)' : 'var(--gold-bright)';
     }
+    this.updateFreebieTooltip();
 
     // Update bank pips
     const bar = $('#fb-bar');
@@ -3257,11 +3354,17 @@ const Creator = {
     if (this._lockedBaselines) {
       const lb = this._lockedBaselines.backgrounds;
       return Object.entries(c.backgrounds||{}).reduce((total, [id, val]) => {
-        return total + Math.max(0, val - (lb[id]??0));
+        const bg = M20.BACKGROUNDS.find(b => b.id === id);
+        const costPer = bg?.doubleCost ? 2 : 1;
+        return total + Math.max(0, val - (lb[id]??0)) * costPer;
       }, 0);
     }
-    const total = Object.values(c.backgrounds||{}).reduce((s,v)=>s+v,0);
-    return Math.max(0, total - M20.CREATION.backgroundDots);
+    // Fallback: weighted total vs creation pool
+    const bgAff = c.affiliation || 'Traditions';
+    const weightedTotal = filteredBackgrounds(bgAff).reduce((s, bg) => {
+      return s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1);
+    }, 0);
+    return Math.max(0, weightedTotal - M20.CREATION.backgroundDots);
   },
 
   calcSphereFreebies() {

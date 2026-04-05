@@ -42,6 +42,20 @@ router.get('/recent', (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /recent/all — last 8 characters across all users (admin only)
+router.get('/recent/all', (req, res) => {
+  if (req.session.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  try {
+    const rows = db.prepare(`
+      SELECT c.${SUMMARY_COLS.split(', ').join(', c.')}, u.username AS owner_username
+      FROM characters c
+      LEFT JOIN users u ON u.id = c.user_id
+      ORDER BY c.updated_at DESC LIMIT 8
+    `).all();
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET all characters for the current user only
 router.get('/', (req, res) => {
   try {

@@ -11,17 +11,41 @@ router.use((req, res, next) => {
   next();
 });
 
+// ── Auto-purge ghost accounts ─────────────────────────────────────────────────
+// Removes accounts with ≤1 login, 0 characters, created more than 30 days ago.
+// Admins are never purged. Called each time the user list is loaded.
+function purgeGhostAccounts() {
+  const stale = db.prepare(`
+    SELECT u.id FROM users u
+    LEFT JOIN characters c ON c.user_id = u.id
+    WHERE u.role != 'admin'
+      AND u.login_count <= 1
+      AND u.created_at <= datetime('now', '-30 days')
+    GROUP BY u.id
+    HAVING COUNT(c.id) = 0
+  `).all();
+  if (stale.length === 0) return 0;
+  const ids = stale.map(r => r.id);
+  const placeholders = ids.map(() => '?').join(',');
+  db.prepare(`DELETE FROM characters WHERE user_id IN (${placeholders})`).run(...ids);
+  // role != 'admin' guard is repeated here as a safety net in case of unexpected data
+  db.prepare(`DELETE FROM users WHERE id IN (${placeholders}) AND role != 'admin'`).run(...ids);
+  return ids.length;
+}
+
 // GET /api/admin/users
 router.get('/users', (req, res) => {
+  const purged = purgeGhostAccounts();
   const users = db.prepare(`
     SELECT u.id, u.username, u.email, u.role, u.is_active, u.created_at,
+           u.last_login, u.login_count,
            COUNT(c.id) AS character_count
     FROM users u
     LEFT JOIN characters c ON c.user_id = u.id
     GROUP BY u.id
     ORDER BY u.created_at DESC
   `).all();
-  res.json(users);
+  res.json({ users, purged });
 });
 
 // GET /api/admin/users/:id/characters — all characters belonging to a user
