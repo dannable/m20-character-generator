@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style.css?v=33" />
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <script>
     // Apply saved theme before first paint to prevent flash
     (function() {
@@ -25,12 +26,7 @@
 <header id="app-header">
   <div class="header-inner">
     <div class="header-title" onclick="App.showDashboard()" style="cursor:pointer" title="Home">
-      <span class="header-sigil">✦</span>
-      <div>
-        <h1 class="title-main">Mage: The Ascension</h1>
-        <p class="title-sub">20th Anniversary Edition — Character Generator</p>
-      </div>
-      <span class="header-sigil">✦</span>
+      <img src="/chantry-logo.png" alt="Chantry — An M20 Resource" class="header-logo" />
     </div>
     <nav class="header-nav">
       <div id="user-info" class="user-info" style="display:none;">
@@ -41,22 +37,41 @@
       <button class="nav-btn" id="nav-dashboard" onclick="App.showDashboard()" style="display:none;">
         <span class="nav-icon">⌂</span> Home
       </button>
-      <button class="nav-btn" id="nav-roster" onclick="App.showRoster()" style="display:none;">
-        <span class="nav-icon">⚝</span> My Characters
-      </button>
-      <button class="nav-btn" id="nav-create" onclick="App.startNewCharacter()" style="display:none;">
-        <span class="nav-icon">✧</span> Create New
-      </button>
       <button class="nav-btn" id="nav-admin" onclick="App.showAdmin()" style="display:none;">
         <span class="nav-icon">⚙</span> Admin
       </button>
-      <button class="nav-btn" id="nav-logout" onclick="App.logout()" style="display:none;">
-        <span class="nav-icon">↩</span> Sign Out
+      <button class="nav-btn" id="nav-grimoire" onclick="App.showGrimoire()" style="display:none;">
+        Grimoire
       </button>
-      <button class="nav-btn" id="btn-theme" onclick="App.toggleTheme()" title="Toggle light/dark mode">☽</button>
+      <button class="nav-btn nav-btn-icon" id="btn-theme" onclick="App.toggleTheme()" title="Toggle light/dark mode">☽</button>
+      <div class="nav-hamburger-wrap">
+        <button class="nav-btn nav-btn-icon" id="btn-hamburger" onclick="App.toggleHamburger(event)" title="More">☰</button>
+        <div class="nav-hamburger-menu" id="nav-hamburger-menu">
+          <button class="nav-btn hamburger-item" id="nav-about" onclick="App.showAbout(); App.closeHamburger()">
+            <span class="nav-icon">✦</span> About
+          </button>
+          <button class="nav-btn hamburger-item" id="nav-feedback" onclick="App.showFeedback(); App.closeHamburger()" style="display:none;">
+            <span class="nav-icon">✉</span> Send Feedback
+          </button>
+          <button class="nav-btn hamburger-item" id="nav-settings" onclick="Settings.show(); App.closeHamburger()" style="display:none;">
+            <span class="nav-icon">⚙</span> Settings
+          </button>
+          <div class="hamburger-divider"></div>
+          <button class="nav-btn hamburger-item" id="nav-logout" onclick="App.logout()" style="display:none;">
+            <span class="nav-icon">↩</span> Sign Out
+          </button>
+        </div>
+      </div>
     </nav>
   </div>
 </header>
+
+<!-- Guest warning banner (shown only for guest sessions) -->
+<div id="guest-banner" style="display:none;">
+  <span class="guest-banner-icon">⚠</span>
+  <span class="guest-banner-text">You're browsing as a <strong>guest</strong>. Your characters will be <strong>permanently deleted</strong> when you sign out or close this tab.</span>
+  <button class="guest-banner-register" onclick="App.logout(); Auth.showTab('register')">Create a free account →</button>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════ MAIN -->
 <main id="app-main">
@@ -81,8 +96,56 @@
           <input type="password" id="login-password" class="form-input" autocomplete="current-password" required />
         </div>
         <div id="login-error" class="auth-error" style="display:none;"></div>
+        <label class="auth-remember">
+          <input type="checkbox" id="login-remember" />
+          Stay signed in for 30 days
+        </label>
         <button type="submit" class="btn-primary auth-submit">Enter the Ascension</button>
+        <button type="button" class="auth-forgot-link" onclick="Auth.showForgot()">Forgot your password?</button>
       </form>
+
+      <!-- Guest access divider -->
+      <div class="auth-guest-divider">
+        <span class="auth-divider-line"></span>
+        <span class="auth-divider-text">or</span>
+        <span class="auth-divider-line"></span>
+      </div>
+      <button type="button" class="auth-guest-btn" onclick="Auth.enterAsGuest()">
+        Enter as Guest
+      </button>
+      <p class="auth-guest-note">Build and preview a character — no account required.<br>
+        <strong>Guest characters are deleted when you leave.</strong>
+      </p>
+
+      <!-- Forgot password panel -->
+      <form id="form-forgot" class="auth-form" style="display:none;" onsubmit="Auth.forgotPassword(event)">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Enter your email address and we'll send you a reset link.</p>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="forgot-email" class="form-input" autocomplete="email" required />
+        </div>
+        <div id="forgot-error" class="auth-error" style="display:none;"></div>
+        <div id="forgot-success" class="auth-success" style="display:none;"></div>
+        <button type="submit" class="btn-primary auth-submit">Send Reset Link</button>
+        <button type="button" class="auth-forgot-link" onclick="Auth.showTab('login')">← Back to Sign In</button>
+      </form>
+
+      <!-- Reset password panel (shown when ?token= is in the URL) -->
+      <form id="form-reset" class="auth-form" style="display:none;" onsubmit="Auth.resetPassword(event)">
+        <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.5rem">Choose a new password for your account.</p>
+        <div class="form-group">
+          <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
+          <input type="password" id="reset-password" class="form-input" autocomplete="new-password" required minlength="6" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input type="password" id="reset-password-confirm" class="form-input" autocomplete="new-password" required minlength="6" />
+        </div>
+        <div id="reset-error" class="auth-error" style="display:none;"></div>
+        <div id="reset-success" class="auth-success" style="display:none;"></div>
+        <button type="submit" class="btn-primary auth-submit">Set New Password</button>
+      </form>
+
       <form id="form-register" class="auth-form" style="display:none;" onsubmit="Auth.register(event)">
         <div class="form-group">
           <label class="form-label">Username</label>
@@ -115,16 +178,39 @@
     <div class="dashboard-actions">
       <button class="btn-primary" onclick="App.startNewCharacter()">✧ Create New Character</button>
       <button class="btn-secondary" onclick="App.showRoster()">⚝ View All Characters</button>
+      <button class="btn-secondary" onclick="Chronicle.showCreate()">⚝ Create Chronicle</button>
     </div>
-    <div class="dashboard-recent">
-      <h3 class="dashboard-section-title">Recently Edited</h3>
-      <div id="dashboard-cards" class="roster-grid"></div>
-      <div id="dashboard-empty" class="roster-empty" style="display:none;">
-        <div class="empty-sigil">☽✦☾</div>
-        <p>No mages yet walk these pages.</p>
-        <p>The Awakening awaits — create your first character.</p>
+    <div class="dashboard-two-col">
+      <div class="dashboard-col">
+        <div class="dashboard-recent-header">
+          <h3 class="dashboard-section-title">Recent Characters</h3>
+          <div id="dashboard-recent-toggle" style="display:none;gap:0.35rem;align-items:center"></div>
+        </div>
+        <div id="dashboard-cards" class="dashboard-char-list"></div>
+        <div id="dashboard-empty" class="roster-empty" style="display:none;">
+          <div class="empty-sigil">☽✦☾</div>
+          <p>No mages yet walk these pages.</p>
+          <p>The Awakening awaits — create your first character.</p>
+        </div>
+      </div>
+
+      <div class="dashboard-col">
+        <div class="dashboard-recent-header">
+          <h3 class="dashboard-section-title">My Chronicles</h3>
+        </div>
+        <div id="dashboard-chronicle-list"></div>
       </div>
     </div>
+  </section>
+
+  <!-- ─── CHRONICLE PAGE ───────────────────────────────────────────── -->
+  <section id="page-chronicle" class="page">
+    <div id="chronicle-content" class="chronicle-content-wrap"></div>
+  </section>
+
+  <!-- ─── SETTINGS PAGE ────────────────────────────────────────────── -->
+  <section id="page-settings" class="page">
+    <div id="settings-content" class="settings-content-wrap"></div>
   </section>
 
   <!-- ─── CHARACTER ROSTER PAGE ─────────────────────────────────── -->
@@ -197,6 +283,7 @@
           <span class="pts-label">Freebie Points</span>
           <span class="pts-value" id="freebie-display">15</span>
           <span class="pts-remaining">remaining</span>
+          <div class="freebie-tooltip" id="freebie-breakdown"></div>
         </div>
       </aside>
 
@@ -206,9 +293,9 @@
           <!-- Dynamically rendered -->
         </div>
         <div class="creator-nav">
-          <button class="btn-secondary" id="btn-back" onclick="history.back()" style="display:none;">← Back</button>
+          <button class="btn-secondary" id="btn-back" onclick="Creator.prevStep()" style="visibility:hidden;">← Back</button>
           <div class="creator-nav-right">
-            <button class="btn-ghost" onclick="Creator.saveDraft()">Save Draft</button>
+            <button class="btn-ghost" id="btn-save" onclick="Creator.saveDraft()">Save Draft</button>
             <button class="btn-primary" id="btn-next" onclick="Creator.nextStep()">Next →</button>
           </div>
         </div>
@@ -217,21 +304,90 @@
     </div>
   </section>
 
+  <!-- ─── ABOUT PAGE ──────────────────────────────────────────────── -->
+  <section id="page-about" class="page">
+    <div class="about-container">
+      <h2 class="about-title">About This Project</h2>
+      <p class="about-flavor">A digital companion for Mage: The Ascension 20th Anniversary Edition.</p>
+
+      <div class="about-creator">
+        <div class="about-sigil">✦</div>
+        <p class="about-byline">Created by <strong>DavidProphet</strong></p>
+        <div class="about-links">
+          <a class="about-link" href="https://discord.com/users/davidprophet" target="_blank" rel="noopener noreferrer">
+            <span class="about-link-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.003.019.011.037.025.048A19.9 19.9 0 0 0 6.121 21.2a.077.077 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.093.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+              </svg>
+            </span>
+            Discord: @davidprophet
+          </a>
+          <a class="about-link" href="mailto:david@blackspiral.ca">
+            <span class="about-link-icon">✉</span>
+            david@blackspiral.ca
+          </a>
+          <a class="about-link about-link-coffee" href="https://buymeacoffee.com/davidprophet" target="_blank" rel="noopener noreferrer">
+            <span class="about-link-icon">☕</span>
+            Buy me a coffee
+          </a>
+        </div>
+        <p class="about-canada">Proudly made in Canada by a Canadian</p>
+      </div>
+
+      <div class="about-darkpack">
+        <a href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement" target="_blank" rel="noopener noreferrer" class="about-darkpack-link">
+          <img src="/darkpack_logo2.png" alt="Dark Pack" class="about-darkpack-logo" />
+        </a>
+        <div class="about-darkpack-text">
+          <p>This project is an unofficial fan creation made under the
+            <a href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement" target="_blank" rel="noopener noreferrer">Dark Pack Agreement</a>.
+          </p>
+          <p class="about-darkpack-disclaimer">
+            Portions of the materials are the copyrights and trademarks of Paradox Interactive AB,
+            and are used with permission. All rights reserved. For more information please visit
+            <a href="https://worldofdarkness.com" target="_blank" rel="noopener noreferrer">worldofdarkness.com</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ─── CHARACTER SHEET PAGE ──────────────────────────────────── -->
   <section id="page-sheet" class="page">
     <div class="sheet-toolbar">
-      <button class="btn-ghost" onclick="App.showRoster()">← Back to Roster</button>
-      <div class="sheet-toolbar-right">
+      <div id="sheet-toolbar-left">
+        <button class="btn-ghost" onclick="App.showRoster()">← Back to Roster</button>
+      </div>
+      <div class="sheet-toolbar-right" id="sheet-toolbar-right">
         <button class="btn-secondary" onclick="Sheet.editCharacter()">Edit Character</button>
         <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
-        <button class="btn-secondary" onclick="Sheet.exportFoundry()" title="Export as Foundry VTT actor (worldofdarkness system)">Export Foundry</button>
-        <button class="btn-ghost" onclick="window.print()">Print</button>
+
+        <button class="btn-secondary" onclick="Sheet.shareSheet()">Share Sheet</button>
         <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
       </div>
     </div>
     <div id="sheet-content">
       <!-- Dynamically rendered -->
     </div>
+  </section>
+
+  <!-- ─── ADVANCEMENT PAGE ────────────────────────────────────────── -->
+  <section id="page-advancement" class="page">
+    <div class="adv-toolbar">
+      <button class="btn-ghost" id="btn-adv-back">← Back to Sheet</button>
+    </div>
+    <div id="advancement-content"></div>
+  </section>
+
+  <!-- ─── FREE EDIT PAGE ─────────────────────────────────────────── -->
+  <section id="page-free-edit" class="page">
+    <div class="fe-toolbar" id="free-edit-toolbar"></div>
+    <div id="free-edit-content"></div>
+  </section>
+
+  <!-- ─── GRIMOIRE PAGE ──────────────────────────────────────────── -->
+  <section id="page-grimoire" class="page">
+    <div id="grimoire-content"></div>
   </section>
 
 </main>
@@ -255,7 +411,8 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
-<script src="/js/data.js"></script>
-<script src="/js/app.js"></script>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="/js/data.js?v=33"></script>
+<script src="/js/app.js?v=33"></script>
 </body>
 </html>
