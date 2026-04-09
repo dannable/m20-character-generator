@@ -38,7 +38,7 @@ router.post('/:characterId', requireAuth, (req, res) => {
     const token = crypto.randomBytes(16).toString('hex');
     db.prepare('INSERT INTO share_tokens (character_id, token) VALUES (?, ?)').run(char.id, token);
     res.json({ token });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // GET /api/share/:token — public; returns character data + like info
@@ -61,7 +61,7 @@ router.get('/:token', (req, res) => {
       : false;
 
     res.json({ character: parseCharacter(char), likeCount, userLiked });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 // POST /api/share/:token/like — toggle like for the current user (auth required)
@@ -89,7 +89,7 @@ router.post('/:token/like', requireAuth, (req, res) => {
     ).get(share.character_id).count;
 
     res.json({ likeCount, userLiked: !existing });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
 module.exports = router;

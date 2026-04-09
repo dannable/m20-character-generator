@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css?v=13" />
+  <link rel="stylesheet" href="/css/style.css?v=33" />
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <script>
     // Apply saved theme before first paint to prevent flash
     (function() {
@@ -25,12 +26,7 @@
 <header id="app-header">
   <div class="header-inner">
     <div class="header-title" onclick="App.showDashboard()" style="cursor:pointer" title="Home">
-      <span class="header-sigil">✦</span>
-      <div>
-        <h1 class="title-main">Mage: The Ascension</h1>
-        <p class="title-sub">20th Anniversary Edition — Character Generator</p>
-      </div>
-      <span class="header-sigil">✦</span>
+      <img src="/chantry-logo.png" alt="Chantry — An M20 Resource" class="header-logo" />
     </div>
     <nav class="header-nav">
       <div id="user-info" class="user-info" style="display:none;">
@@ -44,17 +40,38 @@
       <button class="nav-btn" id="nav-admin" onclick="App.showAdmin()" style="display:none;">
         <span class="nav-icon">⚙</span> Admin
       </button>
-      <button class="nav-btn" id="nav-logout" onclick="App.logout()" style="display:none;">
-        <span class="nav-icon">↩</span> Sign Out
-      </button>
-      <span class="nav-divider"></span>
-      <button class="nav-btn" id="nav-about" onclick="App.showAbout()">
-        <span class="nav-icon">✦</span> About
+      <button class="nav-btn" id="nav-grimoire" onclick="App.showGrimoire()" style="display:none;">
+        Grimoire
       </button>
       <button class="nav-btn nav-btn-icon" id="btn-theme" onclick="App.toggleTheme()" title="Toggle light/dark mode">☽</button>
+      <div class="nav-hamburger-wrap">
+        <button class="nav-btn nav-btn-icon" id="btn-hamburger" onclick="App.toggleHamburger(event)" title="More">☰</button>
+        <div class="nav-hamburger-menu" id="nav-hamburger-menu">
+          <button class="nav-btn hamburger-item" id="nav-about" onclick="App.showAbout(); App.closeHamburger()">
+            <span class="nav-icon">✦</span> About
+          </button>
+          <button class="nav-btn hamburger-item" id="nav-feedback" onclick="App.showFeedback(); App.closeHamburger()" style="display:none;">
+            <span class="nav-icon">✉</span> Send Feedback
+          </button>
+          <button class="nav-btn hamburger-item" id="nav-settings" onclick="Settings.show(); App.closeHamburger()" style="display:none;">
+            <span class="nav-icon">⚙</span> Settings
+          </button>
+          <div class="hamburger-divider"></div>
+          <button class="nav-btn hamburger-item" id="nav-logout" onclick="App.logout()" style="display:none;">
+            <span class="nav-icon">↩</span> Sign Out
+          </button>
+        </div>
+      </div>
     </nav>
   </div>
 </header>
+
+<!-- Guest warning banner (shown only for guest sessions) -->
+<div id="guest-banner" style="display:none;">
+  <span class="guest-banner-icon">⚠</span>
+  <span class="guest-banner-text">You're browsing as a <strong>guest</strong>. Your characters will be <strong>permanently deleted</strong> when you sign out or close this tab.</span>
+  <button class="guest-banner-register" onclick="App.logout(); Auth.showTab('register')">Create a free account →</button>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════ MAIN -->
 <main id="app-main">
@@ -86,6 +103,19 @@
         <button type="submit" class="btn-primary auth-submit">Enter the Ascension</button>
         <button type="button" class="auth-forgot-link" onclick="Auth.showForgot()">Forgot your password?</button>
       </form>
+
+      <!-- Guest access divider -->
+      <div class="auth-guest-divider">
+        <span class="auth-divider-line"></span>
+        <span class="auth-divider-text">or</span>
+        <span class="auth-divider-line"></span>
+      </div>
+      <button type="button" class="auth-guest-btn" onclick="Auth.enterAsGuest()">
+        Enter as Guest
+      </button>
+      <p class="auth-guest-note">Build and preview a character — no account required.<br>
+        <strong>Guest characters are deleted when you leave.</strong>
+      </p>
 
       <!-- Forgot password panel -->
       <form id="form-forgot" class="auth-form" style="display:none;" onsubmit="Auth.forgotPassword(event)">
@@ -148,19 +178,39 @@
     <div class="dashboard-actions">
       <button class="btn-primary" onclick="App.startNewCharacter()">✧ Create New Character</button>
       <button class="btn-secondary" onclick="App.showRoster()">⚝ View All Characters</button>
+      <button class="btn-secondary" onclick="Chronicle.showCreate()">⚝ Create Chronicle</button>
     </div>
-    <div class="dashboard-recent">
-      <div class="dashboard-recent-header">
-        <h3 class="dashboard-section-title">Recently Edited</h3>
-        <div id="dashboard-recent-toggle" style="display:none;gap:0.35rem;align-items:center"></div>
+    <div class="dashboard-two-col">
+      <div class="dashboard-col">
+        <div class="dashboard-recent-header">
+          <h3 class="dashboard-section-title">Recent Characters</h3>
+          <div id="dashboard-recent-toggle" style="display:none;gap:0.35rem;align-items:center"></div>
+        </div>
+        <div id="dashboard-cards" class="dashboard-char-list"></div>
+        <div id="dashboard-empty" class="roster-empty" style="display:none;">
+          <div class="empty-sigil">☽✦☾</div>
+          <p>No mages yet walk these pages.</p>
+          <p>The Awakening awaits — create your first character.</p>
+        </div>
       </div>
-      <div id="dashboard-cards" class="roster-grid"></div>
-      <div id="dashboard-empty" class="roster-empty" style="display:none;">
-        <div class="empty-sigil">☽✦☾</div>
-        <p>No mages yet walk these pages.</p>
-        <p>The Awakening awaits — create your first character.</p>
+
+      <div class="dashboard-col">
+        <div class="dashboard-recent-header">
+          <h3 class="dashboard-section-title">My Chronicles</h3>
+        </div>
+        <div id="dashboard-chronicle-list"></div>
       </div>
     </div>
+  </section>
+
+  <!-- ─── CHRONICLE PAGE ───────────────────────────────────────────── -->
+  <section id="page-chronicle" class="page">
+    <div id="chronicle-content" class="chronicle-content-wrap"></div>
+  </section>
+
+  <!-- ─── SETTINGS PAGE ────────────────────────────────────────────── -->
+  <section id="page-settings" class="page">
+    <div id="settings-content" class="settings-content-wrap"></div>
   </section>
 
   <!-- ─── CHARACTER ROSTER PAGE ─────────────────────────────────── -->
@@ -243,9 +293,9 @@
           <!-- Dynamically rendered -->
         </div>
         <div class="creator-nav">
-          <button class="btn-secondary" id="btn-back" onclick="history.back()" style="display:none;">← Back</button>
+          <button class="btn-secondary" id="btn-back" onclick="Creator.prevStep()" style="visibility:hidden;">← Back</button>
           <div class="creator-nav-right">
-            <button class="btn-ghost" onclick="Creator.saveDraft()">Save Draft</button>
+            <button class="btn-ghost" id="btn-save" onclick="Creator.saveDraft()">Save Draft</button>
             <button class="btn-primary" id="btn-next" onclick="Creator.nextStep()">Next →</button>
           </div>
         </div>
@@ -276,7 +326,12 @@
             <span class="about-link-icon">✉</span>
             david@blackspiral.ca
           </a>
+          <a class="about-link about-link-coffee" href="https://buymeacoffee.com/davidprophet" target="_blank" rel="noopener noreferrer">
+            <span class="about-link-icon">☕</span>
+            Buy me a coffee
+          </a>
         </div>
+        <p class="about-canada">Proudly made in Canada by a Canadian</p>
       </div>
 
       <div class="about-darkpack">
@@ -288,8 +343,9 @@
             <a href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement" target="_blank" rel="noopener noreferrer">Dark Pack Agreement</a>.
           </p>
           <p class="about-darkpack-disclaimer">
-            Mage: The Ascension, World of Darkness, and all related content are
-            &copy; Paradox Interactive. This is not an official product.
+            Portions of the materials are the copyrights and trademarks of Paradox Interactive AB,
+            and are used with permission. All rights reserved. For more information please visit
+            <a href="https://worldofdarkness.com" target="_blank" rel="noopener noreferrer">worldofdarkness.com</a>.
           </p>
         </div>
       </div>
@@ -305,7 +361,7 @@
       <div class="sheet-toolbar-right" id="sheet-toolbar-right">
         <button class="btn-secondary" onclick="Sheet.editCharacter()">Edit Character</button>
         <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
-        <button class="btn-secondary" onclick="Sheet.exportFoundry()" title="Export as Foundry VTT actor (worldofdarkness system)">Export Foundry</button>
+
         <button class="btn-secondary" onclick="Sheet.shareSheet()">Share Sheet</button>
         <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
       </div>
@@ -313,6 +369,25 @@
     <div id="sheet-content">
       <!-- Dynamically rendered -->
     </div>
+  </section>
+
+  <!-- ─── ADVANCEMENT PAGE ────────────────────────────────────────── -->
+  <section id="page-advancement" class="page">
+    <div class="adv-toolbar">
+      <button class="btn-ghost" id="btn-adv-back">← Back to Sheet</button>
+    </div>
+    <div id="advancement-content"></div>
+  </section>
+
+  <!-- ─── FREE EDIT PAGE ─────────────────────────────────────────── -->
+  <section id="page-free-edit" class="page">
+    <div class="fe-toolbar" id="free-edit-toolbar"></div>
+    <div id="free-edit-content"></div>
+  </section>
+
+  <!-- ─── GRIMOIRE PAGE ──────────────────────────────────────────── -->
+  <section id="page-grimoire" class="page">
+    <div id="grimoire-content"></div>
   </section>
 
 </main>
@@ -336,7 +411,8 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
-<script src="/js/data.js?v=13"></script>
-<script src="/js/app.js?v=13"></script>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="/js/data.js?v=33"></script>
+<script src="/js/app.js?v=33"></script>
 </body>
 </html>

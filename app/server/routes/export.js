@@ -130,6 +130,7 @@ async function buildCharacterPDF(c) {
     rule:  rgb(0.72, 0.72, 0.72),
     lite:  rgb(0.91, 0.91, 0.91),
     white: rgb(1, 1, 1),
+    gold:  rgb(0.62, 0.42, 0.08),
   };
 
   /* ── Drawing primitives ──────────────────────────────────────────────────── */
@@ -192,6 +193,15 @@ async function buildCharacterPDF(c) {
   const TR = (x, y, w, lbl, val, max = 5, r = 2.5, sp = 7) => {
     const dotsW = (max - 1) * sp + 2 * r;
     T(fit(lbl, w - dotsW - 8, fR, 7), x + 2, y + 2.5, 7, fR, ink.black);
+    DOTS(x + w - dotsW - 2, y + 2, val, max, r, sp);
+    HL(x, y, w, 0.3, ink.rule);
+    return y - RH;
+  };
+  // Affinity sphere row — gold bold label with a light highlight band
+  const TR_AFF = (x, y, w, lbl, val, max = 5, r = 2.5, sp = 7) => {
+    page.drawRectangle({ x, y: y - 1, width: w, height: RH, color: rgb(0.98, 0.95, 0.86) });
+    const dotsW = (max - 1) * sp + 2 * r;
+    T(fit('* ' + lbl, w - dotsW - 8, fB, 7), x + 2, y + 2.5, 7, fB, ink.gold);
     DOTS(x + w - dotsW - 2, y + 2, val, max, r, sp);
     HL(x, y, w, 0.3, ink.rule);
     return y - RH;
@@ -305,21 +315,21 @@ async function buildCharacterPDF(c) {
   y1 = y; y2 = y; y3 = y;
 
   const sph = c.spheres || {};
-  const affMark = (id) => id === c.affinity_sphere ? ' *' : '';
+  const isAff = (id) => id === (c.affinity_sphere || '').toLowerCase();
 
   // Col 1: Correspondence, Entropy, Forces
   [['Correspondence','correspondence'],['Entropy','entropy'],['Forces','forces']].forEach(([name, id]) => {
-    y1 = TR(C1, y1, CW, name + affMark(id), sph[id] || 0);
+    y1 = isAff(id) ? TR_AFF(C1, y1, CW, name, sph[id] || 0) : TR(C1, y1, CW, name, sph[id] || 0);
   });
 
   // Col 2: Life, Matter, Mind
   [['Life','life'],['Matter','matter'],['Mind','mind']].forEach(([name, id]) => {
-    y2 = TR(C2, y2, CW, name + affMark(id), sph[id] || 0);
+    y2 = isAff(id) ? TR_AFF(C2, y2, CW, name, sph[id] || 0) : TR(C2, y2, CW, name, sph[id] || 0);
   });
 
   // Col 3: Prime, Spirit, Time
   [['Prime','prime'],['Spirit','spirit'],['Time','time']].forEach(([name, id]) => {
-    y3 = TR(C3, y3, CW, name + affMark(id), sph[id] || 0);
+    y3 = isAff(id) ? TR_AFF(C3, y3, CW, name, sph[id] || 0) : TR(C3, y3, CW, name, sph[id] || 0);
   });
 
   y = Math.min(y1, y2, y3) - 4;
@@ -512,7 +522,7 @@ router.get('/pdf/:id', async (req, res) => {
 
   } catch (err) {
     console.error('PDF export error:', err);
-    res.status(500).json({ error: 'Export failed: ' + err.message });
+    res.status(500).json({ error: 'Export failed' });
   }
 });
 
@@ -576,7 +586,7 @@ router.get('/foundry/:id', async (req, res) => {
     const spheres = c.spheres || {};
     SPHERES.forEach(sp => {
       const val = spheres[sp.id] || 0;
-      if (val === 0 && sp.id !== c.affinity_sphere) return;
+      if (val === 0 && sp.id !== (c.affinity_sphere || '').toLowerCase()) return;
       items.push({
         _id: makeId(), name: sp.name, type: 'sphere',
         system: {
@@ -694,7 +704,7 @@ router.get('/foundry/:id', async (req, res) => {
 
   } catch (err) {
     console.error('Foundry export error:', err);
-    res.status(500).json({ error: 'Export failed: ' + err.message });
+    res.status(500).json({ error: 'Export failed' });
   }
 });
 
