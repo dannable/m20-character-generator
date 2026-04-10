@@ -6817,15 +6817,15 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   margin-top: 0.2rem;
   line-height: 1.4;
 }
-.wonder-instances-list {
-  display: flex; flex-direction: column; gap: 0.75rem;
-}
+.wonder-instances-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .wonder-empty, .wonder-loading {
   font-size: 0.82rem;
   color: var(--text-faint);
   font-style: italic;
   margin: 0.25rem 0;
 }
+
+/* ── Individual wonder instance card ── */
 .wonder-instance {
   padding: 0.6rem 0.75rem;
   background: var(--bg-base);
@@ -6834,64 +6834,134 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 }
 .wonder-instance-header {
   display: flex; align-items: center; gap: 0.6rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.45rem;
   flex-wrap: wrap;
 }
 .wonder-level-label {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
+  font-size: 0.78rem; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
 }
 .wonder-pts-hint {
-  font-size: 0.75rem;
-  color: var(--gold-dim);
-  white-space: nowrap;
-  margin-left: auto;
+  font-size: 0.75rem; color: var(--gold-dim);
+  white-space: nowrap; margin-left: auto;
 }
 .wonder-remove-btn {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.4rem;
-  color: var(--text-faint);
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  background: transparent;
-  line-height: 1;
-  margin-left: 0.25rem;
+  font-size: 0.7rem; padding: 0.15rem 0.4rem;
+  color: var(--text-faint); border: 1px solid transparent;
+  border-radius: 4px; cursor: pointer; background: transparent;
+  line-height: 1; margin-left: 0.25rem;
   transition: color 0.15s, border-color 0.15s;
 }
 .wonder-remove-btn:hover { color: var(--crimson); border-color: rgba(180,50,50,0.4); }
-.wonder-name-select {
-  width: 100%;
-  font-size: 0.82rem;
-  padding: 0.35rem 0.5rem;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--radius-sm);
-  color: var(--text-bright);
-  margin-bottom: 0.35rem;
+
+/* ── Selected-wonder bar (collapsed state) ── */
+.wonder-sel-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0;
+  flex-wrap: wrap;
 }
-.wonder-name-select:focus { outline: none; border-color: var(--gold-dim); }
+.wonder-sel-info {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  flex: 1; min-width: 0;
+}
+.wonder-sel-name {
+  font-size: 0.88rem; color: var(--text-bright);
+  font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wonder-sel-meta {
+  font-size: 0.74rem; color: var(--gold-dim);
+  white-space: nowrap; flex-shrink: 0;
+}
+.wonder-none-selected {
+  gap: 0.6rem;
+}
+.wonder-sel-none {
+  font-size: 0.82rem; color: var(--text-faint); font-style: italic; flex: 1;
+}
+.wonder-clear-btn { color: var(--text-faint); }
+.wonder-clear-btn:hover { color: var(--crimson); }
+
+/* ── Selected wonder description panel ── */
 .wonder-info {
-  margin-top: 0.35rem;
-  padding: 0.4rem 0.6rem;
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.65rem;
   background: rgba(200,168,76,0.05);
   border-left: 2px solid var(--gold-dim);
   border-radius: 0 4px 4px 0;
 }
 .wonder-desc {
+  font-size: 0.8rem; color: var(--text-mid); line-height: 1.45;
+  margin-bottom: 0.2rem;
+}
+.wonder-meta { font-size: 0.72rem; color: var(--text-faint); font-style: italic; }
+
+/* ── Picker panel ── */
+.wonder-picker-panel {
+  display: none;
+  flex-direction: column;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.wonder-picker-controls {
+  display: flex; gap: 0.5rem; padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-dim);
+  background: rgba(0,0,0,0.15);
+  flex-wrap: wrap;
+}
+.wonder-picker-controls .form-input {
   font-size: 0.8rem;
-  color: var(--text-mid);
-  line-height: 1.45;
-  margin-bottom: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg-base);
 }
-.wonder-meta {
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  font-style: italic;
+.wonder-search-input { flex: 1; min-width: 10rem; }
+.wonder-book-filter  { flex: 0 0 auto; max-width: 14rem; }
+.wonder-results-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
+.wonder-results-list { display: flex; flex-direction: column; }
+.wonder-result-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.1s;
+}
+.wonder-result-item:hover { background: rgba(200,168,76,0.08); }
+.wonder-result-selected { background: rgba(200,168,76,0.14) !important; }
+.wonder-result-main {
+  display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 0.05rem;
+}
+.wonder-result-name {
+  font-size: 0.82rem; color: var(--text-bright);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wonder-result-src {
+  font-size: 0.7rem; color: var(--text-faint); font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wonder-result-cost {
+  font-size: 0.75rem; color: var(--gold-dim);
+  white-space: nowrap; flex-shrink: 0;
+}
+.wonder-no-results {
+  padding: 0.75rem 0.75rem;
+  font-size: 0.82rem; color: var(--text-faint); font-style: italic;
+  text-align: center;
+}
+.wonder-picker-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.35rem 0.65rem;
+  border-top: 1px solid var(--border-dim);
+  background: rgba(0,0,0,0.1);
+}
+.wonder-results-count { font-size: 0.74rem; color: var(--text-faint); }
+
 /* Wonder section inside Step 6 fb-bgs group */
 #fb-bgs .wonder-section {
   margin-top: 1rem;

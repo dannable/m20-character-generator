@@ -8047,6 +8047,90 @@ const Creator = {
     this.char.backgrounds.wonder = total;
   },
 
+  // ── Wonder picker helpers ─────────────────────────────────────────────────────
+
+  // Abbreviate long book names for compact display in result rows
+  _wonderBookShort(book) {
+    return (book || '')
+      .replace('Mage: The Ascension 20th Anniversary Edition', 'M20')
+      .replace('Mage: The Ascension (1st Edition)', 'M:tA 1e')
+      .replace('Mage: The Ascension (2nd Edition)', 'M:tA 2e')
+      .replace(/Mage: [Tt]he Sorcerer.s Crusade/, 'Sorcerer\'s Crusade')
+      .replace('Tradition Book: ', 'TB: ')
+      .replace('Convention Book: ', 'CB: ')
+      .replace('Technocracy: ', 'Tech: ')
+      .replace("Technomancer's Toybox", 'Toybox')
+      .replace("Technomancer\u2019s Toybox", 'Toybox')
+      .replace('Guide to the Technocracy', 'Guide: Tech')
+      .replace('Guide to the Traditions', 'Guide: Trad')
+      .replace('Digital Web 2.0', 'Digital Web 2')
+      .replace('Forged by Dragon\u2019s Fire', 'Dragon\'s Fire')
+      .replace("Swashbuckler\u2019s Handbook", 'Swashbuckler')
+      .replace("Artisan\u2019s Handbook", 'Artisan\'s HB');
+  },
+
+  // Build <optgroup> HTML for the source-book filter select
+  _wonderBookOptsHTML(avail) {
+    const bookCounts = {};
+    avail.forEach(w => { if (w.source_book) bookCounts[w.source_book] = (bookCounts[w.source_book] || 0) + 1; });
+    const books = Object.keys(bookCounts).sort();
+
+    const groups = { 'M20 Core': [], 'Tradition Books': [], 'Convention Books': [], 'Technocracy': [], 'Supplements': [] };
+    books.forEach(b => {
+      if (b.includes('Tradition Book')) groups['Tradition Books'].push(b);
+      else if (b.includes('Convention Book')) groups['Convention Books'].push(b);
+      else if (/^Technocracy[: ]/.test(b)) groups['Technocracy'].push(b);
+      else if (/Mage: (The Ascension|[Tt]he Sorcerer)|^Ascension$/.test(b)) groups['M20 Core'].push(b);
+      else groups['Supplements'].push(b);
+    });
+
+    return Object.entries(groups)
+      .filter(([, list]) => list.length)
+      .map(([grp, list]) => {
+        const opts = list.map(b => `<option value="${escHtml(b)}">${escHtml(this._wonderBookShort(b))} (${bookCounts[b]})</option>`).join('');
+        return `<optgroup label="${grp}">${opts}</optgroup>`;
+      }).join('');
+  },
+
+  // Render (or re-render) the results list inside a picker panel
+  _renderWonderResults(listEl, avail, selectedName, searchText, bookFilter) {
+    const srch = (searchText || '').toLowerCase().trim();
+    const filtered = avail.filter(wd => {
+      if (bookFilter && wd.source_book !== bookFilter) return false;
+      if (srch) {
+        const inName = (wd.name || '').toLowerCase().includes(srch);
+        const inDesc = (wd.description || '').toLowerCase().includes(srch);
+        const inSrc  = (wd.source_book || '').toLowerCase().includes(srch);
+        if (!inName && !inDesc && !inSrc) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="wonder-no-results">No wonders match your search.</div>';
+      return 0;
+    }
+
+    listEl.innerHTML = filtered.map(wd => {
+      const isSel  = wd.name === selectedName;
+      const src    = this._wonderBookShort(wd.source_book || '');
+      const cost   = wd.background_cost || '?';
+      const extras = [
+        wd.arete        ? `Arete ${wd.arete}` : '',
+        wd.quintessence ? `Q${wd.quintessence}` : '',
+      ].filter(Boolean).join(' · ');
+      return `<div class="wonder-result-item${isSel ? ' wonder-result-selected' : ''}" data-wonder-name="${escHtml(wd.name)}">
+        <div class="wonder-result-main">
+          <span class="wonder-result-name">${escHtml(wd.name)}</span>
+          <span class="wonder-result-src">${escHtml(src)}${extras ? ' · ' + extras : ''}</span>
+        </div>
+        <span class="wonder-result-cost">${cost} pts${isSel ? ' ✓' : ''}</span>
+      </div>`;
+    }).join('');
+
+    return filtered.length;
+  },
+
   // Build HTML for one wonder slot (used in both Step 3 and Step 6)
   _wonderInstanceHTML(w, idx) {
     const level  = w.level || 1;
@@ -8060,19 +8144,48 @@ const Creator = {
       const d = i + 1;
       return `<span class="dot ${d <= level ? 'filled' : ''}" data-val="${d}"></span>`;
     }).join('');
-    const selected = w.name || '';
-    const opts = avail.map(wd => {
-      const cost = wd.background_cost || '?';
-      const src  = wd.source_book ? ` · ${escHtml(wd.source_book)}` : '';
-      return `<option value="${escHtml(wd.name)}" ${wd.name === selected ? 'selected' : ''}>${escHtml(wd.name)} (${cost} pts${src})</option>`;
-    }).join('');
+    const selected  = w.name || '';
     const selWonder = selected ? wData.find(wd => wd.name === selected) : null;
-    const infoHTML  = selWonder
-      ? `<div class="wonder-info">
+
+    // Selected-wonder bar (collapsed state)
+    const selBarHTML = selWonder
+      ? `<div class="wonder-sel-bar">
+           <div class="wonder-sel-info">
+             <span class="wonder-sel-name">${escHtml(selWonder.name)}</span>
+             <span class="wonder-sel-meta">${selWonder.background_cost || '?'} pts · ${escHtml(this._wonderBookShort(selWonder.source_book || ''))}</span>
+           </div>
+           <button class="wonder-choose-btn btn-ghost btn-sm" data-idx="${idx}">Change…</button>
+           <button class="wonder-clear-btn btn-ghost btn-sm" data-idx="${idx}" title="Clear selection">✕</button>
+         </div>
+         <div class="wonder-info">
            <div class="wonder-desc">${escHtml(selWonder.description || '')}</div>
-           <div class="wonder-meta">${escHtml(selWonder.source_book || '')} p.${selWonder.source_page || '?'} · ${selWonder.background_cost || '?'} pts</div>
+           <div class="wonder-meta">${escHtml(selWonder.source_book || '')} p.${selWonder.source_page || '?'} · ${selWonder.background_cost || '?'} pts${selWonder.arete ? ` · Arete ${selWonder.arete}` : ''}${selWonder.quintessence ? ` · Quintessence ${selWonder.quintessence}` : ''}</div>
          </div>`
-      : '';
+      : `<div class="wonder-sel-bar wonder-none-selected">
+           <span class="wonder-sel-none">${avail.length} wonder${avail.length !== 1 ? 's' : ''} available at this level</span>
+           <button class="wonder-choose-btn btn-secondary btn-sm" data-idx="${idx}">Choose Wonder…</button>
+         </div>`;
+
+    // Picker panel (initially hidden — toggled open by "Choose" button)
+    const bookOpts = this._wonderBookOptsHTML(avail);
+    const pickerHTML = `
+      <div class="wonder-picker-panel" data-picker-idx="${idx}" style="display:none">
+        <div class="wonder-picker-controls">
+          <input type="text" class="wonder-search-input form-input" placeholder="Search name, description, or book…" autocomplete="off" spellcheck="false">
+          <select class="wonder-book-filter form-input">
+            <option value="">All Books (${avail.length})</option>
+            ${bookOpts}
+          </select>
+        </div>
+        <div class="wonder-results-scroll">
+          <div class="wonder-results-list" data-picker-idx="${idx}"></div>
+        </div>
+        <div class="wonder-picker-footer">
+          <span class="wonder-results-count">${avail.length} results</span>
+          <button class="wonder-cancel-btn btn-ghost btn-sm" data-idx="${idx}">Cancel</button>
+        </div>
+      </div>`;
+
     return `<div class="wonder-instance" data-wonder-idx="${idx}">
       <div class="wonder-instance-header">
         <span class="wonder-level-label">Level:</span>
@@ -8080,11 +8193,8 @@ const Creator = {
         <span class="wonder-pts-hint">≤ ${maxPts} pts</span>
         <button class="btn-ghost wonder-remove-btn" data-idx="${idx}" title="Remove wonder">✕</button>
       </div>
-      <select class="wonder-name-select" data-wonder-select="${idx}">
-        <option value="">— Choose a Wonder (${avail.length} available) —</option>
-        ${opts}
-      </select>
-      ${infoHTML}
+      ${selBarHTML}
+      ${pickerHTML}
     </div>`;
   },
 
@@ -8114,66 +8224,161 @@ const Creator = {
   _refreshWonderSection(content) {
     const sect = $('#wonder-section', content);
     if (sect) sect.outerHTML = this._wonderSectionHTML();
-    // Re-attach listeners for the new elements
     this._attachWonderListeners(content);
   },
 
-  // Shared wonder section listeners (used in both Step 3 and Step 6)
+  // Open the picker panel for a specific wonder slot and populate its results
+  _openWonderPicker(content, idx) {
+    const panel    = $(`.wonder-picker-panel[data-picker-idx="${idx}"]`, content);
+    if (!panel) return;
+    panel.style.display = 'flex';
+    // Populate results (all available, unsearched)
+    const level  = (this.char.wonders[idx] || {}).level || 1;
+    const maxPts = WONDER_POINTS_MAX[level] || 3;
+    const wData  = getWondersData();
+    const avail  = wData.filter(wd => { const c = parseInt(wd.background_cost); return !isNaN(c) && c <= maxPts; });
+    const listEl = $(`.wonder-results-list[data-picker-idx="${idx}"]`, content);
+    const selNm  = (this.char.wonders[idx] || {}).name || '';
+    if (listEl) {
+      const n = this._renderWonderResults(listEl, avail, selNm, '', '');
+      const countEl = panel.querySelector('.wonder-results-count');
+      if (countEl) countEl.textContent = `${n} results`;
+      // Scroll selected item into view
+      const selEl = listEl.querySelector('.wonder-result-selected');
+      if (selEl) setTimeout(() => selEl.scrollIntoView({ block: 'nearest' }), 0);
+    }
+    // Focus search input
+    const inp = panel.querySelector('.wonder-search-input');
+    if (inp) setTimeout(() => inp.focus(), 0);
+  },
+
+  // Shared wonder section listeners — uses a SINGLE delegated handler on #wonder-section
+  // so re-renders don't accumulate duplicate listeners.
   _attachWonderListeners(content) {
-    // Add wonder
-    const addBtn = $('.btn-add-wonder', content);
-    if (addBtn) {
-      addBtn.addEventListener('click', () => {
+    const sect = $('#wonder-section', content);
+    if (!sect) return;
+
+    sect.addEventListener('click', e => {
+      // ── Add wonder ──
+      if (e.target.closest('.btn-add-wonder')) {
         ensureWondersLoaded().then(() => {
           this.char.wonders = [...(this.char.wonders || []), { level: 1, name: '' }];
           this._syncWonderBackground();
           this._refreshStep3BgCounter(content);
           this._refreshWonderSection(content);
           this.updateFreebieDisplay();
+          // Auto-open picker for the new slot
+          const newIdx = this.char.wonders.length - 1;
+          this._openWonderPicker(content, newIdx);
         });
-      });
-    }
-    // Remove wonder
-    $$('.wonder-remove-btn[data-idx]', content).forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
+        return;
+      }
+
+      // ── Remove wonder ──
+      const removeBtn = e.target.closest('.wonder-remove-btn[data-idx]');
+      if (removeBtn) {
+        const idx = parseInt(removeBtn.dataset.idx);
         this.char.wonders = (this.char.wonders || []).filter((_, i) => i !== idx);
         this._syncWonderBackground();
-        // Only re-lock baselines during creation steps (not step 6 where they are frozen at entry)
         if (this.step < 6) this._lockBaselines();
         this._refreshStep3BgCounter(content);
         this._refreshWonderSection(content);
         this.updateFreebieDisplay();
-      });
-    });
-    // Level dot click
-    $$('[data-wonder-dots]', content).forEach(dotsEl => {
-      dotsEl.addEventListener('click', e => {
-        const dot = e.target.closest('.dot');
-        if (!dot) return;
-        const idx   = parseInt(dotsEl.dataset.wonderDots);
-        const val   = parseInt(dot.dataset.val);
-        const cur   = (this.char.wonders[idx] || {}).level || 0;
-        const newLv = cur === val ? Math.max(1, val - 1) : val;
-        if (!this.char.wonders[idx]) return;
-        this.char.wonders[idx].level = newLv;
-        this._syncWonderBackground();
-        // Only re-lock baselines during creation steps (not step 6 where they are frozen at entry)
-        if (this.step < 6) this._lockBaselines();
-        this._refreshStep3BgCounter(content);
+        return;
+      }
+
+      // ── Level dot click ──
+      const dot = e.target.closest('.dot');
+      if (dot) {
+        const dotsEl = dot.closest('[data-wonder-dots]');
+        if (dotsEl) {
+          const idx   = parseInt(dotsEl.dataset.wonderDots);
+          const val   = parseInt(dot.dataset.val);
+          const cur   = (this.char.wonders[idx] || {}).level || 0;
+          const newLv = cur === val ? Math.max(1, val - 1) : val;
+          if (this.char.wonders[idx]) {
+            this.char.wonders[idx].level = newLv;
+            this._syncWonderBackground();
+            if (this.step < 6) this._lockBaselines();
+            this._refreshStep3BgCounter(content);
+            this._refreshWonderSection(content);
+            this.updateFreebieDisplay();
+          }
+          return;
+        }
+      }
+
+      // ── Open picker (Choose / Change button) ──
+      const chooseBtn = e.target.closest('.wonder-choose-btn[data-idx]');
+      if (chooseBtn) {
+        const idx = parseInt(chooseBtn.dataset.idx);
+        this._openWonderPicker(content, idx);
+        return;
+      }
+
+      // ── Clear selection ──
+      const clearBtn = e.target.closest('.wonder-clear-btn[data-idx]');
+      if (clearBtn) {
+        const idx = parseInt(clearBtn.dataset.idx);
+        if (this.char.wonders[idx]) this.char.wonders[idx].name = '';
         this._refreshWonderSection(content);
-        this.updateFreebieDisplay();
-      });
+        return;
+      }
+
+      // ── Cancel picker ──
+      const cancelBtn = e.target.closest('.wonder-cancel-btn[data-idx]');
+      if (cancelBtn) {
+        const idx   = parseInt(cancelBtn.dataset.idx);
+        const panel = $(`.wonder-picker-panel[data-picker-idx="${idx}"]`, content);
+        if (panel) panel.style.display = 'none';
+        return;
+      }
+
+      // ── Select a result item ──
+      const resultItem = e.target.closest('.wonder-result-item[data-wonder-name]');
+      if (resultItem) {
+        const name = resultItem.dataset.wonderName;
+        const panel = resultItem.closest('.wonder-picker-panel');
+        const pickerIdx = panel ? parseInt(panel.dataset.pickerIdx) : -1;
+        if (pickerIdx >= 0 && this.char.wonders[pickerIdx] !== undefined) {
+          this.char.wonders[pickerIdx].name = name;
+          this._refreshWonderSection(content);
+        }
+        return;
+      }
     });
-    // Name select change
-    $$('[data-wonder-select]', content).forEach(sel => {
-      sel.addEventListener('change', () => {
-        const idx = parseInt(sel.dataset.wonderSelect);
-        if (!this.char.wonders[idx]) return;
-        this.char.wonders[idx].name = sel.value;
-        this._refreshWonderSection(content);
-      });
+
+    // ── Live search / book filter (input events) ──
+    sect.addEventListener('input', e => {
+      if (!e.target.classList.contains('wonder-search-input')) return;
+      const panel = e.target.closest('.wonder-picker-panel');
+      if (!panel) return;
+      this._updateWonderPicker(content, panel);
     });
+
+    sect.addEventListener('change', e => {
+      if (!e.target.classList.contains('wonder-book-filter')) return;
+      const panel = e.target.closest('.wonder-picker-panel');
+      if (!panel) return;
+      this._updateWonderPicker(content, panel);
+    });
+  },
+
+  // Re-filter and re-render results inside an already-open picker panel
+  _updateWonderPicker(content, panel) {
+    const idx       = parseInt(panel.dataset.pickerIdx);
+    const searchInp = panel.querySelector('.wonder-search-input');
+    const bookSel   = panel.querySelector('.wonder-book-filter');
+    const listEl    = panel.querySelector('.wonder-results-list');
+    const countEl   = panel.querySelector('.wonder-results-count');
+    if (!listEl) return;
+    const level  = (this.char.wonders[idx] || {}).level || 1;
+    const maxPts = WONDER_POINTS_MAX[level] || 3;
+    const wData  = getWondersData();
+    const avail  = wData.filter(wd => { const c = parseInt(wd.background_cost); return !isNaN(c) && c <= maxPts; });
+    const selNm  = (this.char.wonders[idx] || {}).name || '';
+    const n = this._renderWonderResults(listEl, avail, selNm, searchInp?.value || '', bookSel?.value || '');
+    if (countEl) countEl.textContent = `${n} result${n !== 1 ? 's' : ''}`;
   },
 
   // Update the "X / 7 pts remaining" counter in Step 3 after wonder changes
