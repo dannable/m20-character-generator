@@ -5,14 +5,14 @@ const db      = require('../db');
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
   'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-  'creation_baselines'];
+  'creation_baselines','wonders'];
 
 function parseCharacter(row) {
   if (!row) return null;
   const char = { ...row };
   JSON_FIELDS.forEach(f => {
     if (typeof char[f] === 'string') {
-      try { char[f] = JSON.parse(char[f]); } catch { char[f] = f === 'instruments' ? [] : {}; }
+      try { char[f] = JSON.parse(char[f]); } catch { char[f] = ['instruments','wonders'].includes(f) ? [] : {}; }
     }
   });
   return char;
@@ -34,6 +34,8 @@ function serializeCharacter(data) {
   delete out.chronicle_storyteller;
   delete out.chronicle_next_session;
   delete out.owner_username;
+  // Strip client-side ephemeral fields (prefixed _)
+  delete out._chronicleRules;
   return out;
 }
 
@@ -44,7 +46,7 @@ const EDITABLE_FIELDS = new Set([
   'arete','willpower','quintessence','paradox','paradigm','practice','affinity_sphere',
   'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
   'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
-  'freebie_spent','attr_priority','ability_priority','description','notes',
+  'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
 ]);
 
 // ── computeDiff: produce a human-readable diff for a pending edit ─────────────
@@ -286,7 +288,9 @@ router.put('/:id', (req, res) => {
 
     const data = serializeCharacter(rest);
     const sets = Object.keys(data).map(k => `${k} = @${k}`).join(', ');
-    db.prepare(`UPDATE characters SET ${sets} WHERE id = @_id`).run({ ...data, _id: req.params.id });
+    if (sets) {
+      db.prepare(`UPDATE characters SET ${sets} WHERE id = @_id`).run({ ...data, _id: req.params.id });
+    }
     const updated = db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id);
     res.json(parseCharacter(updated));
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }

@@ -7,16 +7,16 @@ const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 /* ── Field parsing ──────────────────────────────────────────────────────────── */
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority',
-  'merits','flaws','specialties','custom_ability_names'];
+  'merits','flaws','specialties','custom_ability_names','wonders'];
 
 function parseRow(row) {
   if (!row) return null;
   const c = { ...row };
   JSON_FIELDS.forEach(f => {
     if (typeof c[f] === 'string') {
-      try { c[f] = JSON.parse(c[f]); } catch { c[f] = f === 'instruments' ? [] : {}; }
+      try { c[f] = JSON.parse(c[f]); } catch { c[f] = ['instruments','wonders'].includes(f) ? [] : {}; }
     } else if (c[f] == null) {
-      c[f] = f === 'instruments' ? [] : {};
+      c[f] = ['instruments','wonders'].includes(f) ? [] : {};
     }
   });
   return c;
@@ -342,9 +342,14 @@ async function buildCharacterPDF(c) {
 
   /* ── C1: Backgrounds + Merits + Flaws + Magical Focus ── */
   y1 = GH(C1, y1, CW, 'Backgrounds');
-  const bgs = Object.entries(c.backgrounds || {}).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
-  if (!bgs.length) { T('None selected', C1 + 2, y1 + 2, 6.5, fI, ink.dim); y1 -= RH; }
-  else { bgs.forEach(([k, v]) => { const nm = BG_OPTION_MAP[k] || k.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase()); y1 = TR(C1, y1, CW, nm, v); }); }
+  const bgs = Object.entries(c.backgrounds || {}).filter(([k, v]) => v > 0 && k !== 'wonder').sort(([, a], [, b]) => b - a);
+  const wonders = Array.isArray(c.wonders) ? c.wonders.filter(w => w.level > 0) : [];
+  const hasBgs = bgs.length > 0 || wonders.length > 0;
+  if (!hasBgs) { T('None selected', C1 + 2, y1 + 2, 6.5, fI, ink.dim); y1 -= RH; }
+  else {
+    bgs.forEach(([k, v]) => { const nm = BG_OPTION_MAP[k] || k.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase()); y1 = TR(C1, y1, CW, nm, v); });
+    wonders.forEach(w => { const nm = w.name ? `Wonder: ${w.name}` : 'Wonder'; y1 = TR(C1, y1, CW, nm, w.level); });
+  }
 
   const merits = Object.entries(c.merits || {});
   if (merits.length) {

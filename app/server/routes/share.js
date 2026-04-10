@@ -10,7 +10,7 @@ function requireAuth(req, res, next) {
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
-  'customArchetypes','custom_ability_names'];
+  'customArchetypes','custom_ability_names','wonders'];
 
 function parseCharacter(row) {
   if (!row) return null;

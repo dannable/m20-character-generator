@@ -234,6 +234,8 @@ try { db.exec(`ALTER TABLE chronicles ADD COLUMN rules TEXT DEFAULT '{}'`); } ca
 // Snapshot of creation-time trait baselines; once saved, freebie costs are pinned
 // to these values so XP spending never retroactively increases the freebie total.
 try { db.exec(`ALTER TABLE characters ADD COLUMN creation_baselines TEXT DEFAULT NULL`); } catch {}
+// Wonders: array of { level, name } objects for the multi-instance Wonder background
+try { db.exec(`ALTER TABLE characters ADD COLUMN wonders TEXT DEFAULT '[]'`); } catch {}
 
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`

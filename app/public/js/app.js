@@ -145,11 +145,15 @@ function showChronicleWelcomeModal(chronicleName, rules) {
   const cMerits = (rules.customMerits      || []).filter(m  => m.name?.trim());
   const cFlaws  = (rules.customFlaws       || []).filter(f  => f.name?.trim());
   const normFac = normalizeAllowedFactions(rules.allowedFactions);
+  const MAXDOT_DEFAULTS = { attributes: 5, talents: 5, skills: 5, knowledges: 5, backgrounds: 5, spheres: 3, arete: 3, willpower: 10 };
+  const MAXDOT_LABELS   = { attributes: 'Attributes', talents: 'Talents', skills: 'Skills', knowledges: 'Knowledges', backgrounds: 'Backgrounds', spheres: 'Spheres', arete: 'Arete', willpower: 'Willpower' };
+  const md      = rules.maxDots || {};
+  const capEntries = Object.entries(md).filter(([cat, val]) => val !== MAXDOT_DEFAULTS[cat]);
 
   const hasPoolChange = (fp !== undefined && fp !== 15)
                      || (mc !== undefined && mc !== null)
                      || (fc !== undefined && fc !== 7);
-  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac;
+  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac || capEntries.length;
   if (!hasPoolChange && !hasCustom) return;
 
   function fmtBd(bd) {
@@ -176,6 +180,12 @@ function showChronicleWelcomeModal(chronicleName, rules) {
     if (mc !== undefined && mc !== null) rows += `<div class="cw-item"><span class="cw-label">Merit Cap:</span> <strong>${mc} pts</strong></div>`;
     if (fc !== undefined && fc !== 7)   rows += `<div class="cw-item"><span class="cw-label">Flaw Bonus Cap:</span> <strong>${fc} pts</strong> <span class="cw-note">(default 7)</span></div>`;
     body += section('Point Pools', '', rows);
+  }
+  if (capEntries.length) {
+    const rows = capEntries.map(([cat, val]) =>
+      `<div class="cw-item"><span class="cw-label">${MAXDOT_LABELS[cat] || cat}:</span> <strong>max ${val}</strong> <span class="cw-note">(default ${MAXDOT_DEFAULTS[cat]})</span></div>`
+    ).join('');
+    body += section('Trait Caps', '— max dots allowed at creation', rows);
   }
   if (bds.length)    body += section('Bonus Dots', '— free, don\'t cost freebies', bds.map(fmtBd).join(''));
   if (cBgs.length)   body += section('Custom Backgrounds', '', cBgs.map(bg =>
@@ -289,6 +299,29 @@ const ALL_ABILITY_DEFS = [
   ...M20.TALENTS, ...M20.SKILLS, ...M20.KNOWLEDGES,
   ...M20.SECONDARY_TALENTS, ...M20.SECONDARY_SKILLS, ...M20.SECONDARY_KNOWLEDGES,
 ];
+
+// Wonder background: maximum point budget per level (index = level 1-5)
+// Level 1: 1-3 pts, Level 2: 4-6 pts, ... Level 5: 13-15 pts  (M20 p.328)
+const WONDER_POINTS_MAX = [0, 3, 6, 9, 12, 15];
+
+// Wonders catalogue cache — loaded lazily from /data/wonders.json
+let _wondersData = null;
+let _wondersLoadPromise = null;
+
+function getWondersData() { return _wondersData || []; }
+
+function ensureWondersLoaded() {
+  if (_wondersData !== null) return Promise.resolve(_wondersData);
+  if (!_wondersLoadPromise) {
+    _wondersLoadPromise = fetch('/data/wonders.json')
+      .then(r => r.json())
+      .then(data => { _wondersData = data; return data; })
+      .catch(() => { _wondersData = []; return []; });
+  }
+  return _wondersLoadPromise;
+}
+// Pre-fetch on script load so it's ready by the time the player reaches Step 3
+ensureWondersLoaded();
 
 /* ═══════════════════════════════════════════════════════════════
    APP — Page routing & roster
@@ -1958,6 +1991,7 @@ const Chronicle = {
     const freebiePoints  = rules.freebiePoints  ?? 15;
     const meritCap       = rules.meritCap       ?? null;
     const flawCap        = rules.flawCap        ?? 7;
+    const maxDots        = rules.maxDots        || {};
     const bonusDots      = rules.bonusDots      || [];
     const customBgs      = rules.customBackgrounds || [];
     const customAbils    = rules.customAbilities   || [];
@@ -2035,6 +2069,51 @@ const Chronicle = {
                   </label>
                   <input type="number" id="chron-flaw-cap" class="form-input chron-rules-num" value="${flawCap ?? 7}" min="0" max="99" ${flawCap === null ? 'disabled' : ''}>
                   <span class="chron-rules-hint">Default: 7</span>
+                </div>
+              </div>
+
+              <div class="chron-rules-group">
+                <h4 class="chron-rules-heading">Trait Caps <span class="chron-rules-subhead">Max dots a character may have in each category at creation</span></h4>
+                <div class="chron-pool-grid">
+                  <label class="chron-pool-label">Attributes</label>
+                  <span></span>
+                  <input type="number" id="chron-max-attributes" class="form-input chron-rules-num" value="${maxDots.attributes ?? 5}" min="1" max="10">
+                  <span class="chron-rules-hint">Default: 5</span>
+
+                  <label class="chron-pool-label">Talents</label>
+                  <span></span>
+                  <input type="number" id="chron-max-talents" class="form-input chron-rules-num" value="${maxDots.talents ?? 5}" min="1" max="5">
+                  <span class="chron-rules-hint">Default: 5</span>
+
+                  <label class="chron-pool-label">Skills</label>
+                  <span></span>
+                  <input type="number" id="chron-max-skills" class="form-input chron-rules-num" value="${maxDots.skills ?? 5}" min="1" max="5">
+                  <span class="chron-rules-hint">Default: 5</span>
+
+                  <label class="chron-pool-label">Knowledges</label>
+                  <span></span>
+                  <input type="number" id="chron-max-knowledges" class="form-input chron-rules-num" value="${maxDots.knowledges ?? 5}" min="1" max="5">
+                  <span class="chron-rules-hint">Default: 5</span>
+
+                  <label class="chron-pool-label">Backgrounds</label>
+                  <span></span>
+                  <input type="number" id="chron-max-backgrounds" class="form-input chron-rules-num" value="${maxDots.backgrounds ?? 5}" min="1" max="10">
+                  <span class="chron-rules-hint">Default: 5</span>
+
+                  <label class="chron-pool-label">Spheres</label>
+                  <span></span>
+                  <input type="number" id="chron-max-spheres" class="form-input chron-rules-num" value="${maxDots.spheres ?? 3}" min="1" max="5">
+                  <span class="chron-rules-hint">Default: 3</span>
+
+                  <label class="chron-pool-label">Arete</label>
+                  <span></span>
+                  <input type="number" id="chron-max-arete" class="form-input chron-rules-num" value="${maxDots.arete ?? 3}" min="1" max="10">
+                  <span class="chron-rules-hint">Default: 3</span>
+
+                  <label class="chron-pool-label">Willpower</label>
+                  <span></span>
+                  <input type="number" id="chron-max-willpower" class="form-input chron-rules-num" value="${maxDots.willpower ?? 10}" min="1" max="10">
+                  <span class="chron-rules-hint">Default: 10</span>
                 </div>
               </div>
 
@@ -2237,10 +2316,17 @@ const Chronicle = {
       return bd.name || map[bd.type] || bd.type;
     };
 
+    const md     = rules.maxDots || {};
+    const MAXDOT_DEFAULTS = { attributes: 5, talents: 5, skills: 5, knowledges: 5, backgrounds: 5, spheres: 3, arete: 3, willpower: 10 };
+    const MAXDOT_LABELS   = { attributes: 'Attributes', talents: 'Talents', skills: 'Skills', knowledges: 'Knowledges', backgrounds: 'Backgrounds', spheres: 'Spheres', arete: 'Arete', willpower: 'Willpower' };
+    const capPills = Object.entries(md)
+      .filter(([cat, val]) => val !== MAXDOT_DEFAULTS[cat])
+      .map(([cat, val]) => `<span class="chron-dr-pill">Max ${MAXDOT_LABELS[cat] || cat}: ${val}</span>`).join('');
+
     const hasPoolChange = (fp !== undefined && fp !== 15)
                        || (mc !== undefined && mc !== null)
                        || (fc !== undefined && fc !== 7);
-    const hasContent = hasPoolChange || bds.length || cBgs.length || cAbils.length
+    const hasContent = hasPoolChange || capPills || bds.length || cBgs.length || cAbils.length
                     || cMerits.length || cFlaws.length || normFacDetail;
     if (!hasContent) return '';
 
@@ -2259,6 +2345,7 @@ const Chronicle = {
       if (fc !== undefined && fc !== 7)   rows += `<span class="chron-dr-pill">Flaw cap: ${fc}</span>`;
       html += sec('Point Pools', rows);
     }
+    if (capPills) html += sec('Trait Caps', capPills);
     if (bds.length) html += sec('Bonus Dots',
       bds.map(bd => `<span class="chron-dr-pill chron-dr-bonus">+${bd.amount} ${escHtml(bdTarget(bd))}</span>`).join(''));
     if (normFacDetail) {
@@ -2737,10 +2824,18 @@ const Chronicle = {
       const allFactionKeys = ['Traditions', 'Technocracy', 'Disparates'];
       const allEnabled = allFactionKeys.every(f => f in allowedFactionsObj && allowedFactionsObj[f].length === 0);
       const allowedFactions = (anyFactionRestriction || !allEnabled) ? allowedFactionsObj : null;
+      // Collect trait caps — only store categories that differ from their default
+      const MAXDOT_DEFAULTS = { attributes: 5, talents: 5, skills: 5, knowledges: 5, backgrounds: 5, spheres: 3, arete: 3, willpower: 10 };
+      const maxDotsCollected = {};
+      Object.entries(MAXDOT_DEFAULTS).forEach(([cat, def]) => {
+        const val = parseInt(document.getElementById(`chron-max-${cat}`)?.value);
+        if (!isNaN(val) && val !== def) maxDotsCollected[cat] = val;
+      });
       return {
         freebiePoints:      parseInt(document.getElementById('chron-freebie-pts')?.value) || 15,
         meritCap:           meritUncapped ? null : (parseInt(document.getElementById('chron-merit-cap')?.value) || 7),
         flawCap:            flawUncapped  ? null : (parseInt(document.getElementById('chron-flaw-cap')?.value)  ?? 7),
+        maxDots:            Object.keys(maxDotsCollected).length ? maxDotsCollected : undefined,
         bonusDots:          rulesState.bonusDots.filter(bd => bd.amount > 0),
         customBackgrounds:  rulesState.customBackgrounds.filter(bg => bg.name),
         customAbilities:    rulesState.customAbilities.filter(a => a.name),
@@ -3175,11 +3270,17 @@ const Sheet = {
 
     // Backgrounds
     const bgs = Object.entries(char.backgrounds || {})
-      .filter(([,v]) => v > 0)
+      .filter(([k, v]) => v > 0 && k !== 'wonder')
       .map(([k, v]) => {
         const bg = M20.BACKGROUNDS.find(b => b.id === k);
         return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
-      }).join('') || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
+      }).join('');
+    // Wonder instances (each as its own row)
+    const wonderRows = (char.wonders || []).filter(w => w.level > 0).map(w => {
+      const label = w.name ? `Wonder: ${w.name}` : 'Wonder';
+      return `<div class="sheet-trait-row"><span class="sheet-trait-name">${escHtml(label)}</span>${dots(w.level, 5, 'readonly')}</div>`;
+    }).join('');
+    const bgsAll = (bgs + wonderRows) || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
 
     // Merits
     const meritLabels = char.merit_labels || {};
@@ -3375,7 +3476,7 @@ const Sheet = {
         <div class="sheet-cols-3">
           <div class="sheet-group">
             <div class="sheet-group-title">Backgrounds</div>
-            ${bgs}
+            ${bgsAll}
             ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits</div>${meritsHTML}` : ''}
             ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws</div>${flawsHTML}` : ''}
             <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus</div>
@@ -4395,6 +4496,7 @@ const Creator = {
       talents: {}, skills: {}, knowledges: {},
       // Advantages
       backgrounds: {},
+      wonders: [],   // array of { level, name } — multi-instance Wonder background
       // Merits & Flaws
       merits: {}, flaws: {}, merit_labels: {},
       // Spheres
@@ -4431,11 +4533,14 @@ const Creator = {
       ...this.defaultChar(),
       ...char,
       instruments: Array.isArray(char.instruments) ? char.instruments : [],
+      wonders: Array.isArray(char.wonders) ? char.wonders.map(w => ({ level: w.level || 1, name: w.name || '' })) : [],
       attr_priority: Array.isArray(char.attr_priority) && char.attr_priority.length === 3
         ? char.attr_priority : ['Physical', 'Social', 'Mental'],
       ability_priority: Array.isArray(char.ability_priority) && char.ability_priority.length === 3
         ? char.ability_priority : ['Talents', 'Skills', 'Knowledges'],
     };
+    // Ensure c.backgrounds.wonder stays in sync with the wonders array
+    this._syncWonderBackground();
     this.editId = char.id;
     if (!this.char.custom_ability_names) this.char.custom_ability_names = {};
     // Resonance migration: ensure valid array with at least one entry
@@ -4535,12 +4640,12 @@ const Creator = {
     const next = $('#btn-next');
     const save = $('#btn-save');
     back.style.visibility = this.step > 0 ? 'visible' : 'hidden';
-    next.textContent = this.step === this.STEPS.length - 1 ? 'Save Character ✓' : 'Next →';
+    next.textContent = this.step === this.STEPS.length - 1 ? 'Finalize Character ✓' : 'Next →';
     if (save) {
       const complete = this.isCharacterComplete();
-      save.textContent = complete ? 'Save' : 'Save Draft';
+      save.textContent = complete ? 'Finalize' : 'Save Draft';
       save.className   = complete ? 'btn-secondary' : 'btn-ghost';
-      save.onclick     = complete ? () => this.saveCharacter() : () => this.saveDraft();
+      save.onclick     = complete ? () => this.showFinalizeModal() : () => this.saveDraft();
     }
   },
 
@@ -4774,7 +4879,7 @@ const Creator = {
       if (this.editId) stepState.charId = this.editId;
       history.pushState(stepState, '', location.pathname);
     } else {
-      this.saveCharacter();
+      this.showFinalizeModal();
     }
   },
 
@@ -4962,6 +5067,59 @@ const Creator = {
     return null;
   },
 
+  showFinalizeModal() {
+    const pool      = this.freebiesPool();
+    const spent     = this.freebieSpent();
+    const remaining = pool - spent;
+    const breakdown = this.calcFreebieBreakdown();
+
+    const rowsHtml = breakdown.length
+      ? breakdown.map(l => `
+          <div class="fin-row">
+            <span class="fin-row-label">${escHtml(l.label)}</span>
+            <span class="fin-row-cost ${l.cost < 0 ? 'fin-bonus' : ''}">${l.cost < 0 ? `+${-l.cost}` : `−${l.cost}`}</span>
+          </div>`).join('')
+      : `<div class="fin-row fin-row-empty">No freebie points spent.</div>`;
+
+    const remainHtml = remaining > 0
+      ? `<div class="fin-remaining fin-remaining-warn">${remaining} point${remaining !== 1 ? 's' : ''} unspent — these will be lost forever.</div>`
+      : remaining < 0
+        ? `<div class="fin-remaining fin-remaining-over">${-remaining} point${-remaining !== 1 ? 's' : ''} over budget!</div>`
+        : `<div class="fin-remaining fin-remaining-ok">All ${pool} freebie points spent.</div>`;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'fin-overlay';
+    overlay.innerHTML = `
+      <div class="fin-box">
+        <div class="fin-header">
+          <div class="fin-title">Finalize Character</div>
+        </div>
+        <div class="fin-body">
+          <div class="fin-section-label">Freebie Points Summary</div>
+          <div class="fin-rows">${rowsHtml}</div>
+          <div class="fin-total">
+            <span>Total spent</span>
+            <span class="${spent > pool ? 'fin-over' : ''}">${spent} / ${pool}</span>
+          </div>
+          ${remainHtml}
+          <div class="fin-warning">
+            ⚠ Once finalized, freebie points can no longer be adjusted. Any unspent points will be lost. This cannot be undone.
+          </div>
+        </div>
+        <div class="fin-footer">
+          <button class="btn-ghost fin-cancel-btn">Go Back</button>
+          <button class="btn-primary fin-confirm-btn">Confirm &amp; Finalize</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector('.fin-cancel-btn').addEventListener('click', close);
+    overlay.querySelector('.fin-confirm-btn').addEventListener('click', () => {
+      close();
+      this.saveCharacter();
+    });
+  },
+
   async saveDraft() {
     if (!this.char.name.trim()) { toast('Enter a name first.', 'error'); return; }
     this.char.is_draft = 1;
@@ -4982,9 +5140,6 @@ const Creator = {
   },
 
   async saveCharacter() {
-    if (this.freebieSpent() > this.freebiesPool()) {
-      if (!confirm(`You've spent more than ${this.freebiesPool()} freebie points. Save anyway?`)) return;
-    }
     this.char.is_draft = 0;
     // Persist the creation baselines so that future XP spending doesn't
     // retroactively inflate the freebie calculation. Once locked, the
@@ -5463,10 +5618,15 @@ const Creator = {
     const totalDots = M20.CREATION.backgroundDots;
     const customChronBgs = (c._chronicleRules?.customBackgrounds || []).filter(bg => bg.name);
     const chronBgIds = new Set(customChronBgs.map(bg => bg.id));
-    const allBgs = [...filteredBackgrounds(aff), ...customChronBgs.map(bg => ({ id: bg.id, name: bg.name, description: bg.description || '', max: bg.max || 5, doubleCost: false, levels: [] }))];
+    // Filter out multi-instance backgrounds (Wonder) — they get their own section below
+    const allBgs = [...filteredBackgrounds(aff), ...customChronBgs.map(bg => ({ id: bg.id, name: bg.name, description: bg.description || '', max: bg.max || 5, doubleCost: false, levels: [] }))]
+      .filter(bg => !bg.multiInstance);
     const lb = this._lockedBaselines;
-    const rawBgDots  = allBgs.reduce((s, bg) => s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1), 0);
-    const bonusBgDots = allBgs.reduce((s, bg) => s + (lb?.bonusBgs?.[bg.id] || 0), 0);
+    // Include wonder dots (stored in c.backgrounds.wonder) in the total count
+    const rawBgDots  = allBgs.reduce((s, bg) => s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1), 0)
+      + (c.backgrounds.wonder || 0);
+    const bonusBgDots = allBgs.reduce((s, bg) => s + (lb?.bonusBgs?.[bg.id] || 0), 0)
+      + (lb?.bonusBgs?.wonder || 0);
     const usedDots = Math.max(0, rawBgDots - bonusBgDots);
     const remaining = totalDots - usedDots;
     const bgOverBy = Math.max(0, -remaining);
@@ -5510,6 +5670,8 @@ const Creator = {
       ${bonusBgHtml}
       <div id="bg-rows">${bgRows}</div>
     </div>
+
+    ${this._wonderSectionHTML()}
 
     <div style="margin-top:1rem;padding:0.8rem;background:var(--bg-raised);border-radius:var(--radius-md);border:1px solid var(--border-dim)">
       <p style="font-size:0.82rem;color:var(--text-dim)">
@@ -5827,6 +5989,17 @@ const Creator = {
     const avatarRating = c.backgrounds['avatar'] || 0;
     if (c.quintessence === 0 && avatarRating > 0) c.quintessence = avatarRating;
 
+    // Chronicle trait caps (fall back to system defaults if not set)
+    const chronMaxDots = c._chronicleRules?.maxDots || {};
+    const capAttr  = chronMaxDots.attributes  ?? 5;
+    const capTal   = chronMaxDots.talents      ?? 5;
+    const capSkl   = chronMaxDots.skills       ?? 5;
+    const capKnw   = chronMaxDots.knowledges   ?? 5;
+    const capBg    = chronMaxDots.backgrounds  ?? 5;
+    const capSph   = chronMaxDots.spheres      ?? 3;
+    const capArete = chronMaxDots.arete        ?? 3;
+    const capWp    = chronMaxDots.willpower    ?? 10;
+
     // Enforce Arete >= highest sphere rating (M20 core rule, p. 259)
     const minArete = Math.max(1, Object.values(c.spheres || {}).reduce((m, v) => Math.max(m, v), 0));
     if ((c.arete || 1) < minArete) c.arete = minArete;
@@ -5930,7 +6103,7 @@ const Creator = {
         // Bonus attrs stored as dots ABOVE inherent min of 1; bonusCeiling = 1 + bonus
         const bonus    = lb.bonusAttrs?.[id] || 0;
         const bonusCeiling = bonus > 0 ? Math.min(cur, 1 + bonus) : 0;
-        return fbRow(id, name, cur, 5, baseline, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '', 4, '', bonusCeiling, 1);
+        return fbRow(id, name, cur, capAttr, baseline, 5, '5 pts/dot', null, attrSpecMap[id] || [], c.specialties[id] || '', 4, '', bonusCeiling, 1);
       }).join('');
       const attrBonus = this._chronicleBonusLines('attribute');
       return `
@@ -5951,13 +6124,14 @@ const Creator = {
     ];
     const abilSection = abilGroups.map(g => {
       const alloc = abilAllocs[g.label] ?? 0;
+      const capForCat = g.key === 'talents' ? capTal : g.key === 'skills' ? capSkl : capKnw;
       const rows  = g.data.map(a => {
         const cur      = c[g.key][a.id] || 0;
         const baseline = lb.abilities[a.id] ?? 0;
         const bonus    = lb.bonusAbilities?.[a.id] || 0;
         const specThreshold = GENERAL_ABILITY_IDS.has(a.id) ? 1 : 4;
         const levelDesc = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
-        return fbRow(a.id, a.name, cur, 5, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', specThreshold, levelDesc, Math.min(cur, bonus));
+        return fbRow(a.id, a.name, cur, capForCat, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', specThreshold, levelDesc, Math.min(cur, bonus));
       }).join('');
       // Secondary abilities
       const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
@@ -5967,7 +6141,7 @@ const Creator = {
         const bonus    = lb.bonusAbilities?.[a.id] || 0;
         const label    = a.name + ' <span class="secondary-badge">Secondary</span>';
         const levelDesc = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
-        return fbRow(a.id, label, cur, 3, baseline, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', 4, levelDesc, Math.min(cur, bonus));
+        return fbRow(a.id, label, cur, Math.min(3, capForCat), baseline, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', 4, levelDesc, Math.min(cur, bonus));
       }).join('');
       // Custom abilities
       const custIds = Object.keys(c.custom_ability_names || {}).filter(id => c[g.key][id] !== undefined);
@@ -5977,7 +6151,7 @@ const Creator = {
         const bonus    = lb.bonusAbilities?.[id] || 0;
         const name     = (c.custom_ability_names || {})[id] || id;
         const label    = name + ' <span class="secondary-badge">Custom</span>';
-        return fbRow(id, label, cur, 3, baseline, 3, '3 pts/dot', null, [], c.specialties[id] || '', 4, '', Math.min(cur, bonus));
+        return fbRow(id, label, cur, Math.min(3, capForCat), baseline, 3, '3 pts/dot', null, [], c.specialties[id] || '', 4, '', Math.min(cur, bonus));
       }).join('');
       // Chronicle custom abilities (2 pts/dot)
       const chronAbilRows = this.effectiveCustomAbilities(g.key).map(a => {
@@ -5985,7 +6159,7 @@ const Creator = {
         const baseline = lb.abilities[a.id] ?? 0;
         const bonus    = lb.bonusAbilities?.[a.id] || 0;
         const label    = escHtml(a.name) + ' <span class="secondary-badge">Chronicle</span>';
-        return fbRow(a.id, label, cur, 5, baseline, 2, '2 pts/dot', null, [], c.specialties[a.id] || '', 4, '', Math.min(cur, bonus));
+        return fbRow(a.id, label, cur, capForCat, baseline, 2, '2 pts/dot', null, [], c.specialties[a.id] || '', 4, '', Math.min(cur, bonus));
       }).join('');
       const abilKey = g.key === 'talents' ? 'talent' : g.key === 'skills' ? 'skill' : 'knowledge';
       const abilBonus = this._chronicleBonusLines([abilKey, 'any_ability']);
@@ -6006,11 +6180,12 @@ const Creator = {
     const bgAff = c.affiliation || 'Traditions';
     const chronBgsForStep6 = (c._chronicleRules?.customBackgrounds || []).filter(bg => bg.name)
       .map(bg => ({ id: bg.id, name: bg.name, description: bg.description || '', max: bg.max || 5, doubleCost: false, levels: [] }));
-    const allBgsForStep6 = [...filteredBackgrounds(bgAff), ...chronBgsForStep6];
+    // Filter out multi-instance backgrounds (Wonder) — they get their own section
+    const allBgsForStep6 = [...filteredBackgrounds(bgAff), ...chronBgsForStep6].filter(bg => !bg.multiInstance);
     const bgSection = allBgsForStep6.map(bg => {
       const cur = c.backgrounds[bg.id] || 0;
       const baseline = lb.backgrounds[bg.id] ?? 0;
-      const bgMax = bg.max || 5;
+      const bgMax = Math.min(bg.max || 5, capBg);
       const costPer = bg.doubleCost ? 2 : 1;
       const costNote = bg.doubleCost ? '2 pts/dot' : '1 pt/dot';
       const tipText = (bg.description + (bg.note ? ' (' + bg.note + ')' : '')).replace(/"/g, '&quot;');
@@ -6025,7 +6200,7 @@ const Creator = {
       const cur      = c.spheres[s.id] || 0;
       const baseline = lb.spheres[s.id] ?? 0;
       const bonus    = lb.bonusSpheres?.[s.id] || 0;
-      return fbRow(s.id, s.name, cur, 3, baseline, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '', 4, '', Math.min(cur, bonus));
+      return fbRow(s.id, s.name, cur, capSph, baseline, 7, '7 pts/dot', null, s.specialties || [], c.specialties[s.id] || '', 4, '', Math.min(cur, bonus));
     }).join('');
 
     const { total } = this.calcFreebies();
@@ -6055,8 +6230,8 @@ const Creator = {
       <div class="summary-section-title">Core Statistics <span class="page-ref">p. 259</span></div>
       <div class="fb-section-note">Arete, Willpower, and Quintessence can be raised here with freebie points. Paradox begins at 0.</div>
       <div class="fb-core-grid">
-        ${fbRow('arete', 'Arete <span class="info-tip" data-tip="Arete measures a mage&#39;s magical enlightenment and mastery. Higher Arete raises the maximum rating of all Spheres and allows more powerful Effects. Each dot costs 4 freebie points at creation; raising it later costs 8 XP per dot. Maximum 3 at character creation. See M20 p. 259.">?</span>', c.arete, 3, 1, 4, '4 pts/dot · max 3', 'arete')}
-        ${fbRow('willpower', 'Willpower <span class="info-tip" data-tip="Willpower reflects inner resolve, determination, and force of will. Spend a point to gain an automatic success on any roll, resist compulsions, or power certain magical effects. Regained by fulfilling your Nature archetype. Starts at 5; each dot above 5 costs 1 freebie point. See M20 p. 264.">?</span>', c.willpower, 10, 5, 1, '1 pt/dot above 5', 'willpower')}
+        ${fbRow('arete', 'Arete <span class="info-tip" data-tip="Arete measures a mage&#39;s magical enlightenment and mastery. Higher Arete raises the maximum rating of all Spheres and allows more powerful Effects. Each dot costs 4 freebie points at creation; raising it later costs 8 XP per dot. Maximum 3 at character creation. See M20 p. 259.">?</span>', c.arete, capArete, 1, 4, `4 pts/dot · max ${capArete}`, 'arete')}
+        ${fbRow('willpower', 'Willpower <span class="info-tip" data-tip="Willpower reflects inner resolve, determination, and force of will. Spend a point to gain an automatic success on any roll, resist compulsions, or power certain magical effects. Regained by fulfilling your Nature archetype. Starts at 5; each dot above 5 costs 1 freebie point. See M20 p. 264.">?</span>', c.willpower, capWp, 5, 1, '1 pt/dot above 5', 'willpower')}
         ${(() => { const qFree = avatarRating; return fbRow('quintessence', `Quintessence (free: ${qFree} from Avatar) <span class="info-tip" data-tip="Quintessence is raw magical energy stored in your Avatar. Spend it to reduce the difficulty of magical Effects by 1 per point, or to fuel rituals and Tass. Your starting pool equals your Avatar background rating. Extra dots beyond that cost 1 freebie point per 4 dots. See M20 p. 266.">?</span>`, c.quintessence, 10, qFree, 1, '1 pt per 4 dots extra', 'quintessence'); })()}
         <div class="fb-row">
           <div class="fb-row-label">Paradox <span class="info-tip" data-tip="Paradox accumulates when you work vulgar magic in front of Sleepers or when reality rejects your Effects. Higher Paradox brings Flaws, Backlashes, and eventually Quiet. It bleeds off slowly over time or can be purged through roleplay and Storyteller discretion. Begins at 0. See M20 p. 267.">?</span><span class="fb-cost-hint">begins at 0</span></div>
@@ -6096,6 +6271,7 @@ const Creator = {
       </summary>
       <div class="fb-section-note">7 creation dots are free. Each additional dot costs 1 freebie pt.${(() => { const bl = this._chronicleBonusLines('background'); return bl.length ? ` <span class="cb-grant">${bl.join(' · ')} (chronicle, free)</span>` : ''; })()}</div>
       <div id="fb-bgs" class="fb-group">${bgSection}</div>
+      ${this._wonderSectionHTML()}
     </details>
 
     <!-- ── Spheres ── -->
@@ -6826,6 +7002,9 @@ const Creator = {
       });
     });
 
+    // Wonder section (step 3) — attach listeners for the multi-instance wonder background
+    this._attachWonderListeners(content);
+
     // Sphere dots (step 5)
     $$('[data-sphere]', content).forEach(card => {
       const dotsEl = card.querySelector('.dots');
@@ -7277,6 +7456,9 @@ const Creator = {
         c.updateFreebieBank();
       });
     });
+
+    // Wonder section (step 6) — attach listeners for multi-instance wonder background
+    c._attachWonderListeners(content);
 
     // Sphere rows
     $$('#fb-spheres .fb-row[data-fb-id]', content).forEach(row => {
@@ -7855,6 +8037,169 @@ const Creator = {
     return total;
   },
 
+  // ── Wonder helpers ────────────────────────────────────────────────────────────
+
+  // Keep c.backgrounds.wonder in sync with the sum of all wonder slot levels.
+  // Call this any time c.wonders changes.
+  _syncWonderBackground() {
+    const total = (this.char.wonders || []).reduce((s, w) => s + (w.level || 0), 0);
+    if (!this.char.backgrounds) this.char.backgrounds = {};
+    this.char.backgrounds.wonder = total;
+  },
+
+  // Build HTML for one wonder slot (used in both Step 3 and Step 6)
+  _wonderInstanceHTML(w, idx) {
+    const level  = w.level || 1;
+    const maxPts = WONDER_POINTS_MAX[level] || 3;
+    const wData  = getWondersData();
+    const avail  = wData.filter(wd => {
+      const c = parseInt(wd.background_cost);
+      return !isNaN(c) && c <= maxPts;
+    });
+    const levelDots = Array.from({length: 5}, (_, i) => {
+      const d = i + 1;
+      return `<span class="dot ${d <= level ? 'filled' : ''}" data-val="${d}"></span>`;
+    }).join('');
+    const selected = w.name || '';
+    const opts = avail.map(wd => {
+      const cost = wd.background_cost || '?';
+      const src  = wd.source_book ? ` · ${escHtml(wd.source_book)}` : '';
+      return `<option value="${escHtml(wd.name)}" ${wd.name === selected ? 'selected' : ''}>${escHtml(wd.name)} (${cost} pts${src})</option>`;
+    }).join('');
+    const selWonder = selected ? wData.find(wd => wd.name === selected) : null;
+    const infoHTML  = selWonder
+      ? `<div class="wonder-info">
+           <div class="wonder-desc">${escHtml(selWonder.description || '')}</div>
+           <div class="wonder-meta">${escHtml(selWonder.source_book || '')} p.${selWonder.source_page || '?'} · ${selWonder.background_cost || '?'} pts</div>
+         </div>`
+      : '';
+    return `<div class="wonder-instance" data-wonder-idx="${idx}">
+      <div class="wonder-instance-header">
+        <span class="wonder-level-label">Level:</span>
+        <span class="dots" data-max="5" data-wonder-dots="${idx}">${levelDots}</span>
+        <span class="wonder-pts-hint">≤ ${maxPts} pts</span>
+        <button class="btn-ghost wonder-remove-btn" data-idx="${idx}" title="Remove wonder">✕</button>
+      </div>
+      <select class="wonder-name-select" data-wonder-select="${idx}">
+        <option value="">— Choose a Wonder (${avail.length} available) —</option>
+        ${opts}
+      </select>
+      ${infoHTML}
+    </div>`;
+  },
+
+  // Build the full wonder section HTML for Step 3 or Step 6
+  _wonderSectionHTML() {
+    const wonders   = this.char.wonders || [];
+    const instances = wonders.map((w, i) => this._wonderInstanceHTML(w, i)).join('');
+    const loadNote  = _wondersData === null
+      ? '<p class="wonder-loading">Loading wonders catalogue…</p>'
+      : '';
+    return `<div class="wonder-section" id="wonder-section">
+      <div class="wonder-section-header">
+        <div>
+          <span class="wonder-section-title">Wonders <span class="page-ref">p. 320</span></span>
+          <div class="wonder-section-note">Each Wonder costs background dots equal to its level. Higher levels unlock more powerful items from the catalogue. Can be taken multiple times.</div>
+        </div>
+        <button class="btn-secondary btn-sm btn-add-wonder">+ Add Wonder</button>
+      </div>
+      ${loadNote}
+      <div class="wonder-instances-list">
+        ${instances || '<p class="wonder-empty">No wonders selected.</p>'}
+      </div>
+    </div>`;
+  },
+
+  // Re-render the wonder section DOM in-place (Step 3 or Step 6)
+  _refreshWonderSection(content) {
+    const sect = $('#wonder-section', content);
+    if (sect) sect.outerHTML = this._wonderSectionHTML();
+    // Re-attach listeners for the new elements
+    this._attachWonderListeners(content);
+  },
+
+  // Shared wonder section listeners (used in both Step 3 and Step 6)
+  _attachWonderListeners(content) {
+    // Add wonder
+    const addBtn = $('.btn-add-wonder', content);
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        ensureWondersLoaded().then(() => {
+          this.char.wonders = [...(this.char.wonders || []), { level: 1, name: '' }];
+          this._syncWonderBackground();
+          this._refreshStep3BgCounter(content);
+          this._refreshWonderSection(content);
+          this.updateFreebieDisplay();
+        });
+      });
+    }
+    // Remove wonder
+    $$('.wonder-remove-btn[data-idx]', content).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        this.char.wonders = (this.char.wonders || []).filter((_, i) => i !== idx);
+        this._syncWonderBackground();
+        // Only re-lock baselines during creation steps (not step 6 where they are frozen at entry)
+        if (this.step < 6) this._lockBaselines();
+        this._refreshStep3BgCounter(content);
+        this._refreshWonderSection(content);
+        this.updateFreebieDisplay();
+      });
+    });
+    // Level dot click
+    $$('[data-wonder-dots]', content).forEach(dotsEl => {
+      dotsEl.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const idx   = parseInt(dotsEl.dataset.wonderDots);
+        const val   = parseInt(dot.dataset.val);
+        const cur   = (this.char.wonders[idx] || {}).level || 0;
+        const newLv = cur === val ? Math.max(1, val - 1) : val;
+        if (!this.char.wonders[idx]) return;
+        this.char.wonders[idx].level = newLv;
+        this._syncWonderBackground();
+        // Only re-lock baselines during creation steps (not step 6 where they are frozen at entry)
+        if (this.step < 6) this._lockBaselines();
+        this._refreshStep3BgCounter(content);
+        this._refreshWonderSection(content);
+        this.updateFreebieDisplay();
+      });
+    });
+    // Name select change
+    $$('[data-wonder-select]', content).forEach(sel => {
+      sel.addEventListener('change', () => {
+        const idx = parseInt(sel.dataset.wonderSelect);
+        if (!this.char.wonders[idx]) return;
+        this.char.wonders[idx].name = sel.value;
+        this._refreshWonderSection(content);
+      });
+    });
+  },
+
+  // Update the "X / 7 pts remaining" counter in Step 3 after wonder changes
+  _refreshStep3BgCounter(content) {
+    const remEl  = $('#bg-remaining', content);
+    const noteEl = $('#bg-freebie-note', content);
+    if (!remEl) return;
+    const c      = this.char;
+    const aff3   = c.affiliation || 'Traditions';
+    const chronBgs3 = (c._chronicleRules?.customBackgrounds || []).filter(bg => bg.name)
+      .map(bg => ({ id: bg.id, doubleCost: false }));
+    const allBgs3   = [...filteredBackgrounds(aff3), ...chronBgs3];
+    const lb3live   = this._lockedBaselines;
+    const rawBgTotal   = allBgs3.reduce((s, bg) => s + (c.backgrounds[bg.id] || 0) * (bg.doubleCost ? 2 : 1), 0);
+    const bonusBgTotal = allBgs3.reduce((s, bg) => s + (lb3live?.bonusBgs?.[bg.id] || 0), 0);
+    const bgUsed = Math.max(0, rawBgTotal - bonusBgTotal);
+    const rem    = M20.CREATION.backgroundDots - bgUsed;
+    const over   = Math.max(0, -rem);
+    remEl.textContent = Math.max(0, rem);
+    remEl.style.color = 'var(--gold-bright)';
+    if (noteEl) {
+      noteEl.textContent = `+${over} via freebies`;
+      noteEl.style.display = over > 0 ? 'block' : 'none';
+    }
+  },
+
   effectiveBackgrounds() {
     const customs = (this.char._chronicleRules?.customBackgrounds || [])
       .filter(bg => bg.name)
@@ -8209,14 +8554,37 @@ const FreeEdit = {
       return primRows + secRows + custRows + chronRows;
     };
 
-    // Backgrounds — show all from M20 plus any chronicle custom ones, show zero-valued collapsed notice
+    // Backgrounds — show all from M20 (except multi-instance Wonder) plus any chronicle custom ones
     const bgAff = c.affiliation || 'Traditions';
-    const allBgs = M20.BACKGROUNDS.filter(b => !b.factionOnly || !b.factionOnly.length || b.factionOnly.includes(bgAff));
+    const allBgs = M20.BACKGROUNDS.filter(b => !b.multiInstance && (!b.factionOnly || !b.factionOnly.length || b.factionOnly.includes(bgAff)));
     const chronBgs = (c._chronicleRules?.customBackgrounds || []).filter(b => b.name);
     const bgRows = [...allBgs, ...chronBgs.map(b => ({ id: b.id, name: b.name, max: b.max || 5 }))].map(bg => bgRow(bg.name || bg.id, bg.id, bg.max || 5)).join('');
+    // Wonder instances (read-only display)
+    const feWonderRows = (c.wonders || []).map((w, i) => {
+      const label = w.name ? `Wonder: ${escHtml(w.name)}` : `Wonder #${i + 1}`;
+      return `<div class="fe-trait-row"><span class="fe-trait-label">${label}</span>${dots(w.level || 1, 5, 'readonly')}</div>`;
+    }).join('');
+
+    // Chronicle membership section HTML
+    const chronMemberHTML = c.chronicle_id
+      ? `<div class="fe-chron-member">
+           <span class="fe-chron-member-name">✦ ${escHtml(c.linked_chronicle_name || 'Chronicle #' + c.chronicle_id)}</span>
+           <button class="btn-ghost btn-sm fe-leave-chronicle-btn">Leave Chronicle</button>
+         </div>`
+      : `<div class="fe-chron-join">
+           <input type="text" class="form-input fe-join-code-input" maxlength="5" placeholder="Join code…" style="width:10rem;text-transform:uppercase">
+           <button class="btn-secondary btn-sm fe-join-chronicle-btn">Join Chronicle</button>
+           <span class="fe-join-status"></span>
+         </div>`;
 
     el.innerHTML = `
     ${isChronicle ? `<div class="fe-chronicle-notice">✏️ This character is in a Chronicle — changes will go to the Storyteller for approval before taking effect.</div>` : ''}
+
+    <!-- Chronicle Membership -->
+    <div class="fe-section fe-section-chronicle">
+      <div class="fe-section-title">Chronicle Membership</div>
+      ${chronMemberHTML}
+    </div>
 
     <!-- Identity -->
     <div class="fe-section">
@@ -8287,6 +8655,7 @@ const FreeEdit = {
           ${chronBgs.filter((_, i) => i % 2 === 1).map(bg => bgRow(bg.name, bg.id, bg.max || 5)).join('')}
         </div>
       </div>
+      ${feWonderRows ? `<div style="margin-top:0.75rem"><div class="fe-group-label">Wonders</div>${feWonderRows}</div>` : ''}
     </div>
 
     <!-- Spheres -->
@@ -8389,6 +8758,47 @@ const FreeEdit = {
     // Bottom buttons
     $('#fe-cancel-btn-bottom')?.addEventListener('click', () => this._cancel());
     $('#fe-save-btn-bottom')?.addEventListener('click', () => this._save());
+
+    // Chronicle join
+    el.querySelector('.fe-join-chronicle-btn')?.addEventListener('click', async () => {
+      const inp    = el.querySelector('.fe-join-code-input');
+      const status = el.querySelector('.fe-join-status');
+      const code   = (inp?.value || '').trim().toUpperCase();
+      if (!code) { status.textContent = 'Enter a join code.'; status.className = 'fe-join-status fe-join-err'; return; }
+      status.textContent = 'Checking…'; status.className = 'fe-join-status';
+      try {
+        const r = await fetch(`/api/chronicles/join/${encodeURIComponent(code)}`);
+        if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Invalid code'); }
+        const chronicle = await r.json();
+        // Link directly via PUT
+        const upd = await fetch(`/api/characters/${c.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ join_code: code }),
+        });
+        if (!upd.ok) throw new Error((await upd.json()).error || 'Failed to join');
+        toast(`Joined ${chronicle.name}!`);
+        App.viewCharacter(App.currentCharId);
+      } catch (err) {
+        status.textContent = err.message;
+        status.className = 'fe-join-status fe-join-err';
+      }
+    });
+
+    // Chronicle leave
+    el.querySelector('.fe-leave-chronicle-btn')?.addEventListener('click', async () => {
+      if (!confirm('Remove this character from the Chronicle?')) return;
+      try {
+        const r = await fetch(`/api/characters/${c.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ join_code: '' }),
+        });
+        if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+        toast('Left chronicle.');
+        App.viewCharacter(App.currentCharId);
+      } catch (err) { toast(err.message, 'error'); }
+    });
   },
 
   _refreshDots(dotsEl, val) {

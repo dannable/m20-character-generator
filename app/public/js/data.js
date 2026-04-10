@@ -1003,6 +1003,7 @@ const M20 = {
         'Your totem loves you — frequent company and aid; +3 dice and two dots each in Cosmology and Spirit Lore.',
       ] },
     { id: 'wonder', name: 'Wonder', description: 'A Talisman, Fetish, or Device containing enchanted power — a magical item you begin play with.', page: 320,
+      multiInstance: true,
       levels: [
         'A Wonder with one small power — worth 1-3 points.',
         'One or two powers, probably with some Quintessence and an Arete of its own. (4-6 points.)',
