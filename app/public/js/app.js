@@ -300,10 +300,6 @@ const ALL_ABILITY_DEFS = [
   ...M20.SECONDARY_TALENTS, ...M20.SECONDARY_SKILLS, ...M20.SECONDARY_KNOWLEDGES,
 ];
 
-// Wonder background: maximum point budget per level (index = level 1-5)
-// Level 1: 1-3 pts, Level 2: 4-6 pts, ... Level 5: 13-15 pts  (M20 p.328)
-const WONDER_POINTS_MAX = [0, 3, 6, 9, 12, 15];
-
 // Wonders catalogue cache — loaded lazily from /data/wonders.json
 let _wondersData = null;
 let _wondersLoadPromise = null;
@@ -323,6 +319,50 @@ function ensureWondersLoaded() {
 // Pre-fetch on script load so it's ready by the time the player reaches Step 3
 ensureWondersLoaded();
 
+// ── User custom merits & flaws cache ─────────────────────────────────────────
+let _userCustomMFCache = null;   // null = not yet fetched; [] = fetched (may be empty)
+let _userCustomMFLoading = null; // pending promise
+
+async function _loadUserCustomMF() {
+  if (_userCustomMFCache !== null) return _userCustomMFCache;
+  if (_userCustomMFLoading)        return _userCustomMFLoading;
+  _userCustomMFLoading = fetch('/api/custom/merits-flaws')
+    .then(r => r.ok ? r.json() : { items: [] })
+    .then(d => { _userCustomMFCache = d.items || []; _userCustomMFLoading = null; return _userCustomMFCache; })
+    .catch(() => { _userCustomMFCache = []; _userCustomMFLoading = null; return _userCustomMFCache; });
+  return _userCustomMFLoading;
+}
+function _invalidateUserCustomMF() { _userCustomMFCache = null; _userCustomMFLoading = null; }
+function _getUserCustomMF()        { return _userCustomMFCache || []; }
+
+let _userCustomRotesCache = null;
+let _userCustomRotesLoading = null;
+async function _loadUserCustomRotes() {
+  if (_userCustomRotesCache !== null) return _userCustomRotesCache;
+  if (_userCustomRotesLoading)        return _userCustomRotesLoading;
+  _userCustomRotesLoading = fetch('/api/custom/rotes')
+    .then(r => r.ok ? r.json() : { items: [] })
+    .then(d => { _userCustomRotesCache = d.items || []; _userCustomRotesLoading = null; return _userCustomRotesCache; })
+    .catch(() => { _userCustomRotesCache = []; _userCustomRotesLoading = null; return _userCustomRotesCache; });
+  return _userCustomRotesLoading;
+}
+function _invalidateUserCustomRotes() { _userCustomRotesCache = null; _userCustomRotesLoading = null; }
+function _getUserCustomRotes()        { return _userCustomRotesCache || []; }
+
+let _userCustomBgCache = null;
+let _userCustomBgLoading = null;
+async function _loadUserCustomBg() {
+  if (_userCustomBgCache !== null) return _userCustomBgCache;
+  if (_userCustomBgLoading)        return _userCustomBgLoading;
+  _userCustomBgLoading = fetch('/api/custom/backgrounds')
+    .then(r => r.ok ? r.json() : { items: [] })
+    .then(d => { _userCustomBgCache = d.items || []; _userCustomBgLoading = null; return _userCustomBgCache; })
+    .catch(() => { _userCustomBgCache = []; _userCustomBgLoading = null; return _userCustomBgCache; });
+  return _userCustomBgLoading;
+}
+function _invalidateUserCustomBg() { _userCustomBgCache = null; _userCustomBgLoading = null; }
+function _getUserCustomBg()        { return _userCustomBgCache || []; }
+
 /* ═══════════════════════════════════════════════════════════════
    APP — Page routing & roster
    ═══════════════════════════════════════════════════════════════ */
@@ -334,6 +374,7 @@ const App = {
   setUser(user) {
     this.currentUser = user;
     const isGuest = user.role === 'guest';
+    if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); } // pre-warm caches
     $('#user-name').textContent = isGuest ? 'Guest' : user.username;
     $('#user-info').style.display = 'flex';
     $('#nav-dashboard').style.display = '';
@@ -364,6 +405,9 @@ const App = {
 
   clearUser() {
     this.currentUser = null;
+    _invalidateUserCustomMF();
+    _invalidateUserCustomRotes();
+    _invalidateUserCustomBg();
     $('#user-info').style.display = 'none';
     ['nav-dashboard','nav-admin','nav-logout','nav-grimoire','nav-settings','nav-feedback'].forEach(id => {
       $(`#${id}`).style.display = 'none';
@@ -489,8 +533,9 @@ const App = {
       ]);
       if (!statsRes.ok || !usersRes.ok) throw new Error('Access denied');
       const stats = await statsRes.json();
-      const { users, purged } = await usersRes.json();
+      const { users, purged, guest_count } = await usersRes.json();
       this._adminUsers = users;
+      this._adminGuestCount = guest_count ?? 0;
 
       content.innerHTML = `
         ${purged > 0 ? `<div class="admin-purge-notice">♻ Auto-purged ${purged} ghost account${purged > 1 ? 's' : ''} (≤1 login, 0 characters, &gt;30 days old).</div>` : ''}
@@ -637,23 +682,27 @@ const App = {
     const content = $('#admin-content');
     if (!content) return;
 
-    // Ensure user list is loaded
-    if (!this._adminUsers) {
-      try {
-        const r = await fetch('/api/admin/users');
-        if (!r.ok) throw new Error('Access denied');
-        const { users, purged } = await r.json();
-        this._adminUsers = users;
-      } catch (err) {
-        content.innerHTML = `<p style="color:var(--crimson);padding:1rem">Failed to load users: ${err.message}</p>`;
-        return;
-      }
+    // Always fetch fresh so guest count and user list are current
+    try {
+      const r = await fetch('/api/admin/users');
+      if (!r.ok) throw new Error('Access denied');
+      const { users, purged, guest_count } = await r.json();
+      this._adminUsers = users;
+      this._adminGuestCount = guest_count ?? 0;
+    } catch (err) {
+      content.innerHTML = `<p style="color:var(--crimson);padding:1rem">Failed to load users: ${err.message}</p>`;
+      return;
     }
 
+    const gc = this._adminGuestCount ?? 0;
     content.innerHTML = `
       <div class="admin-dash-header">
         <button class="btn-ghost" onclick="App.showAdmin()">← Back to Overview</button>
         <h2 class="admin-dash-title" style="margin:0">User Management</h2>
+      </div>
+      <div class="admin-guest-bar" id="admin-guest-bar"${gc === 0 ? ' style="display:none"' : ''}>
+        <span class="admin-guest-label">👤 <strong>${gc}</strong> guest session${gc !== 1 ? 's' : ''} currently active</span>
+        <button class="btn-danger btn-sm" onclick="App.purgeGuests()">Purge All Guests</button>
       </div>
       <div class="admin-controls">
         <div class="admin-search-row">
@@ -897,6 +946,28 @@ const App = {
         toast(`${username} has been deleted.`);
         await this.showAdminUsers();
       } catch { toast('Failed to delete user.', 'error'); }
+    };
+    $('#modal-overlay').style.display = 'flex';
+  },
+
+  purgeGuests() {
+    const gc = this._adminGuestCount ?? 0;
+    if (gc === 0) { toast('No guest accounts to purge.'); return; }
+    $('#modal-title').textContent = 'Purge Guest Accounts';
+    $('#modal-body').innerHTML = `<p>This will permanently delete <strong style="color:var(--crimson)">${gc} guest session${gc !== 1 ? 's' : ''}</strong> and all characters they created.<br>Active guest sessions will be broken immediately.<br><br>This cannot be undone.</p>`;
+    const btn = $('#modal-confirm');
+    btn.textContent = 'Purge All Guests';
+    btn.className = 'btn-danger';
+    btn.onclick = async () => {
+      try {
+        const r = await fetch('/api/admin/guests', { method: 'DELETE' });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed');
+        this.closeModal();
+        toast(`Purged ${data.purged} guest account${data.purged !== 1 ? 's' : ''}.`);
+        this._adminUsers = null;
+        await this.showAdminUsers();
+      } catch (err) { toast(err.message || 'Failed to purge guests.', 'error'); }
     };
     $('#modal-overlay').style.display = 'flex';
   },
@@ -1511,10 +1582,11 @@ function debounce(fn, ms) {
 /* ─── Sphere constants ───────────────────────────────────────── */
 const SPHERE_NAMES = ['Correspondence','Entropy','Forces','Life','Matter','Mind','Prime','Spirit','Time'];
 
-function formatSpheresRaw(raw) {
+function formatSpheresRaw(raw, activeFilters = {}) {
   let s = raw || '';
   SPHERE_NAMES.forEach(n => {
-    s = s.replace(new RegExp(n, 'g'), `<span class="sphere-highlight">${n}</span>`);
+    const cls = (n in activeFilters) ? 'sphere-highlight sphere-filtered' : 'sphere-highlight';
+    s = s.replace(new RegExp(n, 'g'), `<span class="${cls}">${n}</span>`);
   });
   return s;
 }
@@ -1531,10 +1603,11 @@ function canCast(rote, charSpheres) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   GRIMOIRE — Rote browser
+   GRIMOIRE — Rote browser + custom content hub
    ═══════════════════════════════════════════════════════════════ */
 const Grimoire = {
   state: {
+    activeTab: 'rotes',  // 'rotes' | 'merits-flaws' | 'backgrounds'
     search: '', chapter: '', faction: '', book: '',
     sphereFilters: {},   // { SphereName: { rating: 1-5, mode: 'upto'|'exact' } }
     page: 1, limit: 10, total: 0, pages: 0,
@@ -1543,6 +1616,8 @@ const Grimoire = {
     loading: false,
     castableOnly: false,
     charSpheres: null,
+    mfSearch: '', mfKind: 'all',  // merits-flaws tab filter
+    bgSearch: '',                 // backgrounds tab filter
   },
 
   init(charSpheres = null) {
@@ -1554,7 +1629,35 @@ const Grimoire = {
     this.state.sphereFilters = {};
     this.state.page          = 1;
     this.state.castableOnly  = false;
+    this.state.mfSearch      = '';
+    this.state.mfKind        = 'all';
+    this.state.bgSearch      = '';
+    // When opened from a character sheet, always land on Rotes
+    if (charSpheres) this.state.activeTab = 'rotes';
     this.renderShell();
+    this._renderActiveTab();
+  },
+
+  _renderActiveTab() {
+    if (this.state.activeTab === 'rotes') {
+      this._renderRotesTab();
+    } else if (this.state.activeTab === 'merits-flaws') {
+      this._renderMFTab();
+    } else if (this.state.activeTab === 'backgrounds') {
+      this._renderBgTab();
+    }
+  },
+
+  _renderRotesTab() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+    tc.innerHTML = `
+      <div id="grimoire-custom-rotes-section"></div>
+      <div id="grimoire-filters"></div>
+      <div class="grimoire-stats" id="grimoire-stats"></div>
+      <div id="grimoire-results"><div class="grimoire-loading">Loading rotes…</div></div>
+      <div id="grimoire-pagination"></div>`;
+    this._renderCustomRotesSection();
     if (!this.state.chapters.length) {
       this.loadChapters();
     } else {
@@ -1566,15 +1669,25 @@ const Grimoire = {
   renderShell() {
     const content = $('#grimoire-content');
     if (!content) return;
+    const t = this.state.activeTab;
     content.innerHTML = `
       <div class="grimoire-container">
         <div class="grimoire-title">The Grimoire</div>
-        <div class="grimoire-subtitle">A compendium of rotes and ritual workings from across the Traditions.</div>
-        <div id="grimoire-filters"></div>
-        <div class="grimoire-stats" id="grimoire-stats"></div>
-        <div id="grimoire-results"><div class="grimoire-loading">Loading rotes…</div></div>
-        <div id="grimoire-pagination"></div>
+        <div class="grimoire-subtitle">A repository of rotes, custom content, and other magical knowledge.</div>
+        <div class="grimoire-tab-bar">
+          <button class="grimoire-tab${t==='rotes'?' active':''}" data-tab="rotes">⊕ Rotes</button>
+          <button class="grimoire-tab${t==='merits-flaws'?' active':''}" data-tab="merits-flaws">✦ Merits &amp; Flaws</button>
+          <button class="grimoire-tab${t==='backgrounds'?' active':''}" data-tab="backgrounds">⊡ Backgrounds</button>
+        </div>
+        <div id="grimoire-tab-content"></div>
       </div>`;
+    content.querySelectorAll('.grimoire-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.state.activeTab = btn.dataset.tab;
+        content.querySelectorAll('.grimoire-tab').forEach(b => b.classList.toggle('active', b === btn));
+        this._renderActiveTab();
+      });
+    });
   },
 
   async loadChapters() {
@@ -1592,6 +1705,689 @@ const Grimoire = {
     }
     this.renderFilters();
     this.fetchRotes();
+  },
+
+  // ── Merits & Flaws tab ────────────────────────────────────────────────────
+
+  async _renderMFTab() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+    tc.innerHTML = '<div class="grimoire-loading">Loading…</div>';
+    await _loadUserCustomMF();
+    this._renderMFContent();
+  },
+
+  _renderMFContent() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+
+    // Preserve open/collapsed state of <details> elements before re-render
+    const openState = {};
+    tc.querySelectorAll('details[data-key]').forEach(d => { openState[d.dataset.key] = d.open; });
+
+    const CATS     = ['Physical', 'Mental', 'Social', 'Supernatural'];
+    const custom   = _getUserCustomMF();
+    const isGuest  = App.currentUser?.role === 'guest';
+    const q        = (this.state.mfSearch || '').toLowerCase().trim();
+    const kindFilter = this.state.mfKind || 'all';
+
+    const _matchSearch = item => !q || item.name.toLowerCase().includes(q) || (item.description || '').toLowerCase().includes(q);
+
+    // ── Custom M&F section (dedicated, with CRUD) ────────────────────────────
+    const _buildCustomSection = () => {
+      if (isGuest) return '';
+      const custKey  = 'section-custom';
+      const custOpen = openState[custKey] !== false; // default open
+      const filtered = custom.filter(x =>
+        (kindFilter === 'all' || x.kind === kindFilter) && _matchSearch(x)
+      );
+      const custFormKey = 'custom-top';
+      return `
+        <details class="gmf-section gmf-section-custom" data-key="${custKey}"${custOpen ? ' open' : ''}>
+          <summary class="gmf-section-summary">
+            <span class="gmf-section-title">My Custom Merits &amp; Flaws</span>
+            <span class="gmf-section-count">${filtered.length}</span>
+            <span class="gmf-section-caret"></span>
+          </summary>
+          <div class="gmf-custom-top-actions">
+            <button class="btn-secondary btn-sm" id="btn-gmf-new-merit">＋ New Merit</button>
+            <button class="btn-secondary btn-sm" id="btn-gmf-new-flaw">＋ New Flaw</button>
+          </div>
+          <div id="gmf-merit-form" class="gmf-form" style="display:none"></div>
+          <div id="gmf-flaw-form" class="gmf-form" style="display:none"></div>
+          ${filtered.length
+            ? `<div class="gmf-cat-items gmf-custom-items">${filtered.map(x => this._gmfItemHTML({ ...x, _custom: true })).join('')}</div>`
+            : `<p class="gmf-empty">No custom merits or flaws yet. Click ＋ New Merit or ＋ New Flaw to create one.</p>`}
+        </details>`;
+    };
+
+    // ── Built-in M&F sections (Physical/Mental/Social/Supernatural only) ──────
+    const _buildSection = (kind) => {
+      if (kindFilter !== 'all' && kindFilter !== kind) return '';
+      const title    = kind === 'merit' ? 'Merits' : 'Flaws';
+      // Built-ins only — custom items have their own section above
+      const builtins = (kind === 'merit' ? M20.MERITS : M20.FLAWS)
+        .map(m => ({ ...m, _builtin: true }))
+        .filter(_matchSearch);
+      if (!builtins.length) return '';
+
+      const catGroups = CATS.map(cat => {
+        const catItems = builtins.filter(x => x.category === cat);
+        if (!catItems.length) return '';
+        const key = `${kind}-${cat}`;
+        const isOpen = openState[key] === true; // default collapsed
+        return `<details class="gmf-cat-group" data-key="${key}"${isOpen ? ' open' : ''}>
+          <summary class="gmf-cat-label">${cat} <span class="gmf-cat-count">(${catItems.length})</span></summary>
+          <div class="gmf-cat-items">
+            ${catItems.map(item => this._gmfItemHTML(item)).join('')}
+          </div>
+        </details>`;
+      }).join('');
+
+      const secKey  = `section-${kind}`;
+      const secOpen = openState[secKey] !== false;
+      const total   = builtins.length;
+      return `
+        <details class="gmf-section" data-key="${secKey}"${secOpen ? ' open' : ''}>
+          <summary class="gmf-section-summary">
+            <span class="gmf-section-title">${title}</span>
+            <span class="gmf-section-count">${total}</span>
+            <span class="gmf-section-caret"></span>
+          </summary>
+          ${catGroups || `<p class="gmf-empty">No matching ${title.toLowerCase()}.</p>`}
+        </details>`;
+    };
+
+    const builtMeritSection = _buildSection('merit');
+    const builtFlawSection  = _buildSection('flaw');
+
+    tc.innerHTML = `
+      <div class="gmf-container">
+        <div class="gmf-filter-bar">
+          <input type="search" class="gmf-search-input" placeholder="Search merits &amp; flaws…"
+            value="${escHtml(this.state.mfSearch || '')}" autocomplete="off" />
+          <div class="gmf-kind-tabs">
+            <button class="gmf-kind-btn${kindFilter==='all'?' active':''}" data-kind="all">All</button>
+            <button class="gmf-kind-btn${kindFilter==='merit'?' active':''}" data-kind="merit">Merits</button>
+            <button class="gmf-kind-btn${kindFilter==='flaw'?' active':''}" data-kind="flaw">Flaws</button>
+          </div>
+        </div>
+        ${_buildCustomSection()}
+        ${builtMeritSection ? '<hr class="gmf-divider" />' + builtMeritSection : ''}
+        ${builtFlawSection  ? '<hr class="gmf-divider" />' + builtFlawSection  : ''}
+      </div>`;
+
+    // Wire up filter bar
+    tc.querySelector('.gmf-search-input')?.addEventListener('input', e => {
+      this.state.mfSearch = e.target.value;
+      this._renderMFContent();
+    });
+    tc.querySelectorAll('.gmf-kind-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.state.mfKind = btn.dataset.kind;
+        this._renderMFContent();
+      });
+    });
+
+    this._attachMFListeners(tc);
+  },
+
+  _gmfItemHTML(item) {
+    const isCustom  = !!item._custom;
+    // Cost display: numeric → "N pt/pts"; string with non-digits → show as-is
+    const rawCost   = item.cost != null ? String(item.cost) : null;
+    const costStr   = rawCost == null ? '—'
+      : /^\d+$/.test(rawCost) ? (rawCost + (rawCost === '1' ? ' pt' : ' pts'))
+      : rawCost;
+    const pageRef   = item.page != null
+      ? `<span class="gmf-item-page">${typeof item.page === 'string' ? item.page : 'M20 p. ' + item.page}</span>`
+      : '';
+    const custBadge = isCustom ? `<span class="mf-custom-badge">CUSTOM</span>` : '';
+    const repFlag   = item.repeatable ? `<span class="gmf-item-flag">Repeatable</span>` : '';
+    const desc      = item.description
+      ? `<div class="gmf-item-desc">${escHtml(item.description)}</div>` : '';
+    const actions   = isCustom
+      ? `<div class="gmf-item-actions">
+           <button class="btn-ghost btn-sm gmf-edit-btn" data-id="${item.id}">Edit</button>
+           <button class="btn-ghost btn-sm gmf-del-btn delete" data-id="${item.id}">Delete</button>
+         </div>`
+      : '';
+    return `<div class="gmf-item${isCustom ? ' gmf-item-custom' : ''}" data-id="${item.id ?? ''}">
+      <div class="gmf-item-cost">${costStr}</div>
+      <div class="gmf-item-main">
+        <div class="gmf-item-name">${escHtml(item.name)}${custBadge}${repFlag}</div>
+        ${pageRef}${desc}
+      </div>
+      ${actions}
+    </div>`;
+  },
+
+  _gmfFormHTML(kind, item = null) {
+    const isEdit = !!item;
+    const CATS   = ['Physical', 'Mental', 'Social', 'Supernatural'];
+    const cat    = item?.category || 'Social';
+    const catOpts = CATS.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
+    return `<div class="gmf-form-inner" data-kind="${kind}" data-id="${item?.id ?? ''}">
+      <div class="gmf-form-row">
+        <div class="gmf-form-field">
+          <label>Name</label>
+          <input type="text" class="form-input gmf-f-name" value="${escHtml(item?.name || '')}" placeholder="${kind === 'merit' ? 'Merit name…' : 'Flaw name…'}" maxlength="80" />
+        </div>
+        <div class="gmf-form-field">
+          <label>Category</label>
+          <select class="form-input gmf-f-cat">${catOpts}</select>
+        </div>
+        <div class="gmf-form-field gmf-field-cost">
+          <label>Cost <span class="form-hint">(e.g. 2 or "1 or 3")</span></label>
+          <input type="text" class="form-input gmf-f-cost" value="${escHtml(String(item?.cost ?? '1'))}" placeholder="1" maxlength="20" />
+        </div>
+        <div class="gmf-form-field gmf-field-rep">
+          <label class="gmf-rep-label">
+            <input type="checkbox" class="gmf-f-rep" ${item?.repeatable ? 'checked' : ''} />
+            Repeatable
+          </label>
+        </div>
+      </div>
+      <div class="gmf-form-field">
+        <label>Description <span class="form-hint">(optional)</span></label>
+        <textarea class="form-input gmf-f-desc" rows="2" maxlength="500" placeholder="Rules text or flavor…">${escHtml(item?.description || '')}</textarea>
+      </div>
+      <div class="gmf-form-actions">
+        <button class="btn-primary btn-sm gmf-save-btn">${isEdit ? 'Save Changes' : 'Create ' + (kind === 'merit' ? 'Merit' : 'Flaw')}</button>
+        <button class="btn-ghost btn-sm gmf-cancel-btn">Cancel</button>
+      </div>
+    </div>`;
+  },
+
+  _attachMFListeners(tc) {
+    // New merit / new flaw buttons
+    ['merit', 'flaw'].forEach(kind => {
+      const newBtn  = $(`#btn-gmf-new-${kind}`, tc);
+      const formDiv = $(`#gmf-${kind}-form`, tc);
+      if (newBtn && formDiv) {
+        newBtn.addEventListener('click', () => {
+          formDiv.innerHTML = this._gmfFormHTML(kind);
+          formDiv.style.display = '';
+          formDiv.querySelector('.gmf-f-name')?.focus();
+          this._attachFormListeners(formDiv, kind);
+        });
+      }
+    });
+
+    // Edit / Delete buttons (delegated)
+    tc.addEventListener('click', async e => {
+      const editBtn = e.target.closest('.gmf-edit-btn');
+      const delBtn  = e.target.closest('.gmf-del-btn');
+
+      if (editBtn) {
+        const id = parseInt(editBtn.dataset.id);
+        const item = _getUserCustomMF().find(x => x.id === id);
+        if (!item) return;
+        const kind    = item.kind;
+        const formDiv = $(`#gmf-${kind}-form`, tc);
+        if (!formDiv) return;
+        formDiv.innerHTML = this._gmfFormHTML(kind, item);
+        formDiv.style.display = '';
+        formDiv.querySelector('.gmf-f-name')?.focus();
+        this._attachFormListeners(formDiv, kind, id);
+        // Scroll to form
+        formDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (delBtn) {
+        const id = parseInt(delBtn.dataset.id);
+        const item = _getUserCustomMF().find(x => x.id === id);
+        if (!item) return;
+        if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+        try {
+          const r = await fetch(`/api/custom/merits-flaws/${id}`, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _invalidateUserCustomMF();
+          await _loadUserCustomMF();
+          this._renderMFContent();
+          toast(`"${item.name}" deleted.`);
+        } catch { toast('Failed to delete.', 'error'); }
+      }
+    });
+  },
+
+  _attachFormListeners(formDiv, kind, editId = null) {
+    const saveBtn   = formDiv.querySelector('.gmf-save-btn');
+    const cancelBtn = formDiv.querySelector('.gmf-cancel-btn');
+
+    cancelBtn?.addEventListener('click', () => {
+      formDiv.style.display = 'none';
+      formDiv.innerHTML = '';
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+      const name       = formDiv.querySelector('.gmf-f-name')?.value?.trim() || '';
+      const category   = formDiv.querySelector('.gmf-f-cat')?.value || 'Social';
+      const cost       = formDiv.querySelector('.gmf-f-cost')?.value?.trim() || '1';
+      const repeatable = formDiv.querySelector('.gmf-f-rep')?.checked ? 1 : 0;
+      const description = formDiv.querySelector('.gmf-f-desc')?.value?.trim() || '';
+
+      if (!name) { toast('Name is required.', 'error'); return; }
+
+      try {
+        let r;
+        if (editId) {
+          r = await fetch(`/api/custom/merits-flaws/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, category, cost, repeatable, description }),
+          });
+        } else {
+          r = await fetch('/api/custom/merits-flaws', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind, name, category, cost, repeatable, description }),
+          });
+        }
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed');
+        _invalidateUserCustomMF();
+        await _loadUserCustomMF();
+        this._renderMFContent();
+        toast(editId ? `"${name}" updated.` : `"${name}" created.`);
+      } catch (err) { toast(err.message || 'Failed to save.', 'error'); }
+    });
+  },
+
+  // ── Custom Rotes section (top of Rotes tab) ──────────────────────────────
+
+  async _renderCustomRotesSection() {
+    const sec = $('#grimoire-custom-rotes-section');
+    if (!sec) return;
+    await _loadUserCustomRotes();
+    this._refreshCustomRotesSection();
+  },
+
+  _refreshCustomRotesSection() {
+    const sec = $('#grimoire-custom-rotes-section');
+    if (!sec) return;
+    const items   = _getUserCustomRotes();
+    const isGuest = App.currentUser?.role === 'guest';
+    const formId  = 'gcr-form';
+
+    const itemsHTML = items.length
+      ? items.map(r => {
+          const spheres = (() => { try { return JSON.parse(r.spheres || '{}'); } catch { return {}; } })();
+          const spStr = Object.entries(spheres).filter(([,v]) => v > 0).map(([s,v]) => `${s} ${v}`).join(', ') || '—';
+          return `<div class="gcr-item" data-id="${r.id}">
+            <div class="gcr-item-main">
+              <span class="gcr-item-name">${escHtml(r.name)}</span>
+              <span class="mf-custom-badge">CUSTOM</span>
+              ${r.source ? `<span class="gcr-item-source">${escHtml(r.source)}</span>` : ''}
+            </div>
+            <div class="gcr-item-spheres">${escHtml(spStr)}</div>
+            ${r.description ? `<div class="gcr-item-desc">${escHtml(r.description)}</div>` : ''}
+            <div class="gcr-item-actions">
+              <button class="btn-ghost btn-sm gcr-edit-btn" data-id="${r.id}">Edit</button>
+              <button class="btn-ghost btn-sm gcr-del-btn delete" data-id="${r.id}">Delete</button>
+            </div>
+          </div>`;
+        }).join('')
+      : '';
+
+    sec.innerHTML = `
+      <div class="gcr-section">
+        <div class="gcr-section-header">
+          <span class="gcr-section-title">Custom Rotes</span>
+          ${!isGuest ? `<button class="btn-secondary btn-sm" id="gcr-new-btn">＋ Add Custom Rote</button>` : ''}
+        </div>
+        <div id="${formId}" class="gmf-form" style="display:none"></div>
+        ${items.length ? `<div class="gcr-items">${itemsHTML}</div>` : ''}
+      </div>`;
+
+    sec.querySelector('#gcr-new-btn')?.addEventListener('click', () => {
+      const fd = sec.querySelector(`#${formId}`);
+      if (!fd) return;
+      fd.innerHTML = this._gcrFormHTML();
+      fd.style.display = '';
+      fd.querySelector('.gmf-f-name')?.focus();
+      this._attachGcrFormListeners(fd);
+    });
+
+    sec.addEventListener('click', async e => {
+      const editBtn = e.target.closest('.gcr-edit-btn');
+      const delBtn  = e.target.closest('.gcr-del-btn');
+
+      if (editBtn) {
+        const id   = parseInt(editBtn.dataset.id);
+        const item = _getUserCustomRotes().find(x => x.id === id);
+        if (!item) return;
+        const fd = sec.querySelector(`#${formId}`);
+        if (!fd) return;
+        fd.innerHTML = this._gcrFormHTML(item);
+        fd.style.display = '';
+        fd.querySelector('.gmf-f-name')?.focus();
+        this._attachGcrFormListeners(fd, id);
+        fd.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (delBtn) {
+        const id   = parseInt(delBtn.dataset.id);
+        const item = _getUserCustomRotes().find(x => x.id === id);
+        if (!item) return;
+        if (!confirm(`Delete rote "${item.name}"? This cannot be undone.`)) return;
+        try {
+          const r = await fetch(`/api/custom/rotes/${id}`, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _invalidateUserCustomRotes();
+          await _loadUserCustomRotes();
+          this._refreshCustomRotesSection();
+          toast(`"${item.name}" deleted.`);
+        } catch { toast('Failed to delete.', 'error'); }
+      }
+    });
+  },
+
+  _gcrFormHTML(item = null) {
+    const isEdit = !!item;
+    const spheres = item ? (() => { try { return JSON.parse(item.spheres || '{}'); } catch { return {}; } })() : {};
+    const sphereDots = SPHERE_NAMES.map(s => {
+      const v = spheres[s] || 0;
+      const dotSpans = [1,2,3,4,5].map(i =>
+        `<span class="g-dot${i <= v ? ' filled' : ''}" data-sphere="${s}" data-val="${i}"></span>`
+      ).join('');
+      return `<div class="gcr-sphere-row">
+        <span class="gcr-sphere-name">${s}</span>
+        <div class="g-sphere-dots gcr-dots" data-sphere="${s}" data-val="${v}">${dotSpans}</div>
+      </div>`;
+    }).join('');
+    return `<div class="gmf-form-inner" data-id="${item?.id ?? ''}">
+      <div class="gmf-form-title">${isEdit ? 'Edit Rote' : 'New Custom Rote'}</div>
+      <div class="gmf-form-row">
+        <div class="gmf-form-field">
+          <label>Name</label>
+          <input type="text" class="form-input gmf-f-name" value="${escHtml(item?.name || '')}" placeholder="Rote name…" maxlength="80" />
+        </div>
+        <div class="gmf-form-field" style="flex:0 0 200px">
+          <label>Source / Book (optional)</label>
+          <input type="text" class="form-input gcr-f-source" value="${escHtml(item?.source || '')}" placeholder="e.g. M20 p. 142" maxlength="80" />
+        </div>
+      </div>
+      <div class="gmf-form-field" style="margin-bottom:0.6rem">
+        <label>Description (optional)</label>
+        <textarea class="form-input gmf-f-desc" rows="2" maxlength="1000" placeholder="What does this rote do?">${escHtml(item?.description || '')}</textarea>
+      </div>
+      <div class="gcr-spheres-label">Sphere Requirements</div>
+      <div class="gcr-sphere-grid">${sphereDots}</div>
+      <div class="gmf-form-actions">
+        <button class="btn-primary btn-sm gmf-save-btn">${isEdit ? 'Save Changes' : 'Create Rote'}</button>
+        <button class="btn-ghost btn-sm gmf-cancel-btn">Cancel</button>
+      </div>
+    </div>`;
+  },
+
+  _attachGcrFormListeners(fd, editId = null) {
+    // Dot clicks for sphere selection
+    fd.querySelectorAll('.gcr-dots').forEach(group => {
+      group.addEventListener('click', e => {
+        const dot = e.target.closest('.g-dot');
+        if (!dot) return;
+        const sphere = group.dataset.sphere;
+        const val    = parseInt(dot.dataset.val, 10);
+        const cur    = parseInt(group.dataset.val, 10) || 0;
+        const newVal = cur === val ? 0 : val;
+        group.dataset.val = newVal;
+        group.querySelectorAll('.g-dot').forEach((d, i) => {
+          d.classList.toggle('filled', i + 1 <= newVal);
+        });
+      });
+    });
+
+    fd.querySelector('.gmf-cancel-btn')?.addEventListener('click', () => {
+      fd.style.display = 'none';
+      fd.innerHTML = '';
+    });
+
+    fd.querySelector('.gmf-save-btn')?.addEventListener('click', async () => {
+      const name   = fd.querySelector('.gmf-f-name')?.value?.trim() || '';
+      const source = fd.querySelector('.gcr-f-source')?.value?.trim() || '';
+      const desc   = fd.querySelector('.gmf-f-desc')?.value?.trim() || '';
+      if (!name) { toast('Name is required.', 'error'); return; }
+      const spheres = {};
+      fd.querySelectorAll('.gcr-dots').forEach(g => {
+        const v = parseInt(g.dataset.val, 10) || 0;
+        if (v > 0) spheres[g.dataset.sphere] = v;
+      });
+      try {
+        let r;
+        if (editId) {
+          r = await fetch(`/api/custom/rotes/${editId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, spheres, description: desc, source }),
+          });
+        } else {
+          r = await fetch('/api/custom/rotes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, spheres, description: desc, source }),
+          });
+        }
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed');
+        _invalidateUserCustomRotes();
+        await _loadUserCustomRotes();
+        this._refreshCustomRotesSection();
+        toast(editId ? `"${name}" updated.` : `"${name}" created.`);
+      } catch (err) { toast(err.message || 'Failed to save.', 'error'); }
+    });
+  },
+
+  // ── Backgrounds tab ──────────────────────────────────────────────────────
+
+  async _renderBgTab() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+    tc.innerHTML = '<div class="grimoire-loading">Loading…</div>';
+    await _loadUserCustomBg();
+    this._renderBgContent();
+  },
+
+  _renderBgContent() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+
+    const openState = {};
+    tc.querySelectorAll('details[data-key]').forEach(d => { openState[d.dataset.key] = d.open; });
+
+    const isGuest  = App.currentUser?.role === 'guest';
+    const q        = (this.state.bgSearch || '').toLowerCase().trim();
+    const customs  = _getUserCustomBg();
+
+    const _matchBg = bg => !q || bg.name.toLowerCase().includes(q) || (bg.description || '').toLowerCase().includes(q);
+
+    const builtinItems = M20.BACKGROUNDS.filter(_matchBg);
+    const customItems  = customs.filter(_matchBg);
+
+    const _bgItemHTML = bg => {
+      const isCustom = !!bg._custom;
+      const maxDots  = bg.max_dots || bg.max || 5;
+      const dotsStr  = Array.from({ length: Math.min(maxDots, 10) }, (_, i) =>
+        `<span class="bg-dot-preview${i < 5 ? ' filled' : ''}"></span>`
+      ).join('');
+      const custBadge = isCustom ? `<span class="mf-custom-badge">CUSTOM</span>` : '';
+      const pageRef   = bg.page != null
+        ? `<span class="gmf-item-page">${typeof bg.page === 'string' ? bg.page : 'M20 p. ' + bg.page}</span>`
+        : '';
+      const actions   = isCustom
+        ? `<div class="gmf-item-actions">
+             <button class="btn-ghost btn-sm bg-edit-btn" data-id="${bg.id}">Edit</button>
+             <button class="btn-ghost btn-sm bg-del-btn delete" data-id="${bg.id}">Delete</button>
+           </div>`
+        : '';
+      const levelsHTML = (bg.levels && bg.levels.length)
+        ? `<ol class="bg-levels-list">${bg.levels.map((l, i) => `<li class="bg-level"><span class="bg-level-dot">${i+1}.</span>${escHtml(l)}</li>`).join('')}</ol>`
+        : '';
+      return `<details class="bg-item${isCustom ? ' bg-item-custom' : ''}" data-id="${bg.id ?? bg.name}">
+        <summary class="bg-item-summary">
+          <span class="bg-item-name">${escHtml(bg.name)}${custBadge}</span>
+          <span class="bg-item-meta">
+            <span class="bg-max-dots" title="Max ${maxDots} dots">max ${maxDots}</span>
+            ${pageRef}${actions}
+          </span>
+        </summary>
+        <div class="bg-item-body">
+          ${bg.description ? `<div class="bg-item-desc">${escHtml(bg.description)}</div>` : ''}
+          ${bg.note ? `<div class="bg-item-note">${escHtml(bg.note)}</div>` : ''}
+          ${levelsHTML}
+        </div>
+      </details>`;
+    };
+
+    const bgFormId = 'gbg-form';
+    const allSecKey = 'bg-all';
+    const customSecKey = 'bg-custom';
+    const allSecOpen = openState[allSecKey] !== false;
+    const customSecOpen = openState[customSecKey] !== false;
+
+    const builtinSection = builtinItems.length
+      ? `<details class="gmf-section" data-key="${allSecKey}"${allSecOpen ? ' open' : ''}>
+          <summary class="gmf-section-summary">
+            <span class="gmf-section-title">M20 Backgrounds</span>
+            <span class="gmf-section-count">${builtinItems.length}</span>
+            <span class="gmf-section-caret"></span>
+          </summary>
+          <div class="bg-items-list">${builtinItems.map(_bgItemHTML).join('')}</div>
+        </details>`
+      : `<p class="gmf-empty">No backgrounds match your search.</p>`;
+
+    const customSection = `
+      <details class="gmf-section" data-key="${customSecKey}"${customSecOpen ? ' open' : ''}>
+        <summary class="gmf-section-summary">
+          <span class="gmf-section-title">Custom Backgrounds</span>
+          <span class="gmf-section-count">${customItems.length}</span>
+          <span class="gmf-section-caret"></span>
+        </summary>
+        <div id="${bgFormId}" class="gmf-form" style="display:none"></div>
+        ${customItems.length
+          ? `<div class="bg-items-list">${customItems.map(x => _bgItemHTML({ ...x, _custom: true })).join('')}</div>`
+          : `<p class="gmf-empty">No custom backgrounds yet.</p>`}
+      </details>`;
+
+    tc.innerHTML = `
+      <div class="gmf-container">
+        <div class="gmf-filter-bar">
+          <input type="search" class="gmf-search-input" placeholder="Search backgrounds…"
+            value="${escHtml(this.state.bgSearch || '')}" autocomplete="off" />
+          ${!isGuest ? `
+          <div class="gmf-top-actions">
+            <button class="btn-secondary btn-sm" id="gbg-new-btn">＋ Add Custom Background</button>
+          </div>` : ''}
+        </div>
+        <div id="gbg-form-top" class="gmf-form" style="display:none"></div>
+        ${builtinSection}
+        <hr class="gmf-divider" />
+        ${customSection}
+      </div>`;
+
+    tc.querySelector('.gmf-search-input')?.addEventListener('input', e => {
+      this.state.bgSearch = e.target.value;
+      this._renderBgContent();
+    });
+
+    tc.querySelector('#gbg-new-btn')?.addEventListener('click', () => {
+      const fd = tc.querySelector('#gbg-form-top');
+      if (!fd) return;
+      fd.innerHTML = this._bgFormHTML();
+      fd.style.display = '';
+      fd.querySelector('.gmf-f-name')?.focus();
+      this._attachBgFormListeners(fd, tc);
+    });
+
+    tc.addEventListener('click', async e => {
+      const editBtn = e.target.closest('.bg-edit-btn');
+      const delBtn  = e.target.closest('.bg-del-btn');
+
+      if (editBtn) {
+        const id   = parseInt(editBtn.dataset.id);
+        const item = _getUserCustomBg().find(x => x.id === id);
+        if (!item) return;
+        const fd   = tc.querySelector(`#${bgFormId}`);
+        if (!fd) return;
+        fd.innerHTML = this._bgFormHTML(item);
+        fd.style.display = '';
+        fd.querySelector('.gmf-f-name')?.focus();
+        this._attachBgFormListeners(fd, tc, id);
+        fd.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (delBtn) {
+        const id   = parseInt(delBtn.dataset.id);
+        const item = _getUserCustomBg().find(x => x.id === id);
+        if (!item) return;
+        if (!confirm(`Delete background "${item.name}"? This cannot be undone.`)) return;
+        try {
+          const r = await fetch(`/api/custom/backgrounds/${id}`, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _invalidateUserCustomBg();
+          await _loadUserCustomBg();
+          this._renderBgContent();
+          toast(`"${item.name}" deleted.`);
+        } catch { toast('Failed to delete.', 'error'); }
+      }
+    });
+  },
+
+  _bgFormHTML(item = null) {
+    const isEdit = !!item;
+    const dots = Math.min(Math.max(parseInt(item?.max_dots) || 5, 1), 10);
+    return `<div class="gmf-form-inner" data-id="${item?.id ?? ''}">
+      <div class="gmf-form-title">${isEdit ? 'Edit Custom Background' : 'New Custom Background'}</div>
+      <div class="gmf-form-row">
+        <div class="gmf-form-field">
+          <label>Name</label>
+          <input type="text" class="form-input gmf-f-name" value="${escHtml(item?.name || '')}" placeholder="Background name…" maxlength="80" />
+        </div>
+        <div class="gmf-form-field gmf-field-cost">
+          <label>Max Dots (1–10)</label>
+          <input type="number" class="form-input gbg-f-dots" value="${dots}" min="1" max="10" />
+        </div>
+      </div>
+      <div class="gmf-form-field">
+        <label>Description (optional)</label>
+        <textarea class="form-input gmf-f-desc" rows="2" maxlength="1000" placeholder="What does this background represent?">${escHtml(item?.description || '')}</textarea>
+      </div>
+      <div class="gmf-form-actions">
+        <button class="btn-primary btn-sm gmf-save-btn">${isEdit ? 'Save Changes' : 'Create Background'}</button>
+        <button class="btn-ghost btn-sm gmf-cancel-btn">Cancel</button>
+      </div>
+    </div>`;
+  },
+
+  _attachBgFormListeners(fd, tc, editId = null) {
+    fd.querySelector('.gmf-cancel-btn')?.addEventListener('click', () => {
+      fd.style.display = 'none';
+      fd.innerHTML = '';
+    });
+    fd.querySelector('.gmf-save-btn')?.addEventListener('click', async () => {
+      const name = fd.querySelector('.gmf-f-name')?.value?.trim() || '';
+      const desc = fd.querySelector('.gmf-f-desc')?.value?.trim() || '';
+      const dots = parseInt(fd.querySelector('.gbg-f-dots')?.value) || 5;
+      if (!name) { toast('Name is required.', 'error'); return; }
+      try {
+        let r;
+        if (editId) {
+          r = await fetch(`/api/custom/backgrounds/${editId}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description: desc, max_dots: dots }),
+          });
+        } else {
+          r = await fetch('/api/custom/backgrounds', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description: desc, max_dots: dots }),
+          });
+        }
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed');
+        _invalidateUserCustomBg();
+        await _loadUserCustomBg();
+        this._renderBgContent();
+        toast(editId ? `"${name}" updated.` : `"${name}" created.`);
+      } catch (err) { toast(err.message || 'Failed to save.', 'error'); }
+    });
   },
 
   renderFilters() {
@@ -1668,7 +2464,7 @@ const Grimoire = {
       this._refreshSphereGrid();
       this.fetchRotes();
     });
-    this._attachSphereGridListeners();
+    this._attachSphereGridListeners(el); // el = #grimoire-filters
   },
 
   // ── Sphere grid helpers ────────────────────────────────────────────────────
@@ -1717,26 +2513,34 @@ const Grimoire = {
   _refreshSphereGrid() {
     const el = $('#grimoire-sphere-grid');
     if (!el) return;
+    // Only replace innerHTML — the click listener attached to 'el' survives the
+    // innerHTML replacement, so we must NOT re-call _attachSphereGridListeners
+    // here. Doing so would stack duplicate listeners that fire multiple times per
+    // click, causing the filter to set then immediately clear on the second click.
     el.innerHTML = this._sphereGridHTML();
-    this._attachSphereGridListeners(el);
   },
 
-  _attachSphereGridListeners(grid) {
-    grid = grid || $('#grimoire-sphere-grid');
-    if (!grid) return;
-    grid.addEventListener('click', e => {
-      // Dot click
+  _attachSphereGridListeners(host) {
+    // We delegate from the filters container — a stable element that is never
+    // replaced by _refreshSphereGrid (which only replaces #grimoire-sphere-grid
+    // innerHTML). Using a stable host eliminates duplicate-listener accumulation.
+    host = host || $('#grimoire-filters');
+    if (!host) return;
+
+    host.addEventListener('click', e => {
+      // Dot click — always SET rating to the clicked dot's value.
+      // Clicking the same dot a second time CLEARS the filter.
       const dot = e.target.closest('.g-dot');
       if (dot) {
-        const sphere = dot.dataset.sphere;
-        const val    = parseInt(dot.dataset.val, 10);
-        const current = (this.state.sphereFilters[sphere] || {rating: 0}).rating;
+        const sphere  = dot.dataset.sphere;
+        const val     = parseInt(dot.dataset.val, 10);
+        const current = (this.state.sphereFilters[sphere] || { rating: 0 }).rating;
         if (current === val) {
           delete this.state.sphereFilters[sphere];
         } else {
           this.state.sphereFilters[sphere] = {
             rating: val,
-            mode: (this.state.sphereFilters[sphere] || {mode: 'upto'}).mode,
+            mode: (this.state.sphereFilters[sphere] || { mode: 'upto' }).mode,
           };
         }
         this.state.page = 1;
@@ -1757,13 +2561,36 @@ const Grimoire = {
         }
       }
     });
+
+    // Hover preview: highlight dots 1..hoverVal when hovering over a dot
+    host.addEventListener('mouseover', e => {
+      const dot = e.target.closest('.g-dot');
+      if (!dot) return;
+      const row     = dot.closest('.g-sphere-row');
+      if (!row) return;
+      const hoverVal = parseInt(dot.dataset.val, 10);
+      row.querySelectorAll('.g-dot').forEach((d, i) => {
+        d.classList.toggle('g-dot-preview', i + 1 <= hoverVal);
+      });
+    });
+    host.addEventListener('mouseout', e => {
+      const dot = e.target.closest('.g-dot');
+      if (!dot) return;
+      const row = dot.closest('.g-sphere-row');
+      if (row) row.querySelectorAll('.g-dot.g-dot-preview').forEach(d => d.classList.remove('g-dot-preview'));
+    });
   },
 
   async fetchRotes() {
     if (this.state.loading) return;
     this.state.loading = true;
     const resultsEl = $('#grimoire-results');
-    if (resultsEl) resultsEl.innerHTML = '<div class="grimoire-loading">Loading…</div>';
+    if (resultsEl) {
+      // Lock current height so the page doesn't collapse while loading
+      const h = resultsEl.offsetHeight;
+      if (h > 0) resultsEl.style.minHeight = h + 'px';
+      resultsEl.classList.add('grimoire-results-loading');
+    }
 
     const { search, chapter, faction, book, sphereFilters, page, limit, castableOnly, charSpheres } = this.state;
 
@@ -1810,6 +2637,11 @@ const Grimoire = {
 
     this.state.loading = false;
     this.renderResults();
+    if (resultsEl) {
+      // Release height lock after new content is in place
+      resultsEl.style.minHeight = '';
+      resultsEl.classList.remove('grimoire-results-loading');
+    }
     this.renderPagination();
     // Reattach sphere grid listeners (they get wiped on re-render)
     this._attachSphereGridListeners();
@@ -1819,7 +2651,7 @@ const Grimoire = {
     const el = $('#grimoire-results');
     if (!el) return;
     const statsEl = $('#grimoire-stats');
-    const { rotes, total, page, pages, charSpheres } = this.state;
+    const { rotes, total, charSpheres, faction: activeFaction, sphereFilters } = this.state;
 
     if (statsEl) {
       statsEl.textContent = total === 0 ? 'No rotes found.' : `${total} rote${total !== 1 ? 's' : ''} found`;
@@ -1831,6 +2663,10 @@ const Grimoire = {
     }
 
     const showCastability = !!charSpheres;
+    // Active sphere names for highlighting
+    const activeSpheresSet = Object.keys(sphereFilters || {});
+    // Build set of active sphere names for O(1) lookup in formatSpheresRaw
+    const activeSphereMap  = Object.fromEntries(activeSpheresSet.map(s => [s, true]));
 
     el.innerHTML = `<table class="grimoire-table">
       <thead>
@@ -1841,25 +2677,62 @@ const Grimoire = {
           <th>Category</th>
           <th>Faction</th>
           <th>Source</th>
-          <th>Pg</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="grimoire-tbody">
         ${rotes.map(rt => {
-          const castable = charSpheres ? canCast(rt, charSpheres) : null;
-          const rowCls = castable === null ? '' : (castable ? 'castable' : 'not-castable');
-          return `<tr class="grimoire-row ${rowCls}">
+          const castable    = charSpheres ? canCast(rt, charSpheres) : null;
+          const rowCls      = castable === null ? '' : (castable ? 'castable' : 'not-castable');
+          const factionCls  = (activeFaction && rt.faction === activeFaction) ? ' faction-highlight' : '';
+          const pageNote    = rt.page ? ` <span class="grimoire-page-inline">p.${rt.page}</span>` : '';
+          return `<tr class="grimoire-row ${rowCls}" data-rote-id="${rt.id}">
             ${showCastability ? `<td class="grimoire-castable-icon">${castable ? '✦' : ''}</td>` : ''}
-            <td class="grimoire-name">${rt.name || '—'}</td>
-            <td class="grimoire-spheres">${formatSpheresRaw(rt.spheres_raw || '')}</td>
+            <td class="grimoire-name">${rt.name || '—'}${pageNote}</td>
+            <td class="grimoire-spheres">${formatSpheresRaw(rt.spheres_raw || '', activeSphereMap)}</td>
             <td class="grimoire-chapter">${rt.chapter || '—'}</td>
-            <td class="grimoire-faction">${rt.faction || '—'}</td>
+            <td class="grimoire-faction${factionCls}">${rt.faction || '—'}</td>
             <td class="grimoire-source">${rt.source_book || rt.source || '—'}</td>
-            <td class="grimoire-page-ref">${rt.page || '—'}</td>
           </tr>`;
         }).join('')}
       </tbody>
     </table>`;
+
+    // Click-to-expand rows with description
+    const tbody = $('#grimoire-tbody');
+    if (tbody) {
+      tbody.addEventListener('click', e => {
+        const row = e.target.closest('tr.grimoire-row');
+        if (!row) return;
+        const roteId = parseInt(row.dataset.roteId, 10);
+        const rote   = this.state.rotes.find(r => r.id === roteId);
+        // Toggle: if a detail row already follows this row, collapse it
+        const next = row.nextElementSibling;
+        if (next && next.classList.contains('grimoire-detail-row')) {
+          next.remove();
+          row.classList.remove('grimoire-row-expanded');
+          return;
+        }
+        // Collapse any other open detail row
+        tbody.querySelectorAll('.grimoire-detail-row').forEach(dr => dr.remove());
+        tbody.querySelectorAll('.grimoire-row-expanded').forEach(r => r.classList.remove('grimoire-row-expanded'));
+        // Insert detail row
+        if (rote) {
+          const colCount = (showCastability ? 5 : 4) + 1; // +1 for the injected extra col
+          const desc = rote.description?.trim() || '';
+          const pageInfo = rote.page ? `<span class="rote-detail-page">p.${rote.page}</span>` : '';
+          const detailRow = document.createElement('tr');
+          detailRow.className = 'grimoire-detail-row';
+          detailRow.innerHTML = `<td colspan="${colCount + 1}" class="grimoire-detail-cell">
+            <div class="grimoire-detail-inner">
+              ${pageInfo}
+              ${desc ? `<p class="grimoire-detail-desc">${escHtml(desc)}</p>` : '<p class="grimoire-detail-desc rote-no-desc">No description available.</p>'}
+            </div>
+          </td>`;
+          row.insertAdjacentElement('afterend', detailRow);
+          row.classList.add('grimoire-row-expanded');
+        }
+      });
+    }
   },
 
   renderPagination() {
@@ -1973,8 +2846,9 @@ const Chronicle = {
       if (!r.ok) throw new Error();
       const data = await r.json();
       const notes = nr.ok ? await nr.json() : [];
-      this._currentId = id;
-      this._notes = notes;
+      this._currentId   = id;
+      this._notes       = notes;
+      this._currentData = data;  // stored for Obsidian export
       $('#chronicle-content').innerHTML = this._detailHTML(data, notes);
       this._attachDetailListeners(data, notes);
     } catch {
@@ -2283,6 +3157,7 @@ const Chronicle = {
             ? `<button class="btn-ghost" id="btn-edit-chronicle">Update Chronicle</button>`
             : `<button class="btn-danger" id="btn-delete-chronicle-inactive">Delete Chronicle</button>`
           }
+          <button class="btn-ghost btn-sm" onclick="Obsidian.exportChronicle(Chronicle._currentData)" title="Export to Obsidian">⟨⟩ Obsidian</button>
         </div>
 
         <div class="chronicle-notes-section">
@@ -3131,16 +4006,19 @@ const Sheet = {
       const isGuest = App.currentUser?.role === 'guest';
       const hasPendingEdit = !!Sheet.char?.pending_edit;
       right.innerHTML = `
-        <button class="btn-secondary" onclick="Advancement.show(Sheet.char)">Advancement</button>
         <button class="btn-secondary" onclick="Sheet.editCharacter()"
           ${hasPendingEdit ? 'disabled title="A character edit is pending Storyteller approval"' : ''}>Edit Character</button>
         <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
+        <button class="btn-secondary" onclick="Obsidian.exportChar(Sheet.char)">Export to Obsidian</button>
         ${isGuest ? '' : `<button class="btn-secondary" onclick="Sheet.shareSheet()">Share Sheet</button>`}
         <button class="btn-danger" onclick="Sheet.deleteCharacter()">Delete</button>
       `;
     } else if (mode === 'storyteller') {
       left.innerHTML = `<button class="btn-ghost" onclick="Chronicle.showDetail(${opts.chronicleId})">← Back to Chronicle</button>`;
-      right.innerHTML = `<button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>`;
+      right.innerHTML = `
+        <button class="btn-secondary" onclick="Sheet.exportPDF()">Export PDF</button>
+        <button class="btn-secondary" onclick="Obsidian.exportChar(Sheet.char)">Export to Obsidian</button>
+      `;
     } else if (mode === 'shared') {
       const { likeCount = 0, userLiked = false } = opts;
       const backBtn = App.currentUser
@@ -3276,9 +4154,13 @@ const Sheet = {
         return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
       }).join('');
     // Wonder instances (each as its own row)
-    const wonderRows = (char.wonders || []).filter(w => w.level > 0).map(w => {
-      const label = w.name ? `Wonder: ${w.name}` : 'Wonder';
-      return `<div class="sheet-trait-row"><span class="sheet-trait-name">${escHtml(label)}</span>${dots(w.level, 5, 'readonly')}</div>`;
+    const _wCat = getWondersData();
+    const wonderRows = (char.wonders || []).filter(w => !!w.name).map(w => {
+      const label = `Wonder: ${w.name}`;
+      const entry = _wCat.find(wd => wd.name === w.name);
+      const cost  = w.background_cost ?? (entry ? entry.background_cost : null);
+      const badge = cost != null ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto;padding-right:0.25rem">${cost} pts</span>` : '';
+      return `<div class="sheet-trait-row"><span class="sheet-trait-name">${escHtml(label)}</span>${badge}</div>`;
     }).join('');
     const bgsAll = (bgs + wonderRows) || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
 
@@ -3487,7 +4369,7 @@ const Sheet = {
               </div>
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Practice</span>
-                <span class="sheet-focus-value">${char.practice || '—'}</span>
+                <span class="sheet-focus-value">${(char.practices && char.practices.length ? char.practices : (char.practice ? [char.practice] : [])).join(' · ') || '—'}</span>
               </div>
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Instruments</span>
@@ -4496,7 +5378,7 @@ const Creator = {
       talents: {}, skills: {}, knowledges: {},
       // Advantages
       backgrounds: {},
-      wonders: [],   // array of { level, name } — multi-instance Wonder background
+      wonders: [],   // array of { name, background_cost } — multi-instance Wonder background
       // Merits & Flaws
       merits: {}, flaws: {}, merit_labels: {},
       // Spheres
@@ -4504,7 +5386,7 @@ const Creator = {
       // Stats
       arete: 1, willpower: 5, quintessence: 0, paradox: 0,
       // Focus
-      paradigm: '', practice: '', instruments: [],
+      paradigm: '', practice: '', practices: [], instruments: [],
       resonance: [{ description: '', flavor: '', rating: 1 }],
       // Meta
       freebie_spent: {}, description: '', notes: '',
@@ -4533,7 +5415,16 @@ const Creator = {
       ...this.defaultChar(),
       ...char,
       instruments: Array.isArray(char.instruments) ? char.instruments : [],
-      wonders: Array.isArray(char.wonders) ? char.wonders.map(w => ({ level: w.level || 1, name: w.name || '' })) : [],
+      // Derive in-memory practices array from stored comma-separated practice string
+      practices: Array.isArray(char.practices) && char.practices.length
+        ? char.practices
+        : (char.practice || '').split(',').map(s => s.trim()).filter(Boolean),
+      // Migrate old {level, name} format → {name, background_cost}
+      // background_cost is looked up from catalogue (or stored directly if already migrated)
+      wonders: Array.isArray(char.wonders) ? char.wonders.map(w => ({
+        name: w.name || '',
+        background_cost: w.background_cost !== undefined ? w.background_cost : null,
+      })) : [],
       attr_priority: Array.isArray(char.attr_priority) && char.attr_priority.length === 3
         ? char.attr_priority : ['Physical', 'Social', 'Mental'],
       ability_priority: Array.isArray(char.ability_priority) && char.ability_priority.length === 3
@@ -4712,7 +5603,7 @@ const Creator = {
       if (rem > 0) issues.push(`${rem} background point${rem !== 1 ? 's' : ''} unspent`);
     } else if (step === 4) {
       if (!c.paradigm?.trim()) issues.push('Paradigm not set');
-      if (!c.practice?.trim()) issues.push('Practice not set');
+      if (!(c.practices?.length)) issues.push('Practice not set');
     } else if (step === 5) {
       const lb5 = this._lockedBaselines;
       const rawSph  = Object.values(c.spheres).reduce((s, v) => s + v, 0);
@@ -5770,11 +6661,15 @@ const Creator = {
     const builtinSet = new Set(M20.INSTRUMENTS);
     const customInstruments = selectedInstruments.filter(i => !builtinSet.has(i));
 
-    // Paradigm dropdown — check if current practice is a known one and pre-suggest
-    const matchedPractice = M20.PRACTICES.find(p => p.name.toLowerCase() === (c.practice || '').toLowerCase());
+    // Paradigm dropdown — match ALL current practices, use first for paradigm suggestions
+    const matchedPractices = (c.practices || [])
+      .map(name => M20.PRACTICES.find(p => p.name.toLowerCase() === name.toLowerCase()))
+      .filter(Boolean);
+    const matchedPractice = matchedPractices[0] || null; // first practice drives paradigm hints
     const paradigmOpts = this._buildParadigmOptsHTML(matchedPractice?.paradigms || []);
 
-    const suggestedInstruments = new Set(matchedPractice?.instruments || []);
+    // Union instrument suggestions across ALL practices
+    const suggestedInstruments = new Set(matchedPractices.flatMap(p => p.instruments || []));
 
     const builtinRows = M20.INSTRUMENTS.map(inst => {
       const checked = selectedInstruments.includes(inst);
@@ -5800,14 +6695,27 @@ const Creator = {
     // Build ability ID→name lookup for hint display
     const abilityIdToName = Object.fromEntries(ALL_ABILITY_DEFS.map(a => [a.id, a.name]));
 
-    // Practice hint shown if current value matches a known practice
-    const practiceHintHTML = matchedPractice
+    // Aggregate hints across all matched practices
+    const allHintAbilities   = [...new Set(matchedPractices.flatMap(p => p.abilities.map(id => abilityIdToName[id] || id)))];
+    const allHintInstruments = [...new Set(matchedPractices.flatMap(p => p.instruments || []))];
+    const practiceHintHTML = matchedPractices.length
       ? `<div class="practice-hint" id="practice-hint">
-           <span class="practice-hint-label">Suggested abilities:</span> ${matchedPractice.abilities.map(id => abilityIdToName[id] || id).join(', ')} ·
-           <span class="practice-hint-label">Common instruments:</span> ${matchedPractice.instruments.join(', ')}
-           <span class="page-ref" style="margin-left:0.3rem">M20 p. ${matchedPractice.page}</span>
+           <span class="practice-hint-label">Suggested abilities:</span> ${allHintAbilities.join(', ')} &middot;
+           <span class="practice-hint-label">Common instruments:</span> ${allHintInstruments.join(', ')}
          </div>`
       : `<div class="practice-hint" id="practice-hint" style="display:none"></div>`;
+
+    // Practices list HTML
+    const practicesListHTML = (c.practices || []).length
+      ? (c.practices || []).map((name, i) => {
+          const entry = M20.PRACTICES.find(p => p.name === name);
+          return `<div class="practice-tag">
+            <span class="practice-tag-name">${escHtml(name)}</span>
+            ${entry ? `<span class="practice-tag-source">p. ${entry.page}</span>` : ''}
+            <button class="practice-tag-remove" data-idx="${i}" title="Remove">×</button>
+          </div>`;
+        }).join('')
+      : `<p class="practice-empty-hint">No practices added yet — use the dropdown below.</p>`;
 
     // Try to infer the active paradigm from stored paradigm text (chosen from preset)
     const activeParadigm = M20.PARADIGMS.find(p => c.paradigm && c.paradigm.startsWith(p.desc));
@@ -5838,13 +6746,23 @@ const Creator = {
 
     <div class="form-group" style="margin-bottom:1.5rem">
       <label>Practice — "How do you work your magic?" <span class="ref">p. 573</span></label>
-      <select id="f-practice-select" style="margin-bottom:0.3rem">
-        <option value="">— Choose a common practice —</option>
-        ${practiceOpts}
-        <option value="custom">Custom (write your own)</option>
-      </select>
+      <p style="font-size:0.82rem;color:var(--text-dim);margin:0.2rem 0 0.55rem">
+        Most mages follow a single Practice. Some work across multiple disciplines.
+      </p>
+      <div id="practices-list" class="practices-list">${practicesListHTML}</div>
+      <div class="practice-adder-row">
+        <select id="f-practice-select">
+          <option value="">＋ Add a practice…</option>
+          ${practiceOpts}
+          <option value="custom">Custom (write your own)…</option>
+        </select>
+      </div>
       ${practiceFromParadigmNote}
-      <input type="text" id="f-practice" value="${c.practice}" placeholder="e.g. Alchemy, Shamanism, Hypertech, Martial Arts…" />
+      <div class="practice-custom-adder" id="practice-custom-adder" style="display:none">
+        <input type="text" id="f-practice-custom" placeholder="Enter practice name…" />
+        <button class="btn-secondary btn-sm" id="btn-add-practice-custom">＋ Add</button>
+        <button class="btn-ghost btn-sm" id="btn-cancel-practice-custom">Cancel</button>
+      </div>
       ${practiceHintHTML}
     </div>
 
@@ -6133,13 +7051,14 @@ const Creator = {
         const levelDesc = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
         return fbRow(a.id, a.name, cur, capForCat, baseline, 2, '2 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', specThreshold, levelDesc, Math.min(cur, bonus));
       }).join('');
-      // Secondary abilities
+      // Secondary abilities already added to this character
       const addedSec = g.sec.filter(a => c[g.key][a.id] !== undefined);
       const secRows  = addedSec.map(a => {
         const cur      = c[g.key][a.id] || 0;
         const baseline = lb.abilities[a.id] ?? 0;
         const bonus    = lb.bonusAbilities?.[a.id] || 0;
-        const label    = a.name + ' <span class="secondary-badge">Secondary</span>';
+        const label    = a.name + ' <span class="secondary-badge">Secondary</span>'
+          + `<button class="btn-remove-secondary fb7-remove-sec" data-ability-id="${a.id}" data-category="${g.key}" title="Remove ${a.name}">&times;</button>`;
         const levelDesc = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
         return fbRow(a.id, label, cur, Math.min(3, capForCat), baseline, 3, '3 pts/dot', null, a.specialties || [], c.specialties[a.id] || '', 4, levelDesc, Math.min(cur, bonus));
       }).join('');
@@ -6150,7 +7069,8 @@ const Creator = {
         const baseline = lb.abilities[id] ?? 0;
         const bonus    = lb.bonusAbilities?.[id] || 0;
         const name     = (c.custom_ability_names || {})[id] || id;
-        const label    = name + ' <span class="secondary-badge">Custom</span>';
+        const label    = escHtml(name) + ' <span class="secondary-badge">Custom</span>'
+          + `<button class="btn-remove-secondary fb7-remove-sec" data-ability-id="${id}" data-category="${g.key}" title="Remove ${escHtml(name)}">&times;</button>`;
         return fbRow(id, label, cur, Math.min(3, capForCat), baseline, 3, '3 pts/dot', null, [], c.specialties[id] || '', 4, '', Math.min(cur, bonus));
       }).join('');
       // Chronicle custom abilities (2 pts/dot)
@@ -6161,6 +7081,17 @@ const Creator = {
         const label    = escHtml(a.name) + ' <span class="secondary-badge">Chronicle</span>';
         return fbRow(a.id, label, cur, capForCat, baseline, 2, '2 pts/dot', null, [], c.specialties[a.id] || '', 4, '', Math.min(cur, bonus));
       }).join('');
+      // Secondary ability adder for Step VII
+      const secAvailable = g.sec.filter(a => c[g.key][a.id] === undefined);
+      const fb7Adder = `
+        <div class="fb7-adder-row">
+          ${secAvailable.length > 0 ? `<select class="fb7-secondary-select" data-category="${g.key}">
+            <option value="">＋ Add Secondary ${g.label.replace(/s$/, '')}…</option>
+            ${secAvailable.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
+          </select>` : ''}
+          <input class="fb7-custom-input" type="text" placeholder="✎ Custom name…" data-category="${g.key}" maxlength="40" />
+          <button class="fb7-custom-add-btn" data-category="${g.key}">＋ Add</button>
+        </div>`;
       const abilKey = g.key === 'talents' ? 'talent' : g.key === 'skills' ? 'skill' : 'knowledge';
       const abilBonus = this._chronicleBonusLines([abilKey, 'any_ability']);
       return `
@@ -6173,6 +7104,7 @@ const Creator = {
         ${secRows}
         ${custRows}
         ${chronAbilRows}
+        ${fb7Adder}
       </div>`;
     }).join('');
 
@@ -6488,91 +7420,146 @@ const Creator = {
       });
     }
     bind('#f-paradigm', 'paradigm');
-    bind('#f-practice', 'practice');
 
-    // Practice preset dropdown — fills input, shows hint, updates paradigm suggestions
+    // ── Multi-practice management ─────────────────────────────────────────────
+    const practiceListEl = $('#practices-list', content);
     const practiceSelS4  = $('#f-practice-select', content);
-    const practiceInp    = $('#f-practice', content);
     const practiceHintEl = $('#practice-hint', content);
     const paradigmNote   = $('#paradigm-practice-note', content);
     const paradigmSel    = $('#f-paradigm-select', content);
-    if (practiceSelS4 && practiceInp) {
+    const customAdder    = $('#practice-custom-adder', content);
+    const customPracInp  = $('#f-practice-custom', content);
+
+    const _abMap = Object.fromEntries(ALL_ABILITY_DEFS.map(a => [a.id, a.name]));
+
+    const _syncPracticeStr = () => { c.practice = (c.practices || []).join(', '); };
+
+    const _renderPracticesList = () => {
+      if (!practiceListEl) return;
+      const pracs = c.practices || [];
+      practiceListEl.innerHTML = pracs.length
+        ? pracs.map((name, i) => {
+            const entry = M20.PRACTICES.find(p => p.name === name);
+            return `<div class="practice-tag">
+              <span class="practice-tag-name">${escHtml(name)}</span>
+              ${entry ? `<span class="practice-tag-source">p. ${entry.page}</span>` : ''}
+              <button class="practice-tag-remove" data-idx="${i}" title="Remove">×</button>
+            </div>`;
+          }).join('')
+        : `<p class="practice-empty-hint">No practices added yet — use the dropdown below.</p>`;
+    };
+
+    const _updatePracticeHint = () => {
+      if (!practiceHintEl) return;
+      const matched = (c.practices || []).map(name => M20.PRACTICES.find(p => p.name === name)).filter(Boolean);
+      if (!matched.length) { practiceHintEl.style.display = 'none'; return; }
+      const abilities    = [...new Set(matched.flatMap(p => p.abilities.map(id => _abMap[id] || id)))];
+      const instruments  = [...new Set(matched.flatMap(p => p.instruments || []))];
+      practiceHintEl.innerHTML = `<span class="practice-hint-label">Suggested abilities:</span> ${abilities.join(', ')} &middot; `
+        + `<span class="practice-hint-label">Common instruments:</span> ${instruments.join(', ')}`;
+      practiceHintEl.style.display = '';
+    };
+
+    const _updateInstrumentHighlighting = () => {
+      const instList = $('#instrument-list', content);
+      if (!instList) return;
+      const allSuggested = new Set((c.practices || []).flatMap(name => {
+        const p = M20.PRACTICES.find(pr => pr.name === name);
+        return p ? (p.instruments || []) : [];
+      }));
+      instList.querySelectorAll('.instrument-item:not(.instrument-item-custom)').forEach(lbl => {
+        const inp = lbl.querySelector('input');
+        if (!inp) return;
+        const isSugg = allSuggested.has(inp.value);
+        lbl.classList.toggle('suggested-instrument', isSugg);
+        const textSpan = lbl.querySelector('.inst-text');
+        let badge = lbl.querySelector('.suggested-badge');
+        if (isSugg && !badge && textSpan) {
+          badge = document.createElement('span');
+          badge.className = 'suggested-badge';
+          badge.title = 'Suggested from practice';
+          badge.textContent = '✦';
+          textSpan.appendChild(badge);
+        } else if (!isSugg && badge) {
+          badge.remove();
+        }
+      });
+    };
+
+    const _addPractice = (name) => {
+      const trimmed = (name || '').trim();
+      if (!trimmed) return;
+      if (!c.practices) c.practices = [];
+      if (c.practices.map(p => p.toLowerCase()).includes(trimmed.toLowerCase())) return; // no dupes
+      c.practices.push(trimmed);
+      _syncPracticeStr();
+      _renderPracticesList();
+      _updatePracticeHint();
+      _updateInstrumentHighlighting();
+      // Update paradigm suggestions when there's exactly one practice
+      if (c.practices.length === 1 && paradigmSel) {
+        const preset = M20.PRACTICES.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
+        if (preset) {
+          const currentVal = paradigmSel.value;
+          paradigmSel.innerHTML = `<option value="">— Choose a common paradigm —</option>`
+            + this._buildParadigmOptsHTML(preset.paradigms)
+            + `<option value="custom">Custom (write your own)</option>`;
+          paradigmSel.value = currentVal;
+          if (paradigmNote) {
+            paradigmNote.innerHTML = `✦ Suggested paradigms for <em>${preset.name}</em> appear at the top of the list above.`;
+            paradigmNote.style.display = '';
+          }
+        }
+      }
+    };
+
+    // Remove practice via delegated click
+    if (practiceListEl) {
+      practiceListEl.addEventListener('click', e => {
+        const btn = e.target.closest('.practice-tag-remove');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.idx);
+        if (!isNaN(idx) && c.practices) {
+          c.practices.splice(idx, 1);
+          _syncPracticeStr();
+          _renderPracticesList();
+          _updatePracticeHint();
+          _updateInstrumentHighlighting();
+        }
+      });
+    }
+
+    // Practice preset dropdown
+    if (practiceSelS4) {
       practiceSelS4.addEventListener('change', () => {
         const val = practiceSelS4.value;
-        if (val && val !== 'custom') {
+        if (!val) return;
+        if (val === 'custom') {
+          if (customAdder) customAdder.style.display = '';
+          if (customPracInp) customPracInp.focus();
+        } else {
           const preset = M20.PRACTICES.find(p => p.id === val);
-          if (preset) {
-            c.practice = preset.name;
-            practiceInp.value = preset.name;
-            // Show hint (map ability IDs to display names)
-            if (practiceHintEl) {
-              const _abMap = Object.fromEntries(ALL_ABILITY_DEFS.map(a => [a.id, a.name]));
-              practiceHintEl.innerHTML = `<span class="practice-hint-label">Suggested abilities:</span> ${preset.abilities.map(id => _abMap[id] || id).join(', ')} &middot; `
-                + `<span class="practice-hint-label">Common instruments:</span> ${preset.instruments.join(', ')} `
-                + `<span class="page-ref">M20 p. ${preset.page}</span>`;
-              practiceHintEl.style.display = '';
-            }
-            // Update instrument highlighting
-            const _instList = $('#instrument-list', content);
-            if (_instList) {
-              const _suggested = new Set(preset.instruments);
-              _instList.querySelectorAll('.instrument-item:not(.instrument-item-custom)').forEach(lbl => {
-                const inp = lbl.querySelector('input');
-                if (!inp) return;
-                const isSugg = _suggested.has(inp.value);
-                lbl.classList.toggle('suggested-instrument', isSugg);
-                const textSpan = lbl.querySelector('.inst-text');
-                let badge = lbl.querySelector('.suggested-badge');
-                if (isSugg && !badge && textSpan) {
-                  badge = document.createElement('span');
-                  badge.className = 'suggested-badge';
-                  badge.title = `Suggested from ${preset.name}`;
-                  badge.textContent = '✦';
-                  textSpan.appendChild(badge);
-                } else if (!isSugg && badge) {
-                  badge.remove();
-                }
-              });
-            }
-            // Update paradigm select with optgroups
-            if (paradigmSel) {
-              const currentVal = paradigmSel.value;
-              paradigmSel.innerHTML = `<option value="">— Choose a common paradigm —</option>`
-                + this._buildParadigmOptsHTML(preset.paradigms)
-                + `<option value="custom">Custom (write your own)</option>`;
-              paradigmSel.value = currentVal; // restore selection if still valid
-            }
-            if (paradigmNote) {
-              paradigmNote.innerHTML = `✦ Suggested paradigms for <em>${preset.name}</em> appear at the top of the list above.`;
-              paradigmNote.style.display = '';
-            }
-          }
-        } else if (val === 'custom') {
-          c.practice = '';
-          practiceInp.value = '';
-          practiceInp.focus();
-          if (practiceHintEl) { practiceHintEl.innerHTML = ''; practiceHintEl.style.display = 'none'; }
-          // Clear instrument highlighting
-          const _instListC = $('#instrument-list', content);
-          if (_instListC) {
-            _instListC.querySelectorAll('.instrument-item').forEach(lbl => {
-              lbl.classList.remove('suggested-instrument');
-              const badge = lbl.querySelector('.suggested-badge');
-              if (badge) badge.remove();
-            });
-          }
-          // Remove optgroups from paradigm select
-          if (paradigmSel) {
-            const currentVal = paradigmSel.value;
-            paradigmSel.innerHTML = `<option value="">— Choose a common paradigm —</option>`
-              + this._buildParadigmOptsHTML()
-              + `<option value="custom">Custom (write your own)</option>`;
-            paradigmSel.value = currentVal;
-          }
-          if (paradigmNote) { paradigmNote.style.display = 'none'; }
+          if (preset) _addPractice(preset.name);
         }
-        practiceSelS4.value = ''; // reset dropdown so it acts as a picker
+        practiceSelS4.value = ''; // always reset dropdown
       });
+    }
+
+    // Custom practice adder
+    if (customAdder) {
+      const _doAddCustom = () => {
+        const val = customPracInp?.value?.trim();
+        if (val) _addPractice(val);
+        if (customPracInp) customPracInp.value = '';
+        customAdder.style.display = 'none';
+      };
+      $('#btn-add-practice-custom', content)?.addEventListener('click', _doAddCustom);
+      $('#btn-cancel-practice-custom', content)?.addEventListener('click', () => {
+        if (customPracInp) customPracInp.value = '';
+        customAdder.style.display = 'none';
+        if (practiceSelS4) practiceSelS4.value = '';
+      });
+      customPracInp?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); _doAddCustom(); } });
     }
 
     // Paradigm preset dropdown — fills textarea, updates practice suggestions
@@ -6590,9 +7577,9 @@ const Creator = {
             // Update practice dropdown with suggested practices for this paradigm
             if (practiceSelS4) {
               const suggestedIds = M20.PRACTICES.filter(p => p.paradigms.includes(preset.id)).map(p => p.id);
-              practiceSelS4.innerHTML = `<option value="">— Choose a common practice —</option>`
+              practiceSelS4.innerHTML = `<option value="">＋ Add a practice…</option>`
                 + this._buildPracticeOptsHTML(suggestedIds)
-                + `<option value="custom">Custom (write your own)</option>`;
+                + `<option value="custom">Custom (write your own)…</option>`;
             }
             if (practiceFromParadigmNoteEl) {
               practiceFromParadigmNoteEl.innerHTML = `✦ Suggested practices for <em>${preset.name}</em> appear at the top of the list above.`;
@@ -6605,9 +7592,9 @@ const Creator = {
           paradigmArea.focus();
           // Reset practice dropdown to flat list
           if (practiceSelS4) {
-            practiceSelS4.innerHTML = `<option value="">— Choose a common practice —</option>`
+            practiceSelS4.innerHTML = `<option value="">＋ Add a practice…</option>`
               + this._buildPracticeOptsHTML()
-              + `<option value="custom">Custom (write your own)</option>`;
+              + `<option value="custom">Custom (write your own)…</option>`;
           }
           if (practiceFromParadigmNoteEl) { practiceFromParadigmNoteEl.style.display = 'none'; }
         }
@@ -7501,6 +8488,55 @@ const Creator = {
       });
     });
 
+    // Step 7 — secondary ability adder (dropdown)
+    $$('#fb-abilities .fb7-secondary-select', content).forEach(sel => {
+      sel.addEventListener('change', () => {
+        const id  = sel.value;
+        const cat = sel.dataset.category;
+        if (!id || !cat) return;
+        char[cat][id] = 0;
+        this.renderStep();
+      });
+    });
+
+    // Step 7 — custom ability adder (button click + Enter)
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('#fb-abilities .fb7-custom-add-btn');
+      if (!btn) return;
+      const cat   = btn.dataset.category;
+      const input = content.querySelector(`#fb-abilities .fb7-custom-input[data-category="${cat}"]`);
+      if (!input) return;
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      const id = 'cust_' + Date.now().toString(36);
+      if (!char.custom_ability_names) char.custom_ability_names = {};
+      char.custom_ability_names[id] = name;
+      char[cat][id] = 0;
+      this.renderStep();
+    });
+
+    content.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const input = e.target.closest('#fb-abilities .fb7-custom-input');
+      if (!input) return;
+      e.preventDefault();
+      const btn = content.querySelector(`#fb-abilities .fb7-custom-add-btn[data-category="${input.dataset.category}"]`);
+      if (btn) btn.click();
+    });
+
+    // Step 7 — remove secondary/custom ability
+    content.addEventListener('click', e => {
+      const btn = e.target.closest('#fb-abilities .fb7-remove-sec');
+      if (!btn) return;
+      const id  = btn.dataset.abilityId;
+      const cat = btn.dataset.category;
+      if (!id || !cat) return;
+      delete char[cat][id];
+      delete char.specialties?.[id];
+      if (char.custom_ability_names?.[id]) delete char.custom_ability_names[id];
+      this.renderStep();
+    });
+
     // Merits & Flaws card listeners
     this.attachMFListeners(content);
     this.updateMFDisplay();
@@ -8039,10 +9075,19 @@ const Creator = {
 
   // ── Wonder helpers ────────────────────────────────────────────────────────────
 
-  // Keep c.backgrounds.wonder in sync with the sum of all wonder slot levels.
+  // Keep c.backgrounds.wonder in sync with the total background_cost of all wonders.
+  // Falls back to catalogue lookup if stored cost is missing (migration from old format).
   // Call this any time c.wonders changes.
   _syncWonderBackground() {
-    const total = (this.char.wonders || []).reduce((s, w) => s + (w.level || 0), 0);
+    const wData = getWondersData();
+    const total = (this.char.wonders || []).reduce((s, w) => {
+      let cost = parseInt(w.background_cost);
+      if (isNaN(cost) && w.name && wData.length) {
+        const entry = wData.find(wd => wd.name === w.name);
+        cost = entry ? (parseInt(entry.background_cost) || 0) : 0;
+      }
+      return s + (isNaN(cost) ? 0 : cost);
+    }, 0);
     if (!this.char.backgrounds) this.char.backgrounds = {};
     this.char.backgrounds.wonder = total;
   },
@@ -8092,9 +9137,11 @@ const Creator = {
       }).join('');
   },
 
-  // Render (or re-render) the results list inside a picker panel
-  _renderWonderResults(listEl, avail, selectedName, searchText, bookFilter) {
+  // Render (or re-render) the results list inside the wonder picker panel.
+  // purchasedNames: array of already-purchased wonder names (for ✓ indicator)
+  _renderWonderResults(listEl, avail, purchasedNames, searchText, bookFilter) {
     const srch = (searchText || '').toLowerCase().trim();
+    const purchased = purchasedNames || [];
     const filtered = avail.filter(wd => {
       if (bookFilter && wd.source_book !== bookFilter) return false;
       if (srch) {
@@ -8112,110 +9159,100 @@ const Creator = {
     }
 
     listEl.innerHTML = filtered.map(wd => {
-      const isSel  = wd.name === selectedName;
+      const count  = purchased.filter(n => n === wd.name).length;
       const src    = this._wonderBookShort(wd.source_book || '');
       const cost   = wd.background_cost || '?';
       const extras = [
         wd.arete        ? `Arete ${wd.arete}` : '',
         wd.quintessence ? `Q${wd.quintessence}` : '',
       ].filter(Boolean).join(' · ');
-      return `<div class="wonder-result-item${isSel ? ' wonder-result-selected' : ''}" data-wonder-name="${escHtml(wd.name)}">
+      const checkMark = count > 0 ? (count > 1 ? ` ✓×${count}` : ' ✓') : '';
+      return `<div class="wonder-result-item${count > 0 ? ' wonder-result-purchased' : ''}" data-wonder-name="${escHtml(wd.name)}">
         <div class="wonder-result-main">
           <span class="wonder-result-name">${escHtml(wd.name)}</span>
           <span class="wonder-result-src">${escHtml(src)}${extras ? ' · ' + extras : ''}</span>
         </div>
-        <span class="wonder-result-cost">${cost} pts${isSel ? ' ✓' : ''}</span>
+        <span class="wonder-result-cost">${cost} pts${checkMark}</span>
       </div>`;
     }).join('');
 
     return filtered.length;
   },
 
-  // Build HTML for one wonder slot (used in both Step 3 and Step 6)
-  _wonderInstanceHTML(w, idx) {
-    const level  = w.level || 1;
-    const maxPts = WONDER_POINTS_MAX[level] || 3;
-    const wData  = getWondersData();
-    const avail  = wData.filter(wd => {
-      const c = parseInt(wd.background_cost);
-      return !isNaN(c) && c <= maxPts;
-    });
-    const levelDots = Array.from({length: 5}, (_, i) => {
-      const d = i + 1;
-      return `<span class="dot ${d <= level ? 'filled' : ''}" data-val="${d}"></span>`;
-    }).join('');
-    const selected  = w.name || '';
-    const selWonder = selected ? wData.find(wd => wd.name === selected) : null;
-
-    // Selected-wonder bar (collapsed state)
-    const selBarHTML = selWonder
-      ? `<div class="wonder-sel-bar">
-           <div class="wonder-sel-info">
-             <span class="wonder-sel-name">${escHtml(selWonder.name)}</span>
-             <span class="wonder-sel-meta">${selWonder.background_cost || '?'} pts · ${escHtml(this._wonderBookShort(selWonder.source_book || ''))}</span>
-           </div>
-           <button class="wonder-choose-btn btn-ghost btn-sm" data-idx="${idx}">Change…</button>
-           <button class="wonder-clear-btn btn-ghost btn-sm" data-idx="${idx}" title="Clear selection">✕</button>
-         </div>
-         <div class="wonder-info">
-           <div class="wonder-desc">${escHtml(selWonder.description || '')}</div>
-           <div class="wonder-meta">${escHtml(selWonder.source_book || '')} p.${selWonder.source_page || '?'} · ${selWonder.background_cost || '?'} pts${selWonder.arete ? ` · Arete ${selWonder.arete}` : ''}${selWonder.quintessence ? ` · Quintessence ${selWonder.quintessence}` : ''}</div>
-         </div>`
-      : `<div class="wonder-sel-bar wonder-none-selected">
-           <span class="wonder-sel-none">${avail.length} wonder${avail.length !== 1 ? 's' : ''} available at this level</span>
-           <button class="wonder-choose-btn btn-secondary btn-sm" data-idx="${idx}">Choose Wonder…</button>
-         </div>`;
-
-    // Picker panel (initially hidden — toggled open by "Choose" button)
-    const bookOpts = this._wonderBookOptsHTML(avail);
-    const pickerHTML = `
-      <div class="wonder-picker-panel" data-picker-idx="${idx}" style="display:none">
-        <div class="wonder-picker-controls">
-          <input type="text" class="wonder-search-input form-input" placeholder="Search name, description, or book…" autocomplete="off" spellcheck="false">
-          <select class="wonder-book-filter form-input">
-            <option value="">All Books (${avail.length})</option>
-            ${bookOpts}
-          </select>
-        </div>
-        <div class="wonder-results-scroll">
-          <div class="wonder-results-list" data-picker-idx="${idx}"></div>
-        </div>
-        <div class="wonder-picker-footer">
-          <span class="wonder-results-count">${avail.length} results</span>
-          <button class="wonder-cancel-btn btn-ghost btn-sm" data-idx="${idx}">Cancel</button>
-        </div>
-      </div>`;
-
-    return `<div class="wonder-instance" data-wonder-idx="${idx}">
-      <div class="wonder-instance-header">
-        <span class="wonder-level-label">Level:</span>
-        <span class="dots" data-max="5" data-wonder-dots="${idx}">${levelDots}</span>
-        <span class="wonder-pts-hint">≤ ${maxPts} pts</span>
-        <button class="btn-ghost wonder-remove-btn" data-idx="${idx}" title="Remove wonder">✕</button>
-      </div>
-      ${selBarHTML}
-      ${pickerHTML}
-    </div>`;
-  },
-
   // Build the full wonder section HTML for Step 3 or Step 6
   _wonderSectionHTML() {
-    const wonders   = this.char.wonders || [];
-    const instances = wonders.map((w, i) => this._wonderInstanceHTML(w, i)).join('');
-    const loadNote  = _wondersData === null
+    const wonders  = this.char.wonders || [];
+    const wData    = getWondersData();
+    const loadNote = _wondersData === null
       ? '<p class="wonder-loading">Loading wonders catalogue…</p>'
       : '';
+
+    // Total background_cost of all purchased wonders
+    const totalCost = wonders.reduce((s, w) => {
+      let c = parseInt(w.background_cost);
+      if (isNaN(c) && w.name && wData.length) {
+        const entry = wData.find(wd => wd.name === w.name);
+        c = entry ? (parseInt(entry.background_cost) || 0) : 0;
+      }
+      return s + (isNaN(c) ? 0 : c);
+    }, 0);
+
+    // Purchased wonders list
+    const purchasedHTML = wonders.length
+      ? wonders.map((w, i) => {
+          const entry = w.name ? wData.find(wd => wd.name === w.name) : null;
+          const cost  = w.background_cost ?? (entry ? entry.background_cost : '?');
+          const src   = entry ? this._wonderBookShort(entry.source_book || '') : '';
+          const page  = entry ? (entry.source_page || '?') : '?';
+          const nameLabel = w.name ? escHtml(w.name) : '<em style="color:var(--text-faint)">No wonder selected</em>';
+          const metaLabel = entry
+            ? `${cost} pts · ${escHtml(src)} p.${page}`
+            : cost !== '?' ? `${cost} pts` : '';
+          return `<div class="wonder-purchased-row" data-wonder-idx="${i}">
+            <div class="wonder-purchased-info">
+              <span class="wonder-purchased-name">${nameLabel}</span>
+              ${metaLabel ? `<span class="wonder-purchased-meta">${metaLabel}</span>` : ''}
+            </div>
+            <button class="btn-ghost wonder-remove-btn" data-idx="${i}" title="Remove wonder">✕</button>
+          </div>`;
+        }).join('')
+      : '<p class="wonder-empty">No wonders selected.</p>';
+
+    // Catalogue picker (shared single panel, always present but hidden by default)
+    const allAvail = wData.filter(wd => wd.background_cost != null && wd.background_cost !== '');
+    const bookOpts = this._wonderBookOptsHTML(allAvail);
+    const totalLabel = totalCost > 0 ? `<span class="wonder-total-cost">${totalCost} pts spent</span>` : '';
+
     return `<div class="wonder-section" id="wonder-section">
       <div class="wonder-section-header">
         <div>
           <span class="wonder-section-title">Wonders <span class="page-ref">p. 320</span></span>
-          <div class="wonder-section-note">Each Wonder costs background dots equal to its level. Higher levels unlock more powerful items from the catalogue. Can be taken multiple times.</div>
+          <div class="wonder-section-note">Each Wonder has a listed background cost in pts. Buy any wonder from your background allocation or freebie points. Can be taken multiple times.</div>
         </div>
-        <button class="btn-secondary btn-sm btn-add-wonder">+ Add Wonder</button>
+        <div class="wonder-section-actions">
+          ${totalLabel}
+          <button class="btn-secondary btn-sm btn-browse-wonders">Browse Catalogue…</button>
+        </div>
       </div>
       ${loadNote}
-      <div class="wonder-instances-list">
-        ${instances || '<p class="wonder-empty">No wonders selected.</p>'}
+      <div class="wonder-purchased-list">
+        ${purchasedHTML}
+      </div>
+      <div class="wonder-picker-panel" id="wonder-picker-panel" style="display:none">
+        <div class="wonder-picker-controls">
+          <input type="text" class="wonder-search-input form-input" placeholder="Search name, description, or book…" autocomplete="off" spellcheck="false">
+          <select class="wonder-book-filter form-input">
+            <option value="">All Books (${allAvail.length})</option>
+            ${bookOpts}
+          </select>
+        </div>
+        <div class="wonder-results-scroll">
+          <div class="wonder-results-list" id="wonder-results-list"></div>
+        </div>
+        <div class="wonder-picker-footer">
+          <span class="wonder-results-count">${allAvail.length} results</span>
+          <button class="wonder-close-picker btn-ghost btn-sm">Close</button>
+        </div>
       </div>
     </div>`;
   },
@@ -8227,50 +9264,72 @@ const Creator = {
     this._attachWonderListeners(content);
   },
 
-  // Open the picker panel for a specific wonder slot and populate its results
-  _openWonderPicker(content, idx) {
-    const panel    = $(`.wonder-picker-panel[data-picker-idx="${idx}"]`, content);
-    if (!panel) return;
-    panel.style.display = 'flex';
-    // Populate results (all available, unsearched)
-    const level  = (this.char.wonders[idx] || {}).level || 1;
-    const maxPts = WONDER_POINTS_MAX[level] || 3;
-    const wData  = getWondersData();
-    const avail  = wData.filter(wd => { const c = parseInt(wd.background_cost); return !isNaN(c) && c <= maxPts; });
-    const listEl = $(`.wonder-results-list[data-picker-idx="${idx}"]`, content);
-    const selNm  = (this.char.wonders[idx] || {}).name || '';
-    if (listEl) {
-      const n = this._renderWonderResults(listEl, avail, selNm, '', '');
-      const countEl = panel.querySelector('.wonder-results-count');
-      if (countEl) countEl.textContent = `${n} results`;
-      // Scroll selected item into view
-      const selEl = listEl.querySelector('.wonder-result-selected');
-      if (selEl) setTimeout(() => selEl.scrollIntoView({ block: 'nearest' }), 0);
-    }
-    // Focus search input
-    const inp = panel.querySelector('.wonder-search-input');
-    if (inp) setTimeout(() => inp.focus(), 0);
-  },
-
   // Shared wonder section listeners — uses a SINGLE delegated handler on #wonder-section
   // so re-renders don't accumulate duplicate listeners.
   _attachWonderListeners(content) {
     const sect = $('#wonder-section', content);
     if (!sect) return;
 
+    // Helper: populate and show the picker panel on a given section element
+    const openPickerOn = (s, savedSearch, savedBook) => {
+      const panel = $('#wonder-picker-panel', s);
+      if (!panel) return;
+      panel.style.display = 'flex';
+      const listEl    = s.querySelector('#wonder-results-list');
+      const searchInp = panel.querySelector('.wonder-search-input');
+      const bookSel   = panel.querySelector('.wonder-book-filter');
+      const countEl   = panel.querySelector('.wonder-results-count');
+      if (savedSearch && searchInp) searchInp.value = savedSearch;
+      if (savedBook   && bookSel)   bookSel.value   = savedBook;
+      if (!listEl) return;
+      const wData  = getWondersData();
+      const avail  = wData.filter(wd => wd.background_cost != null && wd.background_cost !== '');
+      const purchased = (this.char.wonders || []).map(w => w.name).filter(Boolean);
+      const n = this._renderWonderResults(listEl, avail, purchased, savedSearch || '', savedBook || '');
+      if (countEl) countEl.textContent = `${n} result${n !== 1 ? 's' : ''}`;
+      const inp = panel.querySelector('.wonder-search-input');
+      if (inp) setTimeout(() => inp.focus(), 0);
+    };
+
+    // Helper: re-filter picker if it's open (called after search/book change)
+    const updatePickerIfOpen = () => {
+      const curSect = $('#wonder-section', content);
+      if (!curSect) return;
+      const panel = $('#wonder-picker-panel', curSect);
+      if (!panel || panel.style.display === 'none') return;
+      const listEl    = curSect.querySelector('#wonder-results-list');
+      const searchInp = panel.querySelector('.wonder-search-input');
+      const bookSel   = panel.querySelector('.wonder-book-filter');
+      const countEl   = panel.querySelector('.wonder-results-count');
+      if (!listEl) return;
+      const wData  = getWondersData();
+      const avail  = wData.filter(wd => wd.background_cost != null && wd.background_cost !== '');
+      const purchased = (this.char.wonders || []).map(w => w.name).filter(Boolean);
+      const n = this._renderWonderResults(listEl, avail, purchased, searchInp?.value || '', bookSel?.value || '');
+      if (countEl) countEl.textContent = `${n} result${n !== 1 ? 's' : ''}`;
+    };
+
     sect.addEventListener('click', e => {
-      // ── Add wonder ──
-      if (e.target.closest('.btn-add-wonder')) {
+      // ── Browse catalogue button ──
+      if (e.target.closest('.btn-browse-wonders')) {
         ensureWondersLoaded().then(() => {
-          this.char.wonders = [...(this.char.wonders || []), { level: 1, name: '' }];
-          this._syncWonderBackground();
-          this._refreshStep3BgCounter(content);
-          this._refreshWonderSection(content);
-          this.updateFreebieDisplay();
-          // Auto-open picker for the new slot
-          const newIdx = this.char.wonders.length - 1;
-          this._openWonderPicker(content, newIdx);
+          // If data just arrived, the section may still show loading note — refresh first
+          const needRefresh = !!$('#wonder-section .wonder-loading', content);
+          if (needRefresh) {
+            this._refreshWonderSection(content);
+            const newSect = $('#wonder-section', content);
+            if (newSect) openPickerOn(newSect, '', '');
+          } else {
+            openPickerOn(sect, '', '');
+          }
         });
+        return;
+      }
+
+      // ── Close picker ──
+      if (e.target.closest('.wonder-close-picker')) {
+        const panel = $('#wonder-picker-panel', sect);
+        if (panel) panel.style.display = 'none';
         return;
       }
 
@@ -8287,98 +9346,44 @@ const Creator = {
         return;
       }
 
-      // ── Level dot click ──
-      const dot = e.target.closest('.dot');
-      if (dot) {
-        const dotsEl = dot.closest('[data-wonder-dots]');
-        if (dotsEl) {
-          const idx   = parseInt(dotsEl.dataset.wonderDots);
-          const val   = parseInt(dot.dataset.val);
-          const cur   = (this.char.wonders[idx] || {}).level || 0;
-          const newLv = cur === val ? Math.max(1, val - 1) : val;
-          if (this.char.wonders[idx]) {
-            this.char.wonders[idx].level = newLv;
-            this._syncWonderBackground();
-            if (this.step < 6) this._lockBaselines();
-            this._refreshStep3BgCounter(content);
-            this._refreshWonderSection(content);
-            this.updateFreebieDisplay();
-          }
-          return;
-        }
-      }
-
-      // ── Open picker (Choose / Change button) ──
-      const chooseBtn = e.target.closest('.wonder-choose-btn[data-idx]');
-      if (chooseBtn) {
-        const idx = parseInt(chooseBtn.dataset.idx);
-        this._openWonderPicker(content, idx);
-        return;
-      }
-
-      // ── Clear selection ──
-      const clearBtn = e.target.closest('.wonder-clear-btn[data-idx]');
-      if (clearBtn) {
-        const idx = parseInt(clearBtn.dataset.idx);
-        if (this.char.wonders[idx]) this.char.wonders[idx].name = '';
-        this._refreshWonderSection(content);
-        return;
-      }
-
-      // ── Cancel picker ──
-      const cancelBtn = e.target.closest('.wonder-cancel-btn[data-idx]');
-      if (cancelBtn) {
-        const idx   = parseInt(cancelBtn.dataset.idx);
-        const panel = $(`.wonder-picker-panel[data-picker-idx="${idx}"]`, content);
-        if (panel) panel.style.display = 'none';
-        return;
-      }
-
-      // ── Select a result item ──
+      // ── Select a wonder from catalogue (adds to purchased list) ──
       const resultItem = e.target.closest('.wonder-result-item[data-wonder-name]');
       if (resultItem) {
         const name = resultItem.dataset.wonderName;
-        const panel = resultItem.closest('.wonder-picker-panel');
-        const pickerIdx = panel ? parseInt(panel.dataset.pickerIdx) : -1;
-        if (pickerIdx >= 0 && this.char.wonders[pickerIdx] !== undefined) {
-          this.char.wonders[pickerIdx].name = name;
-          this._refreshWonderSection(content);
-        }
+        // Save current search/filter state so we can restore it after re-render
+        const panel = $('#wonder-picker-panel', sect);
+        const savedSearch = panel?.querySelector('.wonder-search-input')?.value || '';
+        const savedBook   = panel?.querySelector('.wonder-book-filter')?.value   || '';
+
+        // Look up cost from catalogue to store alongside name
+        const wData = getWondersData();
+        const entry = wData.find(wd => wd.name === name);
+        const cost  = entry ? (parseInt(entry.background_cost) || 0) : 0;
+
+        this.char.wonders = [...(this.char.wonders || []), { name, background_cost: cost }];
+        this._syncWonderBackground();
+        if (this.step < 6) this._lockBaselines();
+        this._refreshStep3BgCounter(content);
+        this._refreshWonderSection(content);
+        this.updateFreebieDisplay();
+
+        // Re-open picker with saved state after re-render
+        const newSect = $('#wonder-section', content);
+        if (newSect) openPickerOn(newSect, savedSearch, savedBook);
         return;
       }
     });
 
-    // ── Live search / book filter (input events) ──
+    // ── Live search / book filter ──
     sect.addEventListener('input', e => {
       if (!e.target.classList.contains('wonder-search-input')) return;
-      const panel = e.target.closest('.wonder-picker-panel');
-      if (!panel) return;
-      this._updateWonderPicker(content, panel);
+      updatePickerIfOpen();
     });
 
     sect.addEventListener('change', e => {
       if (!e.target.classList.contains('wonder-book-filter')) return;
-      const panel = e.target.closest('.wonder-picker-panel');
-      if (!panel) return;
-      this._updateWonderPicker(content, panel);
+      updatePickerIfOpen();
     });
-  },
-
-  // Re-filter and re-render results inside an already-open picker panel
-  _updateWonderPicker(content, panel) {
-    const idx       = parseInt(panel.dataset.pickerIdx);
-    const searchInp = panel.querySelector('.wonder-search-input');
-    const bookSel   = panel.querySelector('.wonder-book-filter');
-    const listEl    = panel.querySelector('.wonder-results-list');
-    const countEl   = panel.querySelector('.wonder-results-count');
-    if (!listEl) return;
-    const level  = (this.char.wonders[idx] || {}).level || 1;
-    const maxPts = WONDER_POINTS_MAX[level] || 3;
-    const wData  = getWondersData();
-    const avail  = wData.filter(wd => { const c = parseInt(wd.background_cost); return !isNaN(c) && c <= maxPts; });
-    const selNm  = (this.char.wonders[idx] || {}).name || '';
-    const n = this._renderWonderResults(listEl, avail, selNm, searchInp?.value || '', bookSel?.value || '');
-    if (countEl) countEl.textContent = `${n} result${n !== 1 ? 's' : ''}`;
   },
 
   // Update the "X / 7 pts remaining" counter in Step 3 after wonder changes
@@ -8413,17 +9418,23 @@ const Creator = {
   },
 
   effectiveMerits() {
-    const customs = (this.char._chronicleRules?.customMerits || [])
+    const chronicleCustoms = (this.char._chronicleRules?.customMerits || [])
       .filter(m => m.name)
       .map(m => ({ id: m.id, name: m.name, cost: m.cost || 1, category: m.category || 'Social', description: m.description || '', custom: true }));
-    return [...M20.MERITS, ...customs];
+    const userCustoms = _getUserCustomMF()
+      .filter(m => m.kind === 'merit')
+      .map(m => ({ id: 'ucmf_' + m.id, name: m.name, cost: m.cost, category: m.category || 'Social', description: m.description || '', repeatable: !!m.repeatable, custom: true, customDbId: m.id }));
+    return [...M20.MERITS, ...chronicleCustoms, ...userCustoms];
   },
 
   effectiveFlaws() {
-    const customs = (this.char._chronicleRules?.customFlaws || [])
+    const chronicleCustoms = (this.char._chronicleRules?.customFlaws || [])
       .filter(f => f.name)
       .map(f => ({ id: f.id, name: f.name, cost: f.cost || 1, category: f.category || 'Social', description: f.description || '', custom: true }));
-    return [...M20.FLAWS, ...customs];
+    const userCustoms = _getUserCustomMF()
+      .filter(f => f.kind === 'flaw')
+      .map(f => ({ id: 'ucmf_' + f.id, name: f.name, cost: f.cost, category: f.category || 'Social', description: f.description || '', repeatable: !!f.repeatable, custom: true, customDbId: f.id }));
+    return [...M20.FLAWS, ...chronicleCustoms, ...userCustoms];
   },
 
   effectiveCustomAbilities(category) {
@@ -8486,6 +9497,12 @@ const Creator = {
     if (container.dataset.lastKey === key) return;
     container.dataset.lastKey = key;
 
+    // Preserve which category <details> were open so they survive the re-render
+    const openCats = new Set();
+    container.querySelectorAll('details.mf-cat-details[data-cat]').forEach(d => {
+      if (d.open) openCats.add(d.dataset.cat);
+    });
+
     const CATEGORIES = ['Physical', 'Mental', 'Social', 'Supernatural'];
 
     container.innerHTML = CATEGORIES.map(cat => {
@@ -8544,9 +9561,16 @@ const Creator = {
         }
 
         // ── Page reference (inline, muted) ────────────────────────
-        const pageRef = '<span class="mf-card-page-inline">'
-          + (typeof item.page === 'string' ? item.page : 'p.\u202f' + item.page)
-          + '</span>';
+        const pageRef = item.page != null
+          ? '<span class="mf-card-page-inline">'
+            + (typeof item.page === 'string' ? item.page : 'p. ' + item.page)
+            + '</span>'
+          : '';
+
+        // Custom badge
+        const customBadge = item.custom
+          ? '<span class="mf-custom-badge" title="User-defined custom entry">CUSTOM</span>'
+          : '';
 
         // ── Info-tip ? badge ─────────────────────────────────────
         const safeDesc = (item.description || '').replace(/"/g, '&quot;');
@@ -8591,14 +9615,14 @@ const Creator = {
           + ' mf-cat-' + cat.toLowerCase()
           + '" data-id="' + item.id + '" data-kind="' + kind + '" data-desc="' + safeDesc + '">'
           + '<div class="mf-card-top">'
-          + '<span class="mf-card-name">' + item.name + ' ' + infoTip + ' ' + pageRef + '</span>'
+          + '<span class="mf-card-name">' + item.name + (customBadge ? ' ' + customBadge : '') + ' ' + infoTip + (pageRef ? ' ' + pageRef : '') + '</span>'
           + '<span class="mf-card-cost">' + costDisplay + '</span>'
           + '</div>'
           + instancesHtml + addBtnHtml
           + '</div>';
       }).join('');
 
-      return '<details class="mf-cat-details">'
+      return '<details class="mf-cat-details"' + (openCats.has(cat) ? ' open' : '') + ' data-cat="' + cat + '">'
         + '<summary class="mf-cat-summary">'
         + cat + ' ' + countBadge
         + '<span class="fb-details-hint">' + items.length + ' available</span>'
@@ -8764,10 +9788,14 @@ const FreeEdit = {
     const allBgs = M20.BACKGROUNDS.filter(b => !b.multiInstance && (!b.factionOnly || !b.factionOnly.length || b.factionOnly.includes(bgAff)));
     const chronBgs = (c._chronicleRules?.customBackgrounds || []).filter(b => b.name);
     const bgRows = [...allBgs, ...chronBgs.map(b => ({ id: b.id, name: b.name, max: b.max || 5 }))].map(bg => bgRow(bg.name || bg.id, bg.id, bg.max || 5)).join('');
-    // Wonder instances (read-only display)
-    const feWonderRows = (c.wonders || []).map((w, i) => {
-      const label = w.name ? `Wonder: ${escHtml(w.name)}` : `Wonder #${i + 1}`;
-      return `<div class="fe-trait-row"><span class="fe-trait-label">${label}</span>${dots(w.level || 1, 5, 'readonly')}</div>`;
+    // Wonder instances (read-only display — managed via the wonder section)
+    const _feWData = getWondersData();
+    const feWonderRows = (c.wonders || []).filter(w => !!w.name).map((w) => {
+      const label = `Wonder: ${escHtml(w.name)}`;
+      const entry = _feWData.find(wd => wd.name === w.name);
+      const cost  = w.background_cost ?? (entry ? entry.background_cost : null);
+      const badge = cost != null ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto">${cost} pts</span>` : '';
+      return `<div class="fe-trait-row"><span class="fe-trait-label">${label}</span>${badge}</div>`;
     }).join('');
 
     // Chronicle membership section HTML
@@ -9086,6 +10114,353 @@ const FreeEdit = {
 /* ═══════════════════════════════════════════════════════════════
    SETTINGS
    ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   OBSIDIAN EXPORT
+   ═══════════════════════════════════════════════════════════════ */
+const Obsidian = {
+
+  // ── LocalStorage config ──────────────────────────────────────────────────
+  _vault()       { return localStorage.getItem('obsidian_vault') || ''; },
+  _charFolder()  { return localStorage.getItem('obsidian_char_folder')  || 'M20/Characters'; },
+  _chronFolder() { return localStorage.getItem('obsidian_chron_folder') || 'M20/Chronicles'; },
+
+  // Sanitise a string for use as an Obsidian filename
+  _safeName(name) {
+    return (name || 'Untitled').replace(/[\\/:*?"<>|#^[\]]/g, '-').replace(/\s+/g, ' ').trim();
+  },
+
+  // Unicode dot track: ●●●○○
+  _dots(v, max = 5) {
+    v = Math.max(0, Math.min(v || 0, max));
+    return '●'.repeat(v) + '○'.repeat(max - v);
+  },
+
+  // Escape pipe chars and newlines so they don't break Markdown tables
+  _cell(s) {
+    return String(s || '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  },
+
+  // Trigger a file download in the browser
+  _download(content, filename) {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 300);
+  },
+
+  // Fire the obsidian://new URI to create/open the note in a running vault
+  _openInObsidian(vault, filePath, content) {
+    const uri = `obsidian://new?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filePath)}&content=${encodeURIComponent(content)}`;
+    const a   = Object.assign(document.createElement('a'), { href: uri });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  },
+
+  // ── Public: export a character ───────────────────────────────────────────
+  async exportChar(char) {
+    if (!char) return;
+    // Try to fetch a share link so we can embed it in the note
+    let shareUrl = null;
+    if (char.id) {
+      try {
+        const r = await fetch(`/api/share/${char.id}`, { method: 'POST' });
+        if (r.ok) { const { token } = await r.json(); shareUrl = `${window.location.origin}/s/${token}`; }
+      } catch {}
+    }
+    const md       = this._charMd(char, shareUrl);
+    const filename = this._safeName(char.name) + '.md';
+    this._download(md, filename);
+    const vault = this._vault();
+    if (vault) {
+      this._openInObsidian(vault, this._charFolder() + '/' + this._safeName(char.name), md);
+      toast('Exported — opening in Obsidian…');
+    } else {
+      toast('Markdown downloaded. Set your vault name in Settings for direct export.');
+    }
+  },
+
+  // ── Public: export a chronicle ───────────────────────────────────────────
+  async exportChronicle(data) {
+    if (!data) return;
+    const md       = this._chronicleMd(data);
+    const filename = this._safeName(data.name) + '.md';
+    this._download(md, filename);
+    const vault = this._vault();
+    if (vault) {
+      this._openInObsidian(vault, this._chronFolder() + '/' + this._safeName(data.name), md);
+      toast('Exported — opening in Obsidian…');
+    } else {
+      toast('Markdown downloaded. Set your vault name in Settings for direct export.');
+    }
+  },
+
+  // ── Character markdown ───────────────────────────────────────────────────
+  _charMd(char, shareUrl) {
+    const d   = (v, max = 5) => this._dots(v, max);
+    const e   = (s) => this._cell(s);
+    const aff = char.affiliation || '';
+    const trad =
+      aff === 'Traditions'  ? (char.tradition || '') :
+      aff === 'Technocracy' ? (char.faction   || '') :
+      (char.faction || '');
+    const affDisplay = trad || aff || '—';
+
+    // ── YAML frontmatter (Dataview-compatible) ──────────────────────────────
+    const fmLines = [
+      '---',
+      `name: "${e(char.name)}"`,
+      char.player    && `player: "${e(char.player)}"`,
+      char.chronicle && `chronicle: "${e(char.chronicle)}"`,
+      char.concept   && `concept: "${e(char.concept)}"`,
+      aff            && `affiliation: "${e(aff)}"`,
+      trad           && `tradition: "${e(trad)}"`,
+      char.essence   && `essence: "${e(char.essence)}"`,
+      char.nature    && `nature: "${e(char.nature)}"`,
+      char.demeanor  && `demeanor: "${e(char.demeanor)}"`,
+      `arete: ${char.arete || 1}`,
+      `willpower: ${char.willpower || 5}`,
+      `quintessence: ${char.quintessence || 0}`,
+      `paradox: ${char.paradox || 0}`,
+      char.affinity_sphere && `affinity_sphere: "${char.affinity_sphere}"`,
+      char.id        && `character_id: ${char.id}`,
+      shareUrl       && `share_url: "${shareUrl}"`,
+      `tags: [mage, m20, character]`,
+      '---',
+    ].filter(Boolean);
+    let md = fmLines.join('\n') + '\n\n';
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    md += `# ${char.name}\n\n`;
+    md += `| Player | Chronicle | Concept |\n`;
+    md += `| :----- | :-------- | :------ |\n`;
+    md += `| ${e(char.player || '—')} | ${e(char.chronicle || '—')} | ${e(char.concept || '—')} |\n\n`;
+    md += `| Affiliation | Essence | Nature / Demeanor |\n`;
+    md += `| :---------- | :------ | :---------------- |\n`;
+    md += `| ${e(affDisplay)} | ${e(char.essence || '—')} | ${e(char.nature || '—')} / ${e(char.demeanor || '—')} |\n\n`;
+    md += '---\n\n';
+
+    // ── Attributes ──────────────────────────────────────────────────────────
+    const specs = char.specialties || {};
+    const attrSpec = (id) => specs[id] ? ` *(${e(specs[id])})*` : '';
+    md += '## Attributes\n\n';
+    md += `| Physical | | Social | | Mental | |\n`;
+    md += `| :------- | :- | :----- | :- | :----- | :- |\n`;
+    [
+      ['Strength','strength','Charisma','charisma','Perception','perception'],
+      ['Dexterity','dexterity','Manipulation','manipulation','Intelligence','intelligence'],
+      ['Stamina','stamina','Appearance','appearance','Wits','wits'],
+    ].forEach(([pn,pk,sn,sk,mn,mk]) => {
+      md += `| ${pn}${attrSpec(pk)} | ${d(char[pk]||1)} | ${sn}${attrSpec(sk)} | ${d(char[sk]||1)} | ${mn}${attrSpec(mk)} | ${d(char[mk]||1)} |\n`;
+    });
+    md += '\n---\n\n';
+
+    // ── Abilities ────────────────────────────────────────────────────────────
+    md += '## Abilities\n\n';
+    md += `| Talent | | Skill | | Knowledge | |\n`;
+    md += `| :----- | :- | :---- | :- | :-------- | :- |\n`;
+    const customNames = char.custom_ability_names || {};
+    const aName = (def) => e(customNames[def.id] || def.name);
+    const aSpec = (id) => specs[id] ? ` *(${e(specs[id])})*` : '';
+    const tList = M20.TALENTS, sList = M20.SKILLS, kList = M20.KNOWLEDGES;
+    for (let i = 0; i < Math.max(tList.length, sList.length, kList.length); i++) {
+      const t = tList[i], s = sList[i], k = kList[i];
+      const tv = t ? ((char.talents  || {})[t.id] || 0) : null;
+      const sv = s ? ((char.skills   || {})[s.id] || 0) : null;
+      const kv = k ? ((char.knowledges||{})[k.id] || 0) : null;
+      const tl = t ? aName(t) + aSpec(t.id) : '';
+      const sl = s ? aName(s) + aSpec(s.id) : '';
+      const kl = k ? aName(k) + aSpec(k.id) : '';
+      md += `| ${tl} | ${tv !== null ? d(tv) : ''} | ${sl} | ${sv !== null ? d(sv) : ''} | ${kl} | ${kv !== null ? d(kv) : ''} |\n`;
+    }
+
+    // Secondary abilities with non-zero values
+    const secAbils = [
+      ...M20.SECONDARY_TALENTS.map(a => ({ ...a, grp: 'talents' })),
+      ...M20.SECONDARY_SKILLS.map(a => ({ ...a, grp: 'skills' })),
+      ...M20.SECONDARY_KNOWLEDGES.map(a => ({ ...a, grp: 'knowledges' })),
+    ].filter(a => ((char[a.grp] || {})[a.id] || 0) > 0);
+    if (secAbils.length) {
+      md += '\n**Secondary Abilities**\n\n';
+      secAbils.forEach(a => {
+        const v  = (char[a.grp] || {})[a.id] || 0;
+        const sp = specs[a.id] ? ` *(${e(specs[a.id])})*` : '';
+        md += `- ${e(customNames[a.id] || a.name)}${sp} ${d(v)}\n`;
+      });
+    }
+    md += '\n---\n\n';
+
+    // ── Spheres ──────────────────────────────────────────────────────────────
+    md += '## Spheres\n\n';
+    md += `| Sphere | | Sphere | | Sphere | |\n`;
+    md += `| :----- | :- | :----- | :- | :----- | :- |\n`;
+    const affinityId = (char.affinity_sphere || '').toLowerCase();
+    const sphList = M20.SPHERES;
+    for (let i = 0; i < sphList.length; i += 3) {
+      const cols = [];
+      for (let j = 0; j < 3; j++) {
+        const s = sphList[i + j];
+        if (s) {
+          const v    = (char.spheres || {})[s.id] || 0;
+          const mark = s.id === affinityId ? ' ✦' : '';
+          cols.push(e(s.name) + mark, d(v));
+        } else {
+          cols.push('', '');
+        }
+      }
+      md += `| ${cols.join(' | ')} |\n`;
+    }
+    md += '\n---\n\n';
+
+    // ── Advantages ───────────────────────────────────────────────────────────
+    md += '## Advantages\n\n';
+
+    // Backgrounds
+    const bgEntries = Object.entries(char.backgrounds || {}).filter(([k, v]) => v > 0 && k !== 'wonder');
+    const wonders   = (char.wonders || []).filter(w => w.name);
+    if (bgEntries.length || wonders.length) {
+      md += '### Backgrounds\n\n';
+      bgEntries.forEach(([id, val]) => {
+        const bg     = M20.BACKGROUNDS.find(b => b.id === id);
+        const bgName = bg ? bgDisplayName(bg, aff) : id.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+        md += `- ${bgName} ${d(val)}\n`;
+      });
+      wonders.forEach(w => md += `- Wonder: ${e(w.name)} (${w.background_cost || '?'} pts)\n`);
+      md += '\n';
+    }
+
+    // Merits & Flaws
+    const meritEntries = Object.entries(char.merits || {}).filter(([, v]) => v);
+    const flawEntries  = Object.entries(char.flaws  || {}).filter(([, v]) => v);
+    if (meritEntries.length || flawEntries.length) {
+      md += '### Merits & Flaws\n\n';
+      if (meritEntries.length) {
+        md += '**Merits:**\n';
+        meritEntries.forEach(([id, val]) => {
+          const instances = Array.isArray(val) ? val : [val];
+          instances.forEach((cost, idx) => {
+            let name = id.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+            if (id === 'language') { const lang = (char.merit_labels || {})['language:' + idx]; if (lang) name = `Language (${lang})`; }
+            md += `- ${name} (${cost})\n`;
+          });
+        });
+      }
+      if (flawEntries.length) {
+        md += '\n**Flaws:**\n';
+        flawEntries.forEach(([id, val]) => {
+          md += `- ${id.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())} (${val})\n`;
+        });
+      }
+      md += '\n';
+    }
+    md += '---\n\n';
+
+    // ── Core Stats ───────────────────────────────────────────────────────────
+    md += '## Core Stats\n\n';
+    md += `| Arete | Willpower | Quintessence | Paradox |\n`;
+    md += `| :---- | :-------- | :----------- | :------ |\n`;
+    md += `| ${d(char.arete||1)} | ${d(char.willpower||5, 10)} | ${char.quintessence||0} | ${char.paradox||0} |\n\n`;
+    md += '---\n\n';
+
+    // ── Magical Focus ────────────────────────────────────────────────────────
+    const _practices = char.practices && char.practices.length ? char.practices : (char.practice ? [char.practice] : []);
+    if (char.paradigm || _practices.length || (char.instruments || []).length) {
+      md += '## Magical Focus\n\n';
+      if (char.paradigm)       md += `**Paradigm:** ${e(char.paradigm)}\n\n`;
+      if (_practices.length)   md += `**Practice:** ${_practices.map(p => e(p)).join(', ')}\n\n`;
+      if ((char.instruments||[]).length) md += `**Instruments:** ${char.instruments.map(i => e(i)).join(', ')}\n\n`;
+      md += '---\n\n';
+    }
+
+    // ── Resonance ────────────────────────────────────────────────────────────
+    const resonance = (char.resonance || []).filter(r => r.name);
+    if (resonance.length) {
+      md += '## Resonance\n\n';
+      resonance.forEach(r => {
+        const emotion = r.emotion ? ` — *${e(r.emotion)}*` : '';
+        md += `- ${e(r.name)} ${d(r.intensity||1)}${emotion}\n`;
+      });
+      md += '\n---\n\n';
+    }
+
+    // ── Description & Notes ──────────────────────────────────────────────────
+    if (char.description) { md += `## Description\n\n${char.description}\n\n---\n\n`; }
+    if (char.notes)        { md += `## Notes\n\n${char.notes}\n\n---\n\n`; }
+
+    // ── Footer ───────────────────────────────────────────────────────────────
+    const origin = window.location.origin;
+    md += shareUrl
+      ? `*Exported from [Chantry](${origin}) · [View Sheet](${shareUrl})*\n`
+      : `*Exported from [Chantry](${origin})*\n`;
+    return md;
+  },
+
+  // ── Chronicle markdown ───────────────────────────────────────────────────
+  _chronicleMd(data) {
+    const e = (s) => this._cell(s);
+
+    // ── YAML frontmatter ────────────────────────────────────────────────────
+    const fmLines = [
+      '---',
+      `name: "${e(data.name)}"`,
+      data.setting      && `setting: "${e(data.setting)}"`,
+      data.year         && `year: "${e(data.year)}"`,
+      data.themes       && `themes: "${e(data.themes)}"`,
+      data.next_session && `next_session: "${data.next_session}"`,
+      `member_count: ${(data.members || []).length}`,
+      data.id           && `chronicle_id: ${data.id}`,
+      `status: "${data.is_active !== 0 ? 'active' : 'inactive'}"`,
+      `tags: [mage, m20, chronicle]`,
+      '---',
+    ].filter(Boolean);
+    let md = fmLines.join('\n') + '\n\n';
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    md += `# ${data.name}\n\n`;
+
+    if (data.setting || data.year || data.themes) {
+      md += `| Setting | Year | Themes |\n`;
+      md += `| :------ | :--- | :----- |\n`;
+      md += `| ${e(data.setting || '—')} | ${e(data.year || '—')} | ${e(data.themes || '—')} |\n\n`;
+    }
+
+    if (data.next_session) {
+      const dateStr = new Date(data.next_session + 'T00:00:00').toLocaleDateString(undefined, {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+      });
+      md += `**Next Session:** ${dateStr}\n\n`;
+    }
+
+    if (data.notes) { md += `## Description\n\n${data.notes}\n\n`; }
+
+    md += '---\n\n';
+
+    // ── Members ──────────────────────────────────────────────────────────────
+    const members = data.members || [];
+    md += `## Members (${members.length})\n\n`;
+    if (!members.length) {
+      md += '*No characters have joined yet.*\n\n';
+    } else {
+      members.forEach(m => {
+        const trad  = m.tradition || m.affiliation || '—';
+        const link  = `[[${this._safeName(m.name)}]]`;
+        const owner = m.owner_username ? ` · Player: ${e(m.owner_username)}` : '';
+        md += `- ${link} — ${e(trad)} · Arete ${m.arete || 1}${owner}\n`;
+      });
+      md += '\n';
+    }
+
+    md += '---\n\n';
+    md += `*Exported from [Chantry](${window.location.origin})*\n`;
+    return md;
+  },
+
+};
+
+/* ═══════════════════════════════════════════════════════════════ */
+
 const Settings = {
 
   async show() {
@@ -9167,6 +10542,31 @@ const Settings = {
           </div>
         </div>
 
+        <!-- Obsidian Integration -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">Obsidian Integration</h3>
+          <p class="settings-hint">Export characters and chronicles as Markdown notes directly into your Obsidian vault. Settings are stored in your browser.</p>
+          <div class="settings-form">
+            <div class="form-group">
+              <label class="form-label">Vault Name</label>
+              <input type="text" id="settings-obsidian-vault" class="form-input"
+                placeholder="My Vault" value="${escHtml(localStorage.getItem('obsidian_vault') || '')}" autocomplete="off" />
+              <span class="form-hint">Must match exactly as shown in Obsidian's title bar.</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Characters Folder <span class="form-hint">(within vault)</span></label>
+              <input type="text" id="settings-obsidian-char-folder" class="form-input"
+                placeholder="M20/Characters" value="${escHtml(localStorage.getItem('obsidian_char_folder') || '')}" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chronicles Folder <span class="form-hint">(within vault)</span></label>
+              <input type="text" id="settings-obsidian-chron-folder" class="form-input"
+                placeholder="M20/Chronicles" value="${escHtml(localStorage.getItem('obsidian_chron_folder') || '')}" autocomplete="off" />
+            </div>
+            <button class="btn-primary" id="btn-save-obsidian">Save</button>
+          </div>
+        </div>
+
         <!-- Danger Zone -->
         <div class="settings-section settings-danger-zone">
           <h3 class="settings-section-title settings-danger-title">Danger Zone</h3>
@@ -9191,6 +10591,17 @@ const Settings = {
         if (App.currentUser) App.currentUser.timezone = tz;
         toast('Timezone saved.');
       } catch { toast('Failed to save timezone.', 'error'); }
+    });
+
+    // ── Obsidian settings ────────────────────────────────────────────────────
+    $('#btn-save-obsidian')?.addEventListener('click', () => {
+      const vault      = ($('#settings-obsidian-vault')?.value      || '').trim();
+      const charFolder = ($('#settings-obsidian-char-folder')?.value || '').trim();
+      const chronFolder= ($('#settings-obsidian-chron-folder')?.value|| '').trim();
+      vault       ? localStorage.setItem('obsidian_vault',        vault)       : localStorage.removeItem('obsidian_vault');
+      charFolder  ? localStorage.setItem('obsidian_char_folder',  charFolder)  : localStorage.removeItem('obsidian_char_folder');
+      chronFolder ? localStorage.setItem('obsidian_chron_folder', chronFolder) : localStorage.removeItem('obsidian_chron_folder');
+      toast('Obsidian settings saved.');
     });
 
     // ── Change password ──────────────────────────────────────────────────────

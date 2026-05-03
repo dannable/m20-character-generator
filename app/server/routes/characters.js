@@ -33,9 +33,14 @@ function serializeCharacter(data) {
   delete out.linked_chronicle_name;
   delete out.chronicle_storyteller;
   delete out.chronicle_next_session;
+  delete out.chronicle_allow_bg_xp;
   delete out.owner_username;
+  // Strip computed fields added by GET handler
+  delete out.pending_edit;
   // Strip client-side ephemeral fields (prefixed _)
   delete out._chronicleRules;
+  // Strip derived in-memory fields that have no DB column
+  delete out.practices;  // in-memory string[]; DB uses `practice` (TEXT, comma-separated)
   return out;
 }
 
