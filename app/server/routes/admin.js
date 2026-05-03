@@ -46,10 +46,28 @@ router.get('/users', (req, res) => {
            COUNT(c.id) AS character_count
     FROM users u
     LEFT JOIN characters c ON c.user_id = u.id
+    WHERE u.role != 'guest'
     GROUP BY u.id
     ORDER BY u.created_at DESC
   `).all();
-  res.json({ users, purged });
+  const guest_count = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'guest'`).get().c;
+  res.json({ users, purged, guest_count });
+});
+
+// DELETE /api/admin/guests — purge all active guest accounts
+router.delete('/guests', (req, res) => {
+  try {
+    const guests = db.prepare(`SELECT id FROM users WHERE role = 'guest'`).all();
+    if (guests.length === 0) return res.json({ purged: 0 });
+    const ids = guests.map(g => g.id);
+    const ph  = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM characters WHERE user_id IN (${ph})`).run(...ids);
+    db.prepare(`DELETE FROM users WHERE id IN (${ph}) AND role = 'guest'`).run(...ids);
+    res.json({ purged: ids.length });
+  } catch (err) {
+    console.error('Guest purge error:', err);
+    res.status(500).json({ error: 'Failed to purge guest accounts' });
+  }
 });
 
 // GET /api/admin/users/:id/characters — all characters belonging to a user

@@ -55,6 +55,7 @@ app.use('/api/export',     require('./routes/export'));
 app.use('/api/share',      require('./routes/share'));
 const rotesRouter = require('./routes/rotes');
 app.use('/api', rotesRouter);
+app.use('/api/custom', requireAuth, require('./routes/custom_content'));
 
 // Health check (no auth)
 app.get('/api/health', (req, res) => res.json({ status: 'ok', app: 'M20 Character Generator' }));

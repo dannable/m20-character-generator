@@ -193,14 +193,18 @@ router.get('/:id/members/:charId', (req, res) => {
     }
     const char = db.prepare(`SELECT * FROM characters WHERE id = ? AND chronicle_id = ?`).get(charId, chronicleId);
     if (!char) return res.status(404).json({ error: 'Character not found in this chronicle' });
-    // Parse JSON fields (reuse same list as characters route)
+    // Parse JSON fields — must stay in sync with characters route JSON_FIELDS
     const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
       'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
-      'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log'];
+      'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
+      'creation_baselines','wonders'];
+    const ARRAY_FIELDS = new Set(['instruments','wonders']);
     const parsed = { ...char };
     JSON_FIELDS.forEach(f => {
       if (typeof parsed[f] === 'string') {
-        try { parsed[f] = JSON.parse(parsed[f]); } catch { parsed[f] = f === 'instruments' ? [] : {}; }
+        try { parsed[f] = JSON.parse(parsed[f]); } catch { parsed[f] = ARRAY_FIELDS.has(f) ? [] : {}; }
+      } else if (parsed[f] == null) {
+        parsed[f] = ARRAY_FIELDS.has(f) ? [] : {};
       }
     });
     res.json(parsed);

@@ -234,6 +234,8 @@ try { db.exec(`ALTER TABLE chronicles ADD COLUMN rules TEXT DEFAULT '{}'`); } ca
 // Snapshot of creation-time trait baselines; once saved, freebie costs are pinned
 // to these values so XP spending never retroactively increases the freebie total.
 try { db.exec(`ALTER TABLE characters ADD COLUMN creation_baselines TEXT DEFAULT NULL`); } catch {}
+// Wonders: array of { level, name } objects for the multi-instance Wonder background
+try { db.exec(`ALTER TABLE characters ADD COLUMN wonders TEXT DEFAULT '[]'`); } catch {}
 
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
@@ -298,6 +300,49 @@ db.exec(`
     reviewer_note  TEXT NOT NULL DEFAULT ''
   )
 `);
+
+// ── User-defined custom merits & flaws ───────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_merits_flaws (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL CHECK(kind IN ('merit','flaw')),
+    name        TEXT NOT NULL,
+    cost        TEXT NOT NULL DEFAULT '1',
+    category    TEXT NOT NULL DEFAULT 'Social',
+    description TEXT NOT NULL DEFAULT '',
+    repeatable  INTEGER NOT NULL DEFAULT 0,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cmf_user ON custom_merits_flaws(user_id)`);
+
+// ── User-defined custom rotes ─────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_rotes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    spheres     TEXT NOT NULL DEFAULT '{}',
+    description TEXT NOT NULL DEFAULT '',
+    source      TEXT NOT NULL DEFAULT '',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cr_user ON custom_rotes(user_id)`);
+
+// ── User-defined custom backgrounds ──────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_backgrounds (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    max_dots    INTEGER NOT NULL DEFAULT 5,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cbg_user ON custom_backgrounds(user_id)`);
 
 // ── Purge orphaned guest accounts on startup ─────────────────────────────────
 // Guest sessions are session-cookies that die when the browser closes, but the
