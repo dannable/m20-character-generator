@@ -54,15 +54,41 @@ router.get('/', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// ── GET /api/chronicles/custom/member-content — chronicle content for members ─
+// Returns custom content from every chronicle the caller's characters belong to.
+// Must be defined BEFORE /:id so Express doesn't consume "custom" as a chronicle ID.
+router.get('/custom/member-content', (req, res) => {
+  try {
+    const chronicles = db.prepare(`
+      SELECT DISTINCT chr.id, chr.name
+      FROM chronicles chr
+      JOIN characters ch ON ch.chronicle_id = chr.id
+      WHERE ch.user_id = ?
+    `).all(req.session.userId);
+
+    const result = chronicles.map(chr => ({
+      id:          chr.id,
+      name:        chr.name,
+      merits_flaws: db.prepare(`SELECT * FROM chronicle_custom_merits_flaws WHERE chronicle_id = ? ORDER BY kind, name`).all(chr.id),
+      rotes:        db.prepare(`SELECT * FROM chronicle_custom_rotes       WHERE chronicle_id = ? ORDER BY name`).all(chr.id),
+      backgrounds:  db.prepare(`SELECT * FROM chronicle_custom_backgrounds WHERE chronicle_id = ? ORDER BY name`).all(chr.id),
+      wonders:      db.prepare(`SELECT * FROM chronicle_custom_wonders      WHERE chronicle_id = ? ORDER BY name`).all(chr.id),
+    }));
+
+    res.json({ chronicles: result });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
 // ── GET /api/chronicles/:id — detail with member list ────────────────────────
 router.get('/:id', (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const chronicle = db.prepare(`SELECT * FROM chronicles WHERE id = ?`).get(id);
     if (!chronicle) return res.status(404).json({ error: 'Chronicle not found' });
-    if (chronicle.user_id !== req.session.userId && req.session.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
+    const isAdmin = req.session.role === 'admin';
+    const isST    = chronicle.user_id === req.session.userId;
+    if (!isST && !isAdmin) return res.status(403).json({ error: 'Forbidden' });
+
     const rawMembers = db.prepare(`
       SELECT ch.id, ch.name, ch.player, ch.affiliation, ch.tradition, ch.arete, ch.user_id,
              ch.xp_earned, ch.xp_log,
@@ -75,11 +101,24 @@ router.get('/:id', (req, res) => {
     const members = rawMembers.map(({ xp_log, ...m }) => {
       let log = [];
       try { log = JSON.parse(xp_log || '[]'); } catch {}
-      return { ...m, has_submitted_xp: log.some(e => e.type === 'spend' && e.submitted && !e.approved && !e.finalized) };
+      return {
+        ...m,
+        has_submitted_xp: log.some(e => e.type === 'spend' && e.submitted && !e.approved && !e.finalized),
+        xp_awards: log.filter(e => e.type === 'award'),
+      };
     });
     let parsedRules = {};
     try { parsedRules = JSON.parse(chronicle.rules || '{}'); } catch {}
-    res.json({ ...chronicle, rules: parsedRules, members });
+
+    // Include chronicle custom content for ST/admin
+    const customContent = {
+      merits_flaws: db.prepare(`SELECT * FROM chronicle_custom_merits_flaws WHERE chronicle_id = ? ORDER BY kind, name`).all(id),
+      rotes:        db.prepare(`SELECT * FROM chronicle_custom_rotes       WHERE chronicle_id = ? ORDER BY name`).all(id),
+      backgrounds:  db.prepare(`SELECT * FROM chronicle_custom_backgrounds WHERE chronicle_id = ? ORDER BY name`).all(id),
+      wonders:      db.prepare(`SELECT * FROM chronicle_custom_wonders      WHERE chronicle_id = ? ORDER BY name`).all(id),
+    };
+
+    res.json({ ...chronicle, rules: parsedRules, members, customContent });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
@@ -508,6 +547,168 @@ router.delete('/:id/members/:charId', (req, res) => {
     db.prepare(`UPDATE characters SET chronicle_id = NULL WHERE id = ? AND chronicle_id = ?`).run(charId, id);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// ── Chronicle custom content CRUD ─────────────────────────────────────────────
+// Shared middleware: verifies ST ownership for write operations
+function requireChronST(req, res, next) {
+  const id = parseInt(req.params.id);
+  const chronicle = db.prepare(`SELECT user_id FROM chronicles WHERE id = ?`).get(id);
+  if (!chronicle) return res.status(404).json({ error: 'Chronicle not found' });
+  if (chronicle.user_id !== req.session.userId && req.session.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden — Storytellers only' });
+  }
+  req._chronicle = chronicle;
+  req._chronicleId = id;
+  next();
+}
+
+// ── Merits & Flaws ────────────────────────────────────────────────────────────
+router.get('/:id/custom/merits-flaws', requireChronST, (req, res) => {
+  const items = db.prepare(`SELECT * FROM chronicle_custom_merits_flaws WHERE chronicle_id = ? ORDER BY kind, category, name`).all(req._chronicleId);
+  res.json({ items });
+});
+
+router.post('/:id/custom/merits-flaws', requireChronST, (req, res) => {
+  const { kind, name, cost, category, description, repeatable } = req.body;
+  if (!['merit','flaw'].includes(kind)) return res.status(400).json({ error: 'kind must be "merit" or "flaw"' });
+  if (!name?.trim())                   return res.status(400).json({ error: 'Name is required' });
+  const CATS = ['Physical','Mental','Social','Supernatural'];
+  const cat  = CATS.includes(category) ? category : 'Social';
+  const result = db.prepare(
+    `INSERT INTO chronicle_custom_merits_flaws (chronicle_id, kind, name, cost, category, description, repeatable)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(req._chronicleId, kind, name.trim(), String(cost || '1').slice(0,30), cat, (description||'').slice(0,500), repeatable ? 1 : 0);
+  res.status(201).json({ item: db.prepare(`SELECT * FROM chronicle_custom_merits_flaws WHERE id = ?`).get(result.lastInsertRowid) });
+});
+
+router.put('/:id/custom/merits-flaws/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_merits_flaws WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const { name, cost, category, description, repeatable } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const CATS = ['Physical','Mental','Social','Supernatural'];
+  const cat  = CATS.includes(category) ? category : 'Social';
+  db.prepare(`UPDATE chronicle_custom_merits_flaws SET name=?,cost=?,category=?,description=?,repeatable=? WHERE id=?`)
+    .run(name.trim(), String(cost||'1').slice(0,30), cat, (description||'').slice(0,500), repeatable ? 1 : 0, itemId);
+  res.json({ item: db.prepare(`SELECT * FROM chronicle_custom_merits_flaws WHERE id = ?`).get(itemId) });
+});
+
+router.delete('/:id/custom/merits-flaws/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_merits_flaws WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare(`DELETE FROM chronicle_custom_merits_flaws WHERE id = ?`).run(itemId);
+  res.json({ deleted: true });
+});
+
+// ── Rotes ─────────────────────────────────────────────────────────────────────
+router.get('/:id/custom/rotes', requireChronST, (req, res) => {
+  const items = db.prepare(`SELECT * FROM chronicle_custom_rotes WHERE chronicle_id = ? ORDER BY name`).all(req._chronicleId);
+  res.json({ items });
+});
+
+router.post('/:id/custom/rotes', requireChronST, (req, res) => {
+  const { name, spheres, description, source } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const spheresJson = JSON.stringify(typeof spheres === 'object' && spheres ? spheres : {});
+  const result = db.prepare(
+    `INSERT INTO chronicle_custom_rotes (chronicle_id, name, spheres, description, source) VALUES (?,?,?,?,?)`
+  ).run(req._chronicleId, name.trim(), spheresJson, (description||'').slice(0,1000), (source||'').slice(0,100));
+  res.status(201).json({ item: db.prepare(`SELECT * FROM chronicle_custom_rotes WHERE id = ?`).get(result.lastInsertRowid) });
+});
+
+router.put('/:id/custom/rotes/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_rotes WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const { name, spheres, description, source } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const spheresJson = JSON.stringify(typeof spheres === 'object' && spheres ? spheres : {});
+  db.prepare(`UPDATE chronicle_custom_rotes SET name=?,spheres=?,description=?,source=? WHERE id=?`)
+    .run(name.trim(), spheresJson, (description||'').slice(0,1000), (source||'').slice(0,100), itemId);
+  res.json({ item: db.prepare(`SELECT * FROM chronicle_custom_rotes WHERE id = ?`).get(itemId) });
+});
+
+router.delete('/:id/custom/rotes/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_rotes WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare(`DELETE FROM chronicle_custom_rotes WHERE id = ?`).run(itemId);
+  res.json({ deleted: true });
+});
+
+// ── Backgrounds ───────────────────────────────────────────────────────────────
+router.get('/:id/custom/backgrounds', requireChronST, (req, res) => {
+  const items = db.prepare(`SELECT * FROM chronicle_custom_backgrounds WHERE chronicle_id = ? ORDER BY name`).all(req._chronicleId);
+  res.json({ items });
+});
+
+router.post('/:id/custom/backgrounds', requireChronST, (req, res) => {
+  const { name, description, max_dots } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const dots = Math.min(Math.max(parseInt(max_dots)||5,1),10);
+  const result = db.prepare(
+    `INSERT INTO chronicle_custom_backgrounds (chronicle_id, name, description, max_dots) VALUES (?,?,?,?)`
+  ).run(req._chronicleId, name.trim(), (description||'').slice(0,1000), dots);
+  res.status(201).json({ item: db.prepare(`SELECT * FROM chronicle_custom_backgrounds WHERE id = ?`).get(result.lastInsertRowid) });
+});
+
+router.put('/:id/custom/backgrounds/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_backgrounds WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const { name, description, max_dots } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const dots = Math.min(Math.max(parseInt(max_dots)||5,1),10);
+  db.prepare(`UPDATE chronicle_custom_backgrounds SET name=?,description=?,max_dots=? WHERE id=?`)
+    .run(name.trim(), (description||'').slice(0,1000), dots, itemId);
+  res.json({ item: db.prepare(`SELECT * FROM chronicle_custom_backgrounds WHERE id = ?`).get(itemId) });
+});
+
+router.delete('/:id/custom/backgrounds/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_backgrounds WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare(`DELETE FROM chronicle_custom_backgrounds WHERE id = ?`).run(itemId);
+  res.json({ deleted: true });
+});
+
+// ── Wonders ───────────────────────────────────────────────────────────────────
+router.get('/:id/custom/wonders', requireChronST, (req, res) => {
+  const items = db.prepare(`SELECT * FROM chronicle_custom_wonders WHERE chronicle_id = ? ORDER BY level, name`).all(req._chronicleId);
+  res.json({ items });
+});
+
+router.post('/:id/custom/wonders', requireChronST, (req, res) => {
+  const { name, description, level } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const lvl = Math.min(Math.max(parseInt(level)||1,1),10);
+  const result = db.prepare(
+    `INSERT INTO chronicle_custom_wonders (chronicle_id, name, description, level) VALUES (?,?,?,?)`
+  ).run(req._chronicleId, name.trim(), (description||'').slice(0,1000), lvl);
+  res.status(201).json({ item: db.prepare(`SELECT * FROM chronicle_custom_wonders WHERE id = ?`).get(result.lastInsertRowid) });
+});
+
+router.put('/:id/custom/wonders/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_wonders WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const { name, description, level } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const lvl = Math.min(Math.max(parseInt(level)||1,1),10);
+  db.prepare(`UPDATE chronicle_custom_wonders SET name=?,description=?,level=? WHERE id=?`)
+    .run(name.trim(), (description||'').slice(0,1000), lvl, itemId);
+  res.json({ item: db.prepare(`SELECT * FROM chronicle_custom_wonders WHERE id = ?`).get(itemId) });
+});
+
+router.delete('/:id/custom/wonders/:itemId', requireChronST, (req, res) => {
+  const itemId = parseInt(req.params.itemId);
+  const row = db.prepare(`SELECT id FROM chronicle_custom_wonders WHERE id = ? AND chronicle_id = ?`).get(itemId, req._chronicleId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare(`DELETE FROM chronicle_custom_wonders WHERE id = ?`).run(itemId);
+  res.json({ deleted: true });
 });
 
 module.exports = router;
