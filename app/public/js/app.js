@@ -5077,13 +5077,14 @@ const Sheet = {
 
       ${this.rotesSection(char)}
 
-      ${(char.description || char.notes || stNotes.length) ? `
+      ${this.combatSection(char, ro)}
+
+      ${this.gearSection(char, ro)}
+
+      ${this.descriptionSection(char, ro)}
+
+      ${(char.notes || stNotes.length) ? `
       <div class="sheet-footer">
-        ${char.description ? `
-        <div class="sheet-section">
-          <div class="sheet-section-title">Description</div>
-          <p style="font-size:0.88rem;color:var(--text-mid);line-height:1.6">${char.description}</p>
-        </div>` : ''}
         ${char.notes ? `
         <div class="sheet-section">
           <div class="sheet-section-title">Notes</div>
@@ -5093,6 +5094,130 @@ const Sheet = {
       </div>` : ''}
     </div>`;
     this.attachSheetListeners();
+  },
+
+  // ── Description band (bio fields + freeform text) ────────────────────────────
+  descriptionSection(char, ro) {
+    const BIO_FIELDS = [
+      { key: 'age',       label: 'Age' },
+      { key: 'gender',    label: 'Gender' },
+      { key: 'hair',      label: 'Hair' },
+      { key: 'eyes',      label: 'Eyes' },
+      { key: 'height',    label: 'Height' },
+      { key: 'weight',    label: 'Weight' },
+      { key: 'ethnicity', label: 'Ethnicity' },
+    ];
+    const bioCells = BIO_FIELDS.map(f => {
+      const v = escHtml(char[f.key] || '');
+      return `<div class="sheet-bio-cell">
+        <label class="sheet-bio-label">${f.label}</label>
+        ${ro
+          ? `<span class="sheet-bio-value">${v || '—'}</span>`
+          : `<input type="text" class="sheet-bio-input" data-bio-key="${f.key}" value="${v}" maxlength="80" />`}
+      </div>`;
+    }).join('');
+
+    const desc = char.description || '';
+    const descBody = ro
+      ? (desc
+          ? `<p class="sheet-desc-text">${escHtml(desc).replace(/\n/g, '<br>')}</p>`
+          : `<p class="sheet-desc-empty">No description.</p>`)
+      : `<textarea class="sheet-desc-input" id="sheet-desc-input" rows="5"
+            placeholder="Describe your character's appearance, history, and personality…">${escHtml(desc)}</textarea>`;
+
+    return `
+      <div class="sheet-band sheet-description-band">
+        <div class="sheet-band-title">Description</div>
+        <div class="sheet-description-body">
+          <div class="sheet-bio-grid">${bioCells}</div>
+          ${descBody}
+        </div>
+      </div>`;
+  },
+
+  // ── Combat band (weapons table) ──────────────────────────────────────────────
+  combatSection(char, ro) {
+    const weapons = Array.isArray(char.weapons) ? char.weapons : [];
+    const COLS = [
+      { key: 'name',   label: 'Weapon/Attack', width: '28%' },
+      { key: 'diff',   label: 'Diff.',         width: '10%' },
+      { key: 'damage', label: 'Damage',        width: '15%' },
+      { key: 'range',  label: 'Range',         width: '15%' },
+      { key: 'rate',   label: 'Rate',          width: '12%' },
+      { key: 'clip',   label: 'Clip',          width: '12%' },
+    ];
+
+    const headerHTML = COLS.map(c => `<th style="width:${c.width}">${c.label}</th>`).join('')
+      + (ro ? '' : '<th class="sheet-combat-act-col"></th>');
+
+    const rowHTML = (w, idx) => {
+      const cells = COLS.map(c => {
+        const val = escHtml(w[c.key] || '');
+        if (ro) return `<td>${val || '—'}</td>`;
+        return `<td><input type="text" class="sheet-combat-input"
+          data-row="${idx}" data-key="${c.key}" value="${val}" maxlength="60" /></td>`;
+      }).join('');
+      const actCell = ro ? '' : `<td class="sheet-combat-act-col">
+        <button class="sheet-combat-remove" data-row="${idx}" title="Remove">✕</button>
+      </td>`;
+      return `<tr data-row="${idx}">${cells}${actCell}</tr>`;
+    };
+
+    const rowsHTML = weapons.length
+      ? weapons.map(rowHTML).join('')
+      : `<tr class="sheet-combat-empty-row"><td colspan="${COLS.length + (ro ? 0 : 1)}">
+          ${ro ? 'No weapons or attacks recorded.' : 'No weapons yet — click below to add one.'}
+        </td></tr>`;
+
+    return `
+      <div class="sheet-band sheet-combat-band">
+        <div class="sheet-band-title">Combat</div>
+        <div class="sheet-combat-body">
+          <table class="sheet-combat-table" id="sheet-combat-table">
+            <thead><tr>${headerHTML}</tr></thead>
+            <tbody id="sheet-combat-tbody">${rowsHTML}</tbody>
+          </table>
+          ${ro ? '' : `<button class="btn-ghost sheet-combat-add" id="sheet-combat-add">＋ Add Weapon</button>`}
+        </div>
+      </div>`;
+  },
+
+  // ── Gear & Equipment band ────────────────────────────────────────────────────
+  gearSection(char, ro) {
+    const gear = Array.isArray(char.gear) ? char.gear : [];
+
+    const itemHTML = (g, idx) => {
+      const name = escHtml(g.name || '');
+      const desc = escHtml(g.description || '');
+      if (ro) {
+        return `<div class="sheet-gear-item">
+          <div class="sheet-gear-name">${name || '—'}</div>
+          ${desc ? `<div class="sheet-gear-desc">${desc.replace(/\n/g, '<br>')}</div>` : ''}
+        </div>`;
+      }
+      return `<div class="sheet-gear-item" data-row="${idx}">
+        <div class="sheet-gear-row">
+          <input type="text" class="sheet-gear-name-input" data-row="${idx}" data-key="name"
+            value="${name}" placeholder="Item name…" maxlength="80" />
+          <button class="sheet-gear-remove" data-row="${idx}" title="Remove">✕</button>
+        </div>
+        <textarea class="sheet-gear-desc-input" data-row="${idx}" data-key="description"
+          rows="2" placeholder="Notes, stats, quantity…" maxlength="600">${desc}</textarea>
+      </div>`;
+    };
+
+    const itemsHTML = gear.length
+      ? gear.map(itemHTML).join('')
+      : `<div class="sheet-gear-empty">${ro ? 'No gear recorded.' : 'No gear yet — click below to add an item.'}</div>`;
+
+    return `
+      <div class="sheet-band sheet-gear-band">
+        <div class="sheet-band-title">Gear &amp; Equipment</div>
+        <div class="sheet-gear-body">
+          <div class="sheet-gear-list" id="sheet-gear-list">${itemsHTML}</div>
+          ${ro ? '' : `<button class="btn-ghost sheet-gear-add" id="sheet-gear-add">＋ Add Item</button>`}
+        </div>
+      </div>`;
   },
 
   _stNotesHTML(notes) {
@@ -5918,11 +6043,189 @@ const Sheet = {
       roteCastable.addEventListener('change', () => this._fetchRotePickerResults());
     }
 
+    // ── Description: bio inputs + freeform textarea ─────────────────────────
+    $$('.sheet-bio-input').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const key = inp.dataset.bioKey;
+        if (!key) return;
+        this.char[key] = inp.value;
+        this.saveBio();
+      });
+    });
+
+    const descInp = $('#sheet-desc-input');
+    if (descInp) {
+      descInp.addEventListener('blur', () => {
+        if (this.char.description === descInp.value) return;
+        this.char.description = descInp.value;
+        this.saveDescriptionText();
+      });
+    }
+
+    // ── Combat table ─────────────────────────────────────────────────────────
+    this._attachCombatListeners();
+
+    // ── Gear list ───────────────────────────────────────────────────────────
+    this._attachGearListeners();
+
     // ── ST mode: approve/reject XP + pending edit listeners ───────────────────
     if (this._stChronicleId) {
       this._attachStXpListeners();
       this._attachStPendingEditsListeners();
     }
+  },
+
+  // ── Combat helpers ──────────────────────────────────────────────────────────
+  _attachCombatListeners() {
+    const tbody = $('#sheet-combat-tbody');
+    if (!tbody) return;
+
+    tbody.addEventListener('change', e => {
+      const inp = e.target.closest('.sheet-combat-input');
+      if (!inp) return;
+      const idx = parseInt(inp.dataset.row);
+      const key = inp.dataset.key;
+      if (isNaN(idx) || !key) return;
+      if (!Array.isArray(this.char.weapons)) this.char.weapons = [];
+      if (!this.char.weapons[idx]) this.char.weapons[idx] = {};
+      this.char.weapons[idx][key] = inp.value;
+      this.saveWeapons();
+    });
+
+    tbody.addEventListener('click', e => {
+      const rmBtn = e.target.closest('.sheet-combat-remove');
+      if (!rmBtn) return;
+      const idx = parseInt(rmBtn.dataset.row);
+      if (isNaN(idx) || !Array.isArray(this.char.weapons)) return;
+      this.char.weapons.splice(idx, 1);
+      this._rerenderCombat();
+      this.saveWeapons();
+    });
+
+    $('#sheet-combat-add')?.addEventListener('click', () => {
+      if (!Array.isArray(this.char.weapons)) this.char.weapons = [];
+      this.char.weapons.push({ name: '', diff: '', damage: '', range: '', rate: '', clip: '' });
+      this._rerenderCombat();
+      this.saveWeapons();
+      // Focus the freshly added row's name input
+      const last = this.char.weapons.length - 1;
+      const inp = document.querySelector(`.sheet-combat-input[data-row="${last}"][data-key="name"]`);
+      inp?.focus();
+    });
+  },
+
+  _rerenderCombat() {
+    const band = document.querySelector('.sheet-combat-band');
+    if (!band) return;
+    const ro = !!this.sharedToken || !!this._stChronicleId;
+    band.outerHTML = this.combatSection(this.char, ro);
+    this._attachCombatListeners();
+  },
+
+  // ── Gear helpers ────────────────────────────────────────────────────────────
+  _attachGearListeners() {
+    const list = $('#sheet-gear-list');
+    if (!list) return;
+
+    const handleEdit = (inp) => {
+      const idx = parseInt(inp.dataset.row);
+      const key = inp.dataset.key;
+      if (isNaN(idx) || !key) return;
+      if (!Array.isArray(this.char.gear)) this.char.gear = [];
+      if (!this.char.gear[idx]) this.char.gear[idx] = {};
+      this.char.gear[idx][key] = inp.value;
+      this.saveGear();
+    };
+
+    list.addEventListener('change', e => {
+      const inp = e.target.closest('.sheet-gear-name-input');
+      if (inp) handleEdit(inp);
+    });
+    list.addEventListener('blur', e => {
+      const ta = e.target.closest('.sheet-gear-desc-input');
+      if (ta) handleEdit(ta);
+    }, true); // useCapture so blur bubbles up
+
+    list.addEventListener('click', e => {
+      const rmBtn = e.target.closest('.sheet-gear-remove');
+      if (!rmBtn) return;
+      const idx = parseInt(rmBtn.dataset.row);
+      if (isNaN(idx) || !Array.isArray(this.char.gear)) return;
+      this.char.gear.splice(idx, 1);
+      this._rerenderGear();
+      this.saveGear();
+    });
+
+    $('#sheet-gear-add')?.addEventListener('click', () => {
+      if (!Array.isArray(this.char.gear)) this.char.gear = [];
+      this.char.gear.push({ name: '', description: '' });
+      this._rerenderGear();
+      this.saveGear();
+      const last = this.char.gear.length - 1;
+      const inp = document.querySelector(`.sheet-gear-name-input[data-row="${last}"]`);
+      inp?.focus();
+    });
+  },
+
+  _rerenderGear() {
+    const band = document.querySelector('.sheet-gear-band');
+    if (!band) return;
+    const ro = !!this.sharedToken || !!this._stChronicleId;
+    band.outerHTML = this.gearSection(this.char, ro);
+    this._attachGearListeners();
+  },
+
+  // ── Persistence: bio fields, freeform description, weapons, gear ─────────
+  async saveBio() {
+    if (!this.char?.id) return;
+    try {
+      await fetch(`/api/characters/${this.char.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age:       this.char.age || '',
+          gender:    this.char.gender || '',
+          hair:      this.char.hair || '',
+          eyes:      this.char.eyes || '',
+          height:    this.char.height || '',
+          weight:    this.char.weight || '',
+          ethnicity: this.char.ethnicity || '',
+        }),
+      });
+    } catch { /* silent */ }
+  },
+
+  async saveDescriptionText() {
+    if (!this.char?.id) return;
+    try {
+      await fetch(`/api/characters/${this.char.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: this.char.description || '' }),
+      });
+    } catch { /* silent */ }
+  },
+
+  async saveWeapons() {
+    if (!this.char?.id) return;
+    try {
+      await fetch(`/api/characters/${this.char.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weapons: this.char.weapons || [] }),
+      });
+    } catch { /* silent */ }
+  },
+
+  async saveGear() {
+    if (!this.char?.id) return;
+    try {
+      await fetch(`/api/characters/${this.char.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gear: this.char.gear || [] }),
+      });
+    } catch { /* silent */ }
   },
 
   async _fetchRotePickerResults() {

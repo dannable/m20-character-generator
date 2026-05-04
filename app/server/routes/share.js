@@ -10,14 +10,15 @@ function requireAuth(req, res, next) {
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
-  'customArchetypes','custom_ability_names','wonders'];
+  'customArchetypes','custom_ability_names','wonders','gear','weapons'];
+const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons']);
 
 function parseCharacter(row) {
   if (!row) return null;
   const char = { ...row };
   JSON_FIELDS.forEach(f => {
     if (typeof char[f] === 'string') {
-      try { char[f] = JSON.parse(char[f]); } catch { char[f] = f === 'instruments' ? [] : {}; }
+      try { char[f] = JSON.parse(char[f]); } catch { char[f] = ARRAY_JSON_FIELDS.has(f) ? [] : {}; }
     }
   });
   return char;

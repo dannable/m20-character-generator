@@ -236,8 +236,8 @@ router.get('/:id/members/:charId', (req, res) => {
     const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
       'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
       'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-      'creation_baselines','wonders'];
-    const ARRAY_FIELDS = new Set(['instruments','wonders']);
+      'creation_baselines','wonders','gear','weapons'];
+    const ARRAY_FIELDS = new Set(['instruments','wonders','gear','weapons']);
     const parsed = { ...char };
     JSON_FIELDS.forEach(f => {
       if (typeof parsed[f] === 'string') {

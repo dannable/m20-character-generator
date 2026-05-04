@@ -5,14 +5,16 @@ const db      = require('../db');
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
   'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-  'creation_baselines','wonders'];
+  'creation_baselines','wonders','gear','weapons'];
+
+const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons']);
 
 function parseCharacter(row) {
   if (!row) return null;
   const char = { ...row };
   JSON_FIELDS.forEach(f => {
     if (typeof char[f] === 'string') {
-      try { char[f] = JSON.parse(char[f]); } catch { char[f] = ['instruments','wonders'].includes(f) ? [] : {}; }
+      try { char[f] = JSON.parse(char[f]); } catch { char[f] = ARRAY_JSON_FIELDS.has(f) ? [] : {}; }
     }
   });
   return char;
@@ -52,6 +54,7 @@ const EDITABLE_FIELDS = new Set([
   'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
   'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
+  'age','gender','hair','eyes','height','weight','ethnicity','gear','weapons',
 ]);
 
 // ── computeDiff: produce a human-readable diff for a pending edit ─────────────

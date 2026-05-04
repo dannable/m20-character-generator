@@ -8128,3 +8128,242 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 #wizard-darrell.wizard-visible {
   transform: translateX(0%);
 }
+
+/* ─── Sheet: Description / Combat / Gear bands ─────────────────────────────── */
+.sheet-description-body,
+.sheet-combat-body,
+.sheet-gear-body {
+  padding: 0.7rem 0.8rem;
+}
+
+/* Bio grid (Age, Gender, Hair, Eyes, Height, Weight, Ethnicity) */
+.sheet-bio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem 0.9rem;
+  margin-bottom: 0.8rem;
+}
+.sheet-bio-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.sheet-bio-label {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.sheet-bio-value {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-mid);
+  padding: 0.15rem 0;
+  border-bottom: 1px dotted var(--border-dim);
+  min-height: 1.4rem;
+}
+.sheet-bio-input {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-mid);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-dim);
+  padding: 0.15rem 0.1rem;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+.sheet-bio-input:focus {
+  border-bottom-color: var(--gold-mid);
+}
+
+/* Free-form description text */
+.sheet-desc-text {
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--text-mid);
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+.sheet-desc-empty {
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+  margin: 0;
+}
+.sheet-desc-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--text-mid);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 5rem;
+  outline: none;
+}
+.sheet-desc-input:focus {
+  border-color: var(--gold-mid);
+}
+
+/* Combat table */
+.sheet-combat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+}
+.sheet-combat-table thead th {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  text-align: left;
+  padding: 0.25rem 0.4rem;
+  border-bottom: 1px solid var(--border-dim);
+  font-weight: normal;
+}
+.sheet-combat-table tbody td {
+  padding: 0.2rem 0.4rem;
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--border-faint, var(--border-dim));
+  vertical-align: middle;
+}
+.sheet-combat-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.sheet-combat-empty-row td {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-faint);
+  padding: 0.6rem !important;
+}
+.sheet-combat-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--text-mid);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0.2rem 0.35rem;
+  outline: none;
+  min-width: 0;
+}
+.sheet-combat-input:hover {
+  border-color: var(--border-dim);
+}
+.sheet-combat-input:focus {
+  border-color: var(--gold-mid);
+  background: var(--bg-deep);
+}
+.sheet-combat-act-col {
+  width: 28px;
+  text-align: center;
+}
+.sheet-combat-remove,
+.sheet-gear-remove {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  line-height: 1;
+}
+.sheet-combat-remove:hover,
+.sheet-gear-remove:hover {
+  color: #c45a5a;
+  background: rgba(196, 90, 90, 0.12);
+}
+.sheet-combat-add,
+.sheet-gear-add {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+}
+
+/* Gear list */
+.sheet-gear-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+.sheet-gear-empty {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+  text-align: center;
+  padding: 0.6rem;
+}
+.sheet-gear-item {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.sheet-gear-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sheet-gear-name {
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
+  color: var(--gold-mid);
+  letter-spacing: 0.04em;
+}
+.sheet-gear-desc {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.sheet-gear-name-input {
+  flex: 1;
+  font-family: var(--font-heading);
+  font-size: 0.92rem;
+  color: var(--gold-mid);
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-dim);
+  padding: 0.15rem 0.1rem;
+  outline: none;
+  min-width: 0;
+}
+.sheet-gear-name-input:focus {
+  border-bottom-color: var(--gold-mid);
+}
+.sheet-gear-desc-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  background: transparent;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  padding: 0.3rem 0.4rem;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  min-height: 3rem;
+}
+.sheet-gear-desc-input:focus {
+  border-color: var(--gold-mid);
+  background: var(--bg-raised);
+}
