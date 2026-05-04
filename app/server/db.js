@@ -237,6 +237,19 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN creation_baselines TEXT DEFAULT
 // Wonders: array of { level, name } objects for the multi-instance Wonder background
 try { db.exec(`ALTER TABLE characters ADD COLUMN wonders TEXT DEFAULT '[]'`); } catch {}
 
+// Physical description fields
+try { db.exec(`ALTER TABLE characters ADD COLUMN age TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN gender TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN hair TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN eyes TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN height TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN weight TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN ethnicity TEXT DEFAULT ''`); } catch {}
+
+// Gear & combat: arrays of free-form item objects
+try { db.exec(`ALTER TABLE characters ADD COLUMN gear TEXT DEFAULT '[]'`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN weapons TEXT DEFAULT '[]'`); } catch {}
+
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS chronicle_notes (
