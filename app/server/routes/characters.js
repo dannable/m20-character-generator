@@ -171,6 +171,32 @@ router.get('/recent/all', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// GET /attention-summary — lightweight XP status for each character (for dashboard attention strip)
+router.get('/attention-summary', (req, res) => {
+  try {
+    const rows = db.prepare(
+      `SELECT id, name, xp_earned, xp_log, chronicle_id FROM characters WHERE user_id = ?`
+    ).all(req.session.userId);
+
+    const summary = rows.map(row => {
+      let log = [];
+      try { log = JSON.parse(row.xp_log || '[]'); } catch {}
+      const xpSpent   = log.filter(e => e.type === 'spend').reduce((s, e) => s + (e.cost || 0), 0);
+      const hasPending = log.some(e => e.type === 'spend' && !!e.submitted && !e.finalized);
+      return {
+        id:                   row.id,
+        name:                 row.name,
+        xp_earned:            row.xp_earned || 0,
+        xp_remaining:         (row.xp_earned || 0) - xpSpent,
+        has_pending_xp_review: hasPending,
+        in_chronicle:         !!row.chronicle_id,
+      };
+    }).filter(s => s.xp_remaining > 0 || s.has_pending_xp_review);
+
+    res.json(summary);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
 // GET all characters for the current user only
 router.get('/', (req, res) => {
   try {
@@ -372,6 +398,14 @@ router.post('/:id/xp/award', (req, res) => {
     if (!char) return res.status(404).json({ error: 'Character not found' });
     const isAdmin = req.session.role === 'admin';
     if (!isAdmin && char.user_id !== req.session.userId) return res.status(403).json({ error: 'Access denied' });
+
+    // Chronicle characters: only the chronicle's ST (or admin) may award XP
+    if (char.chronicle_id && !isAdmin) {
+      const chron = db.prepare('SELECT user_id FROM chronicles WHERE id = ?').get(char.chronicle_id);
+      if (!chron || chron.user_id !== req.session.userId) {
+        return res.status(403).json({ error: 'XP can only be awarded by the Chronicle Storyteller.' });
+      }
+    }
 
     const { amount, note } = req.body;
     const amt = parseInt(amount);

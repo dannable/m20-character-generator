@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css?v=40" />
+  <link rel="stylesheet" href="/css/style.css?v=45" />
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -171,36 +171,7 @@
 
   <!-- ─── DASHBOARD PAGE ────────────────────────────────────────── -->
   <section id="page-dashboard" class="page">
-    <div class="dashboard-header">
-      <h2 class="section-title" id="dashboard-greeting">Welcome</h2>
-      <p class="section-flavor">"Every mage has a story. Every story begins with a choice." — M20 p. 254</p>
-    </div>
-    <div class="dashboard-actions">
-      <button class="btn-primary" onclick="App.startNewCharacter()">✧ Create New Character</button>
-      <button class="btn-secondary" onclick="App.showRoster()">⚝ View All Characters</button>
-      <button class="btn-secondary" onclick="Chronicle.showCreate()">⚝ Create Chronicle</button>
-    </div>
-    <div class="dashboard-two-col">
-      <div class="dashboard-col">
-        <div class="dashboard-recent-header">
-          <h3 class="dashboard-section-title">Recent Characters</h3>
-          <div id="dashboard-recent-toggle" style="display:none;gap:0.35rem;align-items:center"></div>
-        </div>
-        <div id="dashboard-cards" class="dashboard-char-list"></div>
-        <div id="dashboard-empty" class="roster-empty" style="display:none;">
-          <div class="empty-sigil">☽✦☾</div>
-          <p>No mages yet walk these pages.</p>
-          <p>The Awakening awaits — create your first character.</p>
-        </div>
-      </div>
-
-      <div class="dashboard-col">
-        <div class="dashboard-recent-header">
-          <h3 class="dashboard-section-title">My Chronicles</h3>
-        </div>
-        <div id="dashboard-chronicle-list"></div>
-      </div>
-    </div>
+    <div id="dashboard-root"></div>
   </section>
 
   <!-- ─── CHRONICLE PAGE ───────────────────────────────────────────── -->
@@ -416,7 +387,7 @@
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script src="/js/data.js?v=39"></script>
-<script src="/js/app.js?v=40"></script>
+<script src="/js/app.js?v=45"></script>
 <script>
 (function() {
   var wizard = document.getElementById('wizard-darrell');

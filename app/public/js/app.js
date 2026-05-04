@@ -363,6 +363,21 @@ async function _loadUserCustomBg() {
 function _invalidateUserCustomBg() { _userCustomBgCache = null; _userCustomBgLoading = null; }
 function _getUserCustomBg()        { return _userCustomBgCache || []; }
 
+// Chronicle-level custom content (visible to all chronicle members)
+let _chronicleCustomCache = null;
+let _chronicleCustomLoading = null;
+async function _loadChronicleCustom() {
+  if (_chronicleCustomCache !== null) return _chronicleCustomCache;
+  if (_chronicleCustomLoading)        return _chronicleCustomLoading;
+  _chronicleCustomLoading = fetch('/api/chronicles/custom/member-content')
+    .then(r => r.ok ? r.json() : { chronicles: [] })
+    .then(d => { _chronicleCustomCache = d.chronicles || []; _chronicleCustomLoading = null; return _chronicleCustomCache; })
+    .catch(() => { _chronicleCustomCache = []; _chronicleCustomLoading = null; return _chronicleCustomCache; });
+  return _chronicleCustomLoading;
+}
+function _invalidateChronicleCustom() { _chronicleCustomCache = null; _chronicleCustomLoading = null; }
+function _getChronicleCustom()        { return _chronicleCustomCache || []; }
+
 /* ═══════════════════════════════════════════════════════════════
    APP — Page routing & roster
    ═══════════════════════════════════════════════════════════════ */
@@ -374,7 +389,7 @@ const App = {
   setUser(user) {
     this.currentUser = user;
     const isGuest = user.role === 'guest';
-    if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); } // pre-warm caches
+    if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); _loadChronicleCustom(); } // pre-warm caches
     $('#user-name').textContent = isGuest ? 'Guest' : user.username;
     $('#user-info').style.display = 'flex';
     $('#nav-dashboard').style.display = '';
@@ -408,6 +423,7 @@ const App = {
     _invalidateUserCustomMF();
     _invalidateUserCustomRotes();
     _invalidateUserCustomBg();
+    _invalidateChronicleCustom();
     $('#user-info').style.display = 'none';
     ['nav-dashboard','nav-admin','nav-logout','nav-grimoire','nav-settings','nav-feedback'].forEach(id => {
       $(`#${id}`).style.display = 'none';
@@ -458,44 +474,151 @@ const App = {
 
   _recentShowAll: false,
 
+  // ── Favorites management (localStorage) ─────────────────────────────────
+  getFavorites() {
+    try { return JSON.parse(localStorage.getItem('sanctum_favorites') || '[]'); } catch { return []; }
+  },
+  isFavorite(id) { return this.getFavorites().includes(id); },
+  toggleFavorite(id) {
+    const favs = this.getFavorites();
+    const idx  = favs.indexOf(id);
+    if (idx >= 0) favs.splice(idx, 1); else favs.unshift(id);
+    localStorage.setItem('sanctum_favorites', JSON.stringify(favs.slice(0, 8)));
+  },
+
+  // ── Navigate straight to Advancement for a character ────────────────────
+  async openAdvancement(charId) {
+    try {
+      const char = await API.get(charId);
+      Sheet.render(char, []);
+      Sheet.renderToolbar('owner');
+      this.showPage('sheet');
+      this.trackRecentView(charId);
+      Advancement.show(char);
+    } catch { toast('Failed to open character.', 'error'); }
+  },
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
   async showDashboard() {
     this.showPage('dashboard');
     const isGuest = this.currentUser?.role === 'guest';
-    const greeting = $('#dashboard-greeting');
-    if (this.currentUser) greeting.textContent = isGuest ? 'Welcome, Guest' : `Welcome back, ${this.currentUser.username}`;
+    const root    = $('#dashboard-root');
+    if (!root) return;
 
-    // Render the toggle for admins
-    const toggleWrap = $('#dashboard-recent-toggle');
-    if (toggleWrap) {
-      if (this.currentUser?.role === 'admin') {
-        toggleWrap.innerHTML = `
-          <button id="btn-recent-mine" class="btn-sm ${this._recentShowAll ? 'btn-ghost' : 'btn-secondary'}"
-            onclick="App._recentShowAll=false;App.loadRecentCards()">Mine</button>
-          <button id="btn-recent-all" class="btn-sm ${this._recentShowAll ? 'btn-secondary' : 'btn-ghost'}"
-            onclick="App._recentShowAll=true;App.loadRecentCards()">All Users</button>`;
-        toggleWrap.style.display = 'flex';
-      } else {
-        toggleWrap.style.display = 'none';
-      }
-    }
+    const hour = new Date().getHours();
+    const salutation = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const username   = isGuest ? 'Traveler' : escHtml(this.currentUser?.username || 'Mage');
+    const isAdmin    = this.currentUser?.role === 'admin';
 
-    // Hide chronicle UI for guests
-    const createChronBtn = document.querySelector('.dashboard-actions .btn-secondary[onclick*="Chronicle.showCreate"]');
-    if (createChronBtn) createChronBtn.style.display = isGuest ? 'none' : '';
-    const chronCol = $('#dashboard-chronicle-list')?.closest('.dashboard-col');
-    if (chronCol) chronCol.style.display = isGuest ? 'none' : '';
+    const quotes = [
+      '"Every mage has a story. Every story begins with a choice."',
+      '"The Awakening is not an event — it is a way of seeing."',
+      '"Reality is not what it seems, and you know this better than most."',
+      '"Magic is the art of changing consciousness at will."',
+      '"Do what thou wilt shall be the whole of the Law."',
+    ];
+    const quote = quotes[Math.floor(Date.now() / 86400000) % quotes.length];
 
-    await this.loadRecentCards();
-    if (!isGuest) await Chronicle.loadDashboard();
+    root.innerHTML = `
+      <!-- ── Welcome band ── -->
+      <div class="dash-welcome">
+        <div class="dash-welcome-glyph">☽✦☾</div>
+        <div class="dash-welcome-text">
+          <h2 class="dash-greeting">${salutation}, ${username}</h2>
+          <p class="dash-flavor">${quote}</p>
+        </div>
+      </div>
+
+      <!-- ── Attention strip (populated async) ── -->
+      <div id="dash-attention" class="dash-attention-strip" style="display:none"></div>
+
+      <!-- ── Navigation hub ── -->
+      <nav class="dash-nav-hub">
+        <button class="dash-nav-tile dash-nav-tile-accent" onclick="App.startNewCharacter()">
+          <span class="dash-nav-icon">✦</span>
+          <span class="dash-nav-label">New Character</span>
+          <span class="dash-nav-sub">Begin the Awakening</span>
+        </button>
+        <button class="dash-nav-tile" onclick="App.showRoster()">
+          <span class="dash-nav-icon">⛧</span>
+          <span class="dash-nav-label">Characters</span>
+          <span class="dash-nav-sub">All your mages</span>
+        </button>
+        ${!isGuest ? `<button class="dash-nav-tile" onclick="document.getElementById('dash-chronicles-section')?.scrollIntoView({behavior:'smooth'})">
+          <span class="dash-nav-icon">⚝</span>
+          <span class="dash-nav-label">Chronicles</span>
+          <span class="dash-nav-sub">Your ongoing stories</span>
+        </button>` : ''}
+        ${!isGuest ? `<button class="dash-nav-tile" onclick="App.showGrimoire()">
+          <span class="dash-nav-icon">☽</span>
+          <span class="dash-nav-label">Grimoire</span>
+          <span class="dash-nav-sub">Rotes &amp; lore</span>
+        </button>` : ''}
+      </nav>
+
+      <!-- ── Pinned favorites ── -->
+      ${!isGuest ? `
+      <div class="dash-section" id="dash-pinned-section">
+        <div class="dash-section-header">
+          <span class="dash-section-title"><span class="dash-title-star">★</span> Pinned</span>
+          <span class="dash-section-hint">Click ★ on any character to pin it here</span>
+        </div>
+        <div class="dash-pinned-rail" id="dash-pinned-rail">
+          <div class="dash-loading-inline">Loading…</div>
+        </div>
+      </div>` : ''}
+
+      <!-- ── Recent characters ── -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <span class="dash-section-title">Recent</span>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            ${isAdmin ? `
+              <button id="btn-recent-mine" class="btn-sm ${this._recentShowAll ? 'btn-ghost' : 'btn-secondary'}"
+                onclick="App._recentShowAll=false;App._loadDashboardRecent()">Mine</button>
+              <button id="btn-recent-all" class="btn-sm ${this._recentShowAll ? 'btn-secondary' : 'btn-ghost'}"
+                onclick="App._recentShowAll=true;App._loadDashboardRecent()">All Users</button>
+            ` : ''}
+            <button class="btn-ghost btn-sm" onclick="App.showRoster()">All Characters →</button>
+          </div>
+        </div>
+        <div id="dash-recent-chars" class="dash-recent-rail">
+          <div class="dash-loading-inline">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ── Chronicles ── -->
+      ${!isGuest ? `
+      <div class="dash-section" id="dash-chronicles-section">
+        <div class="dash-section-header">
+          <span class="dash-section-title">My Chronicles</span>
+          <button class="btn-ghost btn-sm" onclick="Chronicle.showCreate()">+ New Chronicle</button>
+        </div>
+        <div id="dashboard-chronicle-list">
+          <div class="dash-loading-inline">Loading…</div>
+        </div>
+      </div>` : ''}
+    `;
+
+    // Load all sections in parallel
+    await Promise.all([
+      this._loadDashboardRecent(),
+      !isGuest ? this._loadDashboardFavorites() : Promise.resolve(),
+      !isGuest ? Chronicle.loadDashboard()       : Promise.resolve(),
+      !isGuest ? this._loadDashboardAttention()  : Promise.resolve(),
+    ]);
   },
 
-  async loadRecentCards() {
-    const grid  = $('#dashboard-cards');
-    const empty = $('#dashboard-empty');
+  async _loadDashboardRecent() {
+    const grid = $('#dash-recent-chars');
+    if (!grid) return;
+
+    // Update admin toggle button states
     $('#btn-recent-mine')?.classList.toggle('btn-secondary', !this._recentShowAll);
-    $('#btn-recent-mine')?.classList.toggle('btn-ghost',     this._recentShowAll);
-    $('#btn-recent-all')?.classList.toggle('btn-secondary',  this._recentShowAll);
-    $('#btn-recent-all')?.classList.toggle('btn-ghost',     !this._recentShowAll);
+    $('#btn-recent-mine')?.classList.toggle('btn-ghost',      this._recentShowAll);
+    $('#btn-recent-all')?.classList.toggle('btn-secondary',   this._recentShowAll);
+    $('#btn-recent-all')?.classList.toggle('btn-ghost',      !this._recentShowAll);
+
     try {
       let url;
       if (this._recentShowAll && this.currentUser?.role === 'admin') {
@@ -507,18 +630,95 @@ const App = {
       const r = await fetch(url);
       if (!r.ok) throw new Error();
       const chars = await r.json();
+
       if (!Array.isArray(chars) || chars.length === 0) {
-        grid.innerHTML = '';
-        grid.style.display = 'none';
-        empty.style.display = 'block';
+        grid.innerHTML = `
+          <div class="dash-empty-state">
+            <div class="empty-sigil">☽✦☾</div>
+            <p>No mages yet walk these pages.</p>
+            <button class="btn-primary" style="margin-top:0.75rem" onclick="App.startNewCharacter()">Create your first mage</button>
+          </div>`;
       } else {
-        empty.style.display = 'none';
-        grid.style.display = 'flex';
-        grid.innerHTML = chars.map(c => this.renderCard(c, !!c.owner_username)).join('');
+        grid.innerHTML = chars.map(c => this._dashCompactTile(c)).join('');
       }
     } catch {
-      grid.innerHTML = '';
+      grid.innerHTML = '<p class="dash-error">Failed to load characters.</p>';
     }
+  },
+
+  async _loadDashboardFavorites() {
+    const rail = $('#dash-pinned-rail');
+    if (!rail) return;
+    const favIds = this.getFavorites();
+    if (!favIds.length) {
+      rail.innerHTML = `<div class="dash-pinned-empty">No pinned characters yet — click ★ on a card to pin it here.</div>`;
+      return;
+    }
+    try {
+      const r = await fetch(`/api/characters/recent?ids=${favIds.slice(0, 8).join(',')}`);
+      if (!r.ok) throw new Error();
+      const chars = await r.json();
+      if (!chars.length) {
+        localStorage.setItem('sanctum_favorites', '[]');
+        rail.innerHTML = `<div class="dash-pinned-empty">No pinned characters yet.</div>`;
+        return;
+      }
+      const byId = Object.fromEntries(chars.map(c => [c.id, c]));
+      // Pinned section uses full cards (no Delete button) so players can act on them directly
+      rail.innerHTML = favIds.map(id => byId[id]).filter(Boolean).map(c => this.renderCard(c, false, true)).join('');
+    } catch {
+      rail.innerHTML = '<div class="dash-pinned-empty">Failed to load pinned characters.</div>';
+    }
+  },
+
+  _dashCompactTile(c) {
+    const tradition = c.tradition || c.affiliation || '—';
+    const isFav     = this.isFavorite(c.id);
+    return `
+      <div class="dash-compact-tile" onclick="App.viewCharacter(${c.id})" title="${escHtml(c.name)}">
+        <button class="dash-compact-fav${isFav ? ' char-fav-active' : ''}" data-id="${c.id}"
+          title="${isFav ? 'Unpin' : 'Pin to dashboard'}"
+          onclick="event.stopPropagation();App._cardToggleFav(this,${c.id})">★</button>
+        <div class="dash-compact-name">${escHtml(c.name)}${c.is_draft ? ' <span class="card-draft-badge">draft</span>' : ''}</div>
+        <div class="dash-compact-tradition">${escHtml(tradition)}</div>
+        ${c.concept ? `<div class="dash-compact-concept">${escHtml(c.concept)}</div>` : ''}
+        <div class="dash-compact-stats">Arete ${c.arete || 1} &nbsp;·&nbsp; WP ${c.willpower || 5}</div>
+      </div>`;
+  },
+
+  async _loadDashboardAttention() {
+    const strip = $('#dash-attention');
+    if (!strip) return;
+    try {
+      const r = await fetch('/api/characters/attention-summary');
+      if (!r.ok) return;
+      const items = await r.json();
+      if (!items.length) return;
+
+      const chips = items.flatMap(item => {
+        const out = [];
+        if (item.xp_remaining > 0) {
+          out.push(`<button class="dash-attn-chip dash-attn-chip-xp" onclick="App.openAdvancement(${item.id})">
+            <span class="dash-attn-chip-icon">✦</span>
+            <span><strong>${escHtml(item.name)}</strong> &mdash; ${item.xp_remaining} XP to spend</span>
+          </button>`);
+        }
+        if (item.has_pending_xp_review) {
+          out.push(`<button class="dash-attn-chip dash-attn-chip-pending" onclick="App.openAdvancement(${item.id})">
+            <span class="dash-attn-chip-icon">⧗</span>
+            <span><strong>${escHtml(item.name)}</strong> &mdash; XP awaiting review</span>
+          </button>`);
+        }
+        return out;
+      }).join('');
+
+      if (chips) {
+        strip.innerHTML = `
+          <div class="dash-attn-label">Needs Attention</div>
+          <div class="dash-attn-chips">${chips}</div>`;
+        strip.style.display = 'flex';
+      }
+    } catch {}
   },
 
   async showAdmin() {
@@ -1219,7 +1419,7 @@ const App = {
     }
   },
 
-  renderCard(c, showOwner = false) {
+  renderCard(c, showOwner = false, hideDanger = false) {
     const tradition = c.tradition || c.affiliation || '—';
     const concept   = c.concept || '—';
     const chronDate = c.chronicle_next_session
@@ -1233,6 +1433,7 @@ const App = {
           ${chronDate ? `<span class="card-chronicle-badge-date">${chronDate}</span>` : ''}
         </div>
       </div>` : '';
+    const isFav = this.isFavorite(c.id);
     return `
       <div class="character-card" onclick="App.viewCharacter(${c.id})">
         <div class="card-top-row">
@@ -1258,11 +1459,23 @@ const App = {
         </div>
         <div class="card-date">Updated ${formatDate(c.updated_at)}</div>
         <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="char-fav-btn${isFav ? ' char-fav-active' : ''}" data-id="${c.id}"
+            title="${isFav ? 'Unpin' : 'Pin to dashboard'}" onclick="event.stopPropagation();App._cardToggleFav(this,${c.id})">★</button>
           <button class="btn-secondary btn-sm" onclick="App.viewCharacter(${c.id})">View Sheet</button>
           <button class="btn-ghost btn-sm" onclick="App.editCharacter(${c.id})">Edit</button>
-          <button class="btn-danger btn-sm" onclick="App.confirmDelete(${c.id}, '${c.name.replace(/'/g,"\\'")}')">Delete</button>
+          ${hideDanger ? '' : `<button class="btn-danger btn-sm" onclick="App.confirmDelete(${c.id}, '${c.name.replace(/'/g,"\\'")}')">Delete</button>`}
         </div>
       </div>`;
+  },
+
+  // ── Card favorite toggle (inline, without full reload) ──────────────────
+  _cardToggleFav(btn, id) {
+    this.toggleFavorite(id);
+    const active = this.isFavorite(id);
+    btn.classList.toggle('char-fav-active', active);
+    btn.title = active ? 'Unpin' : 'Pin to dashboard';
+    // Refresh pinned rail if visible
+    if ($('#dash-pinned-rail')) this._loadDashboardFavorites();
   },
 
   // ── Recently-viewed tracking (localStorage) ─────────────────────────────
@@ -1713,7 +1926,7 @@ const Grimoire = {
     const tc = $('#grimoire-tab-content');
     if (!tc) return;
     tc.innerHTML = '<div class="grimoire-loading">Loading…</div>';
-    await _loadUserCustomMF();
+    await Promise.all([_loadUserCustomMF(), _loadChronicleCustom()]);
     this._renderMFContent();
   },
 
@@ -1801,6 +2014,30 @@ const Grimoire = {
     const builtMeritSection = _buildSection('merit');
     const builtFlawSection  = _buildSection('flaw');
 
+    // ── Chronicle custom M&F sections (one per chronicle the user belongs to) ──
+    const _buildChronSection = () => {
+      const chronData = _getChronicleCustom();
+      return chronData.map(chron => {
+        const items = (chron.merits_flaws || []).filter(x =>
+          (kindFilter === 'all' || x.kind === kindFilter) && _matchSearch(x)
+        );
+        if (!items.length) return '';
+        const key = `chron-${chron.id}`;
+        const isOpen = openState[key] !== false;
+        return `
+          <details class="gmf-section gmf-section-chronicle" data-key="${key}"${isOpen ? ' open' : ''}>
+            <summary class="gmf-section-summary">
+              <span class="gmf-section-title">⊕ ${escHtml(chron.name)}</span>
+              <span class="gmf-section-count">${items.length}</span>
+              <span class="gmf-section-caret"></span>
+            </summary>
+            <div class="gmf-cat-items gmf-custom-items">
+              ${items.map(x => this._gmfItemHTML({ ...x, _chronicle: true })).join('')}
+            </div>
+          </details>`;
+      }).join('');
+    };
+
     tc.innerHTML = `
       <div class="gmf-container">
         <div class="gmf-filter-bar">
@@ -1813,6 +2050,7 @@ const Grimoire = {
           </div>
         </div>
         ${_buildCustomSection()}
+        ${_buildChronSection()}
         ${builtMeritSection ? '<hr class="gmf-divider" />' + builtMeritSection : ''}
         ${builtFlawSection  ? '<hr class="gmf-divider" />' + builtFlawSection  : ''}
       </div>`;
@@ -1999,7 +2237,7 @@ const Grimoire = {
   async _renderCustomRotesSection() {
     const sec = $('#grimoire-custom-rotes-section');
     if (!sec) return;
-    await _loadUserCustomRotes();
+    await Promise.all([_loadUserCustomRotes(), _loadChronicleCustom()]);
     this._refreshCustomRotesSection();
   },
 
@@ -2030,6 +2268,32 @@ const Grimoire = {
         }).join('')
       : '';
 
+    // Chronicle custom rotes (read-only, from all chronicles the user belongs to)
+    const chronData = _getChronicleCustom();
+    const chronRotesHTML = chronData.map(chron => {
+      const rotes = chron.rotes || [];
+      if (!rotes.length) return '';
+      const rowsHTML = rotes.map(r => {
+        const sp = (() => { try { return JSON.parse(r.spheres || '{}'); } catch { return {}; } })();
+        const spStr = Object.entries(sp).filter(([,v])=>v>0).map(([s,v])=>`${s} ${v}`).join(', ')||'—';
+        return `<div class="gcr-item gcr-item-chronicle">
+          <div class="gcr-item-main">
+            <span class="gcr-item-name">${escHtml(r.name)}</span>
+            <span class="mf-custom-badge">CHRONICLE</span>
+            ${r.source ? `<span class="gcr-item-source">${escHtml(r.source)}</span>` : ''}
+          </div>
+          <div class="gcr-item-spheres">${escHtml(spStr)}</div>
+          ${r.description ? `<div class="gcr-item-desc">${escHtml(r.description)}</div>` : ''}
+        </div>`;
+      }).join('');
+      return `<div class="gcr-section gcr-section-chronicle">
+        <div class="gcr-section-header">
+          <span class="gcr-section-title">⊕ ${escHtml(chron.name)}</span>
+        </div>
+        <div class="gcr-items">${rowsHTML}</div>
+      </div>`;
+    }).join('');
+
     sec.innerHTML = `
       <div class="gcr-section">
         <div class="gcr-section-header">
@@ -2038,7 +2302,8 @@ const Grimoire = {
         </div>
         <div id="${formId}" class="gmf-form" style="display:none"></div>
         ${items.length ? `<div class="gcr-items">${itemsHTML}</div>` : ''}
-      </div>`;
+      </div>
+      ${chronRotesHTML}`;
 
     sec.querySelector('#gcr-new-btn')?.addEventListener('click', () => {
       const fd = sec.querySelector(`#${formId}`);
@@ -3074,29 +3339,40 @@ const Chronicle = {
   // ── Detail view HTML ─────────────────────────────────────────────────────
   _detailHTML(c, notes = []) {
     const isActive  = c.is_active !== 0;
+    const isST      = App.currentUser?.id === c.user_id || App.currentUser?.role === 'admin';
     const date = c.next_session
       ? new Date(c.next_session + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : null;
     const membersHTML = c.members.length === 0
       ? `<p class="chronicle-empty-state">${isActive ? 'No characters have joined yet. Share your join code!' : 'No characters are assigned.'}</p>`
-      : c.members.map(m => `
-          <div class="chronicle-member-row">
+      : c.members.map(m => {
+          const awards   = Array.isArray(m.xp_awards) ? m.xp_awards : [];
+          const totalXp  = awards.reduce((s, e) => s + (e.amount || 0), 0);
+          const xpTrack  = awards.length > 0
+            ? `<div class="chron-xp-track">
+                ${awards.map(e => `<span class="chron-xp-pill" title="${e.note ? escHtml(e.note) : 'XP Award'}">${e.amount > 0 ? '+' : ''}${e.amount}</span>`).join('')}
+                <span class="chron-xp-total">${totalXp} XP</span>
+               </div>`
+            : `<div class="chron-xp-track chron-xp-track-empty"><span class="chron-xp-none">No XP awarded yet</span></div>`;
+          return `
+          <div class="chronicle-member-row chronicle-member-clickable" data-char-id="${m.id}">
             <div class="chronicle-member-info">
               <span class="chronicle-member-name">${escHtml(m.name)}</span>
               <span class="chronicle-member-meta">${escHtml(m.tradition || m.affiliation || '—')} · Arete ${m.arete}</span>
               ${m.owner_username ? `<span class="chronicle-member-owner">Player: ${escHtml(m.owner_username)}</span>` : ''}
             </div>
+            ${xpTrack}
             <div class="chronicle-member-actions">
               ${m.has_submitted_xp ? `<span class="member-xp-pending-badge" title="Has XP expenditures awaiting review">XP ●</span>` : ''}
-              <div class="member-menu-wrap">
+              ${isActive ? `<div class="member-menu-wrap">
                 <button class="member-menu-btn" data-char-id="${m.id}" title="Actions">⋮</button>
                 <div class="member-menu-dropdown" hidden>
-                  <button class="member-menu-item chronicle-view-sheet" data-char-id="${m.id}">View Sheet</button>
-                  ${isActive ? `<button class="member-menu-item chronicle-remove-member" data-char-id="${m.id}">Remove from Chronicle</button>` : ''}
+                  <button class="member-menu-item chronicle-remove-member" data-char-id="${m.id}">Remove from Chronicle</button>
                 </div>
-              </div>
+              </div>` : ''}
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
 
     const detailRules = (() => { try { return typeof c.rules === 'object' ? c.rules : JSON.parse(c.rules || '{}'); } catch { return {}; } })();
 
@@ -3136,13 +3412,6 @@ const Chronicle = {
               </div>
               <p class="chronicle-join-hint">Share this code with players so they can join their character.</p>
             </div>` : ''}
-            <div class="chronicle-members-block">
-              <div class="chronicle-members-header">
-                <div class="chronicle-info-label">Members (${c.members.length})</div>
-                ${isActive && c.members.length > 0 ? `<button class="btn-secondary btn-sm" id="btn-grant-xp">Grant XP</button>` : ''}
-              </div>
-              <div id="chronicle-member-list">${membersHTML}</div>
-            </div>
             ${isActive ? `<div class="chronicle-bg-xp-status">
               <span class="chronicle-info-label">Background XP</span>
               <span class="chron-bg-xp-badge ${c.allow_bg_xp ? 'chron-bg-xp-on' : 'chron-bg-xp-off'}">
@@ -3150,6 +3419,14 @@ const Chronicle = {
               </span>
             </div>` : ''}
           </div>
+        </div>
+
+        <div class="chronicle-members-block chronicle-members-fullwidth">
+          <div class="chronicle-members-header">
+            <div class="chronicle-info-label">Members (${c.members.length})</div>
+            ${isActive && c.members.length > 0 ? `<button class="btn-secondary btn-sm" id="btn-grant-xp">Grant XP</button>` : ''}
+          </div>
+          <div id="chronicle-member-list">${membersHTML}</div>
         </div>
 
         <div class="chronicle-update-row">
@@ -3168,6 +3445,101 @@ const Chronicle = {
           <div id="note-form-container"></div>
           <div id="note-list">${this._notesListHTML(notes, isActive ? c.members : [])}</div>
         </div>
+
+        ${isST ? this._chronCustomContentHTML(c) : ''}
+      </div>`;
+  },
+
+  // ── Chronicle custom content section (ST only) ───────────────────────────
+  _chronCustomContentHTML(c) {
+    const cc  = c.customContent || {};
+    const mf  = cc.merits_flaws || [];
+    const rot = cc.rotes        || [];
+    const bg  = cc.backgrounds  || [];
+    const wnd = cc.wonders      || [];
+
+    const _mfItem = x => `
+      <div class="chron-cc-item" data-type="mf" data-id="${x.id}">
+        <div class="chron-cc-item-main">
+          <span class="chron-cc-item-name">${escHtml(x.name)}</span>
+          <span class="chron-cc-kind-badge chron-cc-kind-${x.kind}">${x.kind}</span>
+          <span class="chron-cc-item-cost">${escHtml(x.cost)} pt${x.cost !== '1' ? 's' : ''}</span>
+          <span class="chron-cc-item-cat">${escHtml(x.category)}</span>
+        </div>
+        ${x.description ? `<div class="chron-cc-item-desc">${escHtml(x.description)}</div>` : ''}
+        <div class="chron-cc-item-actions">
+          <button class="btn-ghost btn-sm chron-cc-edit-btn" data-type="mf" data-id="${x.id}">Edit</button>
+          <button class="btn-ghost btn-sm chron-cc-del-btn delete" data-type="mf" data-id="${x.id}">Delete</button>
+        </div>
+      </div>`;
+
+    const _roteItem = x => {
+      const sp = (() => { try { return JSON.parse(x.spheres||'{}'); } catch { return {}; } })();
+      const spStr = Object.entries(sp).filter(([,v])=>v>0).map(([s,v])=>`${s} ${v}`).join(', ')||'—';
+      return `
+      <div class="chron-cc-item" data-type="rote" data-id="${x.id}">
+        <div class="chron-cc-item-main">
+          <span class="chron-cc-item-name">${escHtml(x.name)}</span>
+          <span class="chron-cc-item-spheres">${escHtml(spStr)}</span>
+          ${x.source ? `<span class="chron-cc-item-source">${escHtml(x.source)}</span>` : ''}
+        </div>
+        ${x.description ? `<div class="chron-cc-item-desc">${escHtml(x.description)}</div>` : ''}
+        <div class="chron-cc-item-actions">
+          <button class="btn-ghost btn-sm chron-cc-edit-btn" data-type="rote" data-id="${x.id}">Edit</button>
+          <button class="btn-ghost btn-sm chron-cc-del-btn delete" data-type="rote" data-id="${x.id}">Delete</button>
+        </div>
+      </div>`;
+    };
+
+    const _bgItem = x => `
+      <div class="chron-cc-item" data-type="bg" data-id="${x.id}">
+        <div class="chron-cc-item-main">
+          <span class="chron-cc-item-name">${escHtml(x.name)}</span>
+          <span class="chron-cc-item-cost">Max ${x.max_dots} dots</span>
+        </div>
+        ${x.description ? `<div class="chron-cc-item-desc">${escHtml(x.description)}</div>` : ''}
+        <div class="chron-cc-item-actions">
+          <button class="btn-ghost btn-sm chron-cc-edit-btn" data-type="bg" data-id="${x.id}">Edit</button>
+          <button class="btn-ghost btn-sm chron-cc-del-btn delete" data-type="bg" data-id="${x.id}">Delete</button>
+        </div>
+      </div>`;
+
+    const _wndItem = x => `
+      <div class="chron-cc-item" data-type="wonder" data-id="${x.id}">
+        <div class="chron-cc-item-main">
+          <span class="chron-cc-item-name">${escHtml(x.name)}</span>
+          <span class="chron-cc-item-cost">Level ${x.level}</span>
+        </div>
+        ${x.description ? `<div class="chron-cc-item-desc">${escHtml(x.description)}</div>` : ''}
+        <div class="chron-cc-item-actions">
+          <button class="btn-ghost btn-sm chron-cc-edit-btn" data-type="wonder" data-id="${x.id}">Edit</button>
+          <button class="btn-ghost btn-sm chron-cc-del-btn delete" data-type="wonder" data-id="${x.id}">Delete</button>
+        </div>
+      </div>`;
+
+    const section = (title, id, items, itemFn, addBtns) => `
+      <div class="chron-cc-group">
+        <div class="chron-cc-group-header">
+          <h4 class="chron-cc-heading">${title}</h4>
+          <div class="chron-cc-add-btns">${addBtns}</div>
+        </div>
+        <div id="${id}-list">${items.length ? items.map(itemFn).join('') : `<p class="chron-cc-empty">None yet.</p>`}</div>
+        <div id="${id}-form" class="chron-cc-form" style="display:none"></div>
+      </div>`;
+
+    return `
+      <div class="chron-cc-section">
+        <div class="ornate-divider" style="margin:1.5rem 0 1rem">— Chronicle Custom Content —</div>
+        <p class="chron-cc-intro">Content created here is available to all members of this chronicle in their Grimoire.</p>
+        ${section('Merits &amp; Flaws', 'chron-cc-mf', mf, _mfItem,
+            `<button class="btn-secondary btn-sm chron-cc-add-btn" data-type="mf" data-kind="merit">＋ Merit</button>
+             <button class="btn-secondary btn-sm chron-cc-add-btn" data-type="mf" data-kind="flaw">＋ Flaw</button>`)}
+        ${section('Rotes', 'chron-cc-rotes', rot, _roteItem,
+            `<button class="btn-secondary btn-sm chron-cc-add-btn" data-type="rote">＋ Rote</button>`)}
+        ${section('Backgrounds', 'chron-cc-bgs', bg, _bgItem,
+            `<button class="btn-secondary btn-sm chron-cc-add-btn" data-type="bg">＋ Background</button>`)}
+        ${section('Wonders', 'chron-cc-wonders', wnd, _wndItem,
+            `<button class="btn-secondary btn-sm chron-cc-add-btn" data-type="wonder">＋ Wonder</button>`)}
       </div>`;
   },
 
@@ -3850,11 +4222,12 @@ const Chronicle = {
     // Close menus when clicking anywhere outside
     document.addEventListener('click', closeAllMemberMenus, { once: false, capture: false });
 
-    // View member sheet (ST mode)
-    $$('.chronicle-view-sheet').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // Click member row → open sheet directly
+    $$('.chronicle-member-clickable').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('.member-menu-wrap')) return; // let hamburger handle its own clicks
         closeAllMemberMenus();
-        App.viewMemberCharacter(c.id, parseInt(btn.dataset.charId));
+        App.viewMemberCharacter(c.id, parseInt(row.dataset.charId));
       });
     });
 
@@ -3911,6 +4284,314 @@ const Chronicle = {
             $('#note-list').innerHTML = `<p class="chronicle-empty-state">No notes yet. Click <em>+ New Note</em> to write one.</p>`;
           }
         } catch { toast('Failed to delete note.', 'error'); }
+      });
+    });
+
+    // ── Chronicle custom content listeners (ST only) ─────────────────────────
+    this._attachChronCCListeners(c);
+  },
+
+  // ── Chronicle custom content listeners ────────────────────────────────────
+  _attachChronCCListeners(c) {
+    const SPHERE_NAMES_CC = ['Correspondence','Entropy','Forces','Life','Matter','Mind','Prime','Spirit','Time'];
+
+    // Helper: build edit form HTML for each type
+    const _mfFormHTML = (item = null, kind = 'merit') => {
+      const k = item ? item.kind : kind;
+      const CATS = ['Physical','Mental','Social','Supernatural'];
+      return `
+        <div class="chron-cc-form-inner">
+          <div class="chron-cc-form-row">
+            <input class="form-input chron-cc-f-name" placeholder="Name *" value="${item ? escHtml(item.name) : ''}" maxlength="60" />
+            <select class="form-input chron-cc-f-cat">
+              ${CATS.map(cat => `<option value="${cat}"${(item?.category||'Social')===cat?' selected':''}>${cat}</option>`).join('')}
+            </select>
+            <input class="form-input chron-cc-f-cost" placeholder="Cost (e.g. 1, 2, 1-3)" value="${item ? escHtml(item.cost) : '1'}" maxlength="30" style="width:110px" />
+            <input type="hidden" class="chron-cc-f-kind" value="${k}" />
+          </div>
+          <div class="chron-cc-form-row">
+            <textarea class="form-input chron-cc-f-desc" placeholder="Description (optional)" rows="3" maxlength="500">${item ? escHtml(item.description) : ''}</textarea>
+          </div>
+          <div class="chron-cc-form-actions">
+            <button class="btn-primary btn-sm chron-cc-f-save">Save</button>
+            <button class="btn-ghost btn-sm chron-cc-f-cancel">Cancel</button>
+          </div>
+        </div>`;
+    };
+
+    const _roteFormHTML = (item = null) => {
+      const sp = item ? (() => { try { return JSON.parse(item.spheres||'{}'); } catch { return {}; } })() : {};
+      const dotRows = SPHERE_NAMES_CC.map(s => {
+        const v = sp[s] || 0;
+        const dots = [1,2,3,4,5].map(i => `<span class="g-dot${i<=v?' filled':''}" data-sphere="${s}" data-val="${i}"></span>`).join('');
+        return `<div class="gcr-sphere-row"><span class="gcr-sphere-name">${s}</span><div class="g-sphere-dots gcr-dots" data-sphere="${s}" data-val="${v}">${dots}</div></div>`;
+      }).join('');
+      return `
+        <div class="chron-cc-form-inner">
+          <div class="chron-cc-form-row">
+            <input class="form-input chron-cc-f-name" placeholder="Name *" value="${item ? escHtml(item.name) : ''}" maxlength="60" />
+            <input class="form-input chron-cc-f-source" placeholder="Source (optional)" value="${item ? escHtml(item.source||'') : ''}" maxlength="100" style="width:160px" />
+          </div>
+          <div class="gcr-sphere-grid">${dotRows}</div>
+          <div class="chron-cc-form-row">
+            <textarea class="form-input chron-cc-f-desc" placeholder="Description (optional)" rows="3" maxlength="1000">${item ? escHtml(item.description) : ''}</textarea>
+          </div>
+          <div class="chron-cc-form-actions">
+            <button class="btn-primary btn-sm chron-cc-f-save">Save</button>
+            <button class="btn-ghost btn-sm chron-cc-f-cancel">Cancel</button>
+          </div>
+        </div>`;
+    };
+
+    const _bgFormHTML = (item = null) => `
+      <div class="chron-cc-form-inner">
+        <div class="chron-cc-form-row">
+          <input class="form-input chron-cc-f-name" placeholder="Name *" value="${item ? escHtml(item.name) : ''}" maxlength="60" />
+          <input type="number" class="form-input chron-cc-f-maxdots" placeholder="Max dots" value="${item ? item.max_dots : 5}" min="1" max="10" style="width:100px" />
+        </div>
+        <div class="chron-cc-form-row">
+          <textarea class="form-input chron-cc-f-desc" placeholder="Description (optional)" rows="3" maxlength="1000">${item ? escHtml(item.description) : ''}</textarea>
+        </div>
+        <div class="chron-cc-form-actions">
+          <button class="btn-primary btn-sm chron-cc-f-save">Save</button>
+          <button class="btn-ghost btn-sm chron-cc-f-cancel">Cancel</button>
+        </div>
+      </div>`;
+
+    const _wonderFormHTML = (item = null) => `
+      <div class="chron-cc-form-inner">
+        <div class="chron-cc-form-row">
+          <input class="form-input chron-cc-f-name" placeholder="Name *" value="${item ? escHtml(item.name) : ''}" maxlength="60" />
+          <input type="number" class="form-input chron-cc-f-level" placeholder="Level" value="${item ? item.level : 1}" min="1" max="10" style="width:90px" />
+        </div>
+        <div class="chron-cc-form-row">
+          <textarea class="form-input chron-cc-f-desc" placeholder="Description (optional)" rows="3" maxlength="1000">${item ? escHtml(item.description) : ''}</textarea>
+        </div>
+        <div class="chron-cc-form-actions">
+          <button class="btn-primary btn-sm chron-cc-f-save">Save</button>
+          <button class="btn-ghost btn-sm chron-cc-f-cancel">Cancel</button>
+        </div>
+      </div>`;
+
+    // Helper: collect sphere values from a rote form
+    const _collectSpheres = form => {
+      const sp = {};
+      form.querySelectorAll('.gcr-dots').forEach(row => {
+        const v = parseInt(row.dataset.val) || 0;
+        if (v > 0) sp[row.dataset.sphere] = v;
+      });
+      return sp;
+    };
+
+    // Helper: attach dot-click listeners inside a rote form
+    const _attachRoteDots = form => {
+      form.querySelectorAll('.g-dot').forEach(dot => {
+        dot.addEventListener('click', () => {
+          const row = dot.closest('.gcr-dots');
+          if (!row) return;
+          const val = parseInt(dot.dataset.val);
+          const cur = parseInt(row.dataset.val) || 0;
+          const newVal = cur === val ? 0 : val;
+          row.dataset.val = newVal;
+          row.querySelectorAll('.g-dot').forEach((d, i) => d.classList.toggle('filled', i+1 <= newVal));
+        });
+      });
+    };
+
+    // Helper: reload the detail view to pick up saved changes
+    const _reload = () => this.showDetail(c.id);
+
+    // Helper: show a form inside a group's form container
+    const _showForm = (listId, html, setupFn) => {
+      const formEl = $(`#${listId}-form`);
+      if (!formEl) return;
+      formEl.innerHTML = html;
+      formEl.style.display = '';
+      setupFn?.(formEl);
+      formEl.querySelector('.chron-cc-f-name')?.focus();
+      formEl.querySelector('.chron-cc-f-cancel').addEventListener('click', () => {
+        formEl.style.display = 'none'; formEl.innerHTML = '';
+      });
+    };
+
+    // ── Add buttons ──────────────────────────────────────────────────────────
+    $$('.chron-cc-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const kind = btn.dataset.kind || 'merit';
+        if (type === 'mf') {
+          _showForm('chron-cc-mf', _mfFormHTML(null, kind), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/merits-flaws`, {
+                  method: 'POST', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({
+                    kind: formEl.querySelector('.chron-cc-f-kind').value,
+                    name, cost: formEl.querySelector('.chron-cc-f-cost').value.trim() || '1',
+                    category: formEl.querySelector('.chron-cc-f-cat').value,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim(),
+                  }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'rote') {
+          _showForm('chron-cc-rotes', _roteFormHTML(), formEl => {
+            _attachRoteDots(formEl);
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/rotes`, {
+                  method: 'POST', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, spheres: _collectSpheres(formEl),
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim(),
+                    source: formEl.querySelector('.chron-cc-f-source').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'bg') {
+          _showForm('chron-cc-bgs', _bgFormHTML(), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/backgrounds`, {
+                  method: 'POST', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, max_dots: parseInt(formEl.querySelector('.chron-cc-f-maxdots').value)||5,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'wonder') {
+          _showForm('chron-cc-wonders', _wonderFormHTML(), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/wonders`, {
+                  method: 'POST', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, level: parseInt(formEl.querySelector('.chron-cc-f-level').value)||1,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        }
+      });
+    });
+
+    // ── Edit buttons ─────────────────────────────────────────────────────────
+    $$('.chron-cc-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        const id   = parseInt(btn.dataset.id);
+        const cc   = (this._currentData?.customContent) || {};
+
+        if (type === 'mf') {
+          const item = (cc.merits_flaws||[]).find(x => x.id === id); if (!item) return;
+          const listId = 'chron-cc-mf';
+          _showForm(listId, _mfFormHTML(item), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/merits-flaws/${id}`, {
+                  method: 'PUT', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ kind: item.kind, name, cost: formEl.querySelector('.chron-cc-f-cost').value.trim()||'1',
+                    category: formEl.querySelector('.chron-cc-f-cat').value,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'rote') {
+          const item = (cc.rotes||[]).find(x => x.id === id); if (!item) return;
+          _showForm('chron-cc-rotes', _roteFormHTML(item), formEl => {
+            _attachRoteDots(formEl);
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/rotes/${id}`, {
+                  method: 'PUT', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, spheres: _collectSpheres(formEl),
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim(),
+                    source: formEl.querySelector('.chron-cc-f-source').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'bg') {
+          const item = (cc.backgrounds||[]).find(x => x.id === id); if (!item) return;
+          _showForm('chron-cc-bgs', _bgFormHTML(item), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/backgrounds/${id}`, {
+                  method: 'PUT', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, max_dots: parseInt(formEl.querySelector('.chron-cc-f-maxdots').value)||5,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        } else if (type === 'wonder') {
+          const item = (cc.wonders||[]).find(x => x.id === id); if (!item) return;
+          _showForm('chron-cc-wonders', _wonderFormHTML(item), formEl => {
+            formEl.querySelector('.chron-cc-f-save').addEventListener('click', async () => {
+              const name = formEl.querySelector('.chron-cc-f-name').value.trim();
+              if (!name) { toast('Name is required.', 'error'); return; }
+              try {
+                const r = await fetch(`/api/chronicles/${c.id}/custom/wonders/${id}`, {
+                  method: 'PUT', headers: {'Content-Type':'application/json'},
+                  body: JSON.stringify({ name, level: parseInt(formEl.querySelector('.chron-cc-f-level').value)||1,
+                    description: formEl.querySelector('.chron-cc-f-desc').value.trim() }),
+                });
+                if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+                _invalidateChronicleCustom(); _reload();
+              } catch (e) { toast(e.message || 'Failed to save.', 'error'); }
+            });
+          });
+        }
+      });
+    });
+
+    // ── Delete buttons ───────────────────────────────────────────────────────
+    $$('.chron-cc-del-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const type = btn.dataset.type;
+        const id   = parseInt(btn.dataset.id);
+        const item = btn.closest('.chron-cc-item');
+        const name = item?.querySelector('.chron-cc-item-name')?.textContent || 'this item';
+        if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        const urlMap = { mf: 'merits-flaws', rote: 'rotes', bg: 'backgrounds', wonder: 'wonders' };
+        try {
+          const r = await fetch(`/api/chronicles/${c.id}/custom/${urlMap[type]}/${id}`, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _invalidateChronicleCustom();
+          item?.remove();
+          toast(`"${name}" deleted.`);
+        } catch { toast('Failed to delete.', 'error'); }
       });
     });
   },
@@ -10711,6 +11392,15 @@ const Advancement = {
     const spent     = this._xpSpent();
     const allowBg   = this._effectiveAllowBgXp();
 
+    // Build pending map: maps composite key → { logIdx } for undoable (not yet submitted/finalized) spends
+    const xpLog = Array.isArray(char.xp_log) ? char.xp_log : [];
+    this._pendingMap = {};
+    xpLog.forEach((e, idx) => {
+      if (e.type !== 'spend' || e.submitted || e.finalized) return;
+      const mapKey = `${e.trait_group}|${e.trait_col||''}|${e.trait_key}`;
+      this._pendingMap[mapKey] = { logIdx: idx };
+    });
+
     const bgControlHTML = char.chronicle_id
       ? `<p class="adv-info-note">Background XP spending is <strong>${allowBg ? 'enabled' : 'disabled'}</strong> by the Chronicle Storyteller.</p>`
       : `<label class="adv-toggle-label">
@@ -10748,7 +11438,9 @@ const Advancement = {
               <span class="adv-xp-num${remaining < 0 ? ' adv-xp-negative' : ''}">${remaining}</span>
               <span class="adv-xp-label">XP Remaining</span>
             </div>
-            <button class="btn-primary" id="btn-award-xp">+ Award XP</button>
+            ${char.chronicle_id
+              ? `<span class="adv-chronicle-xp-note">XP awarded by Storyteller</span>`
+              : `<button class="btn-primary" id="btn-award-xp">+ Award XP</button>`}
           </div>
 
           ${this._attrSection(char, remaining)}
@@ -10843,17 +11535,25 @@ const Advancement = {
       : `<span class="adv-cost${canAfford ? '' : ' adv-unaffordable'}">${cost} XP</span>`;
 
     const btn = (atMax || cost == null) ? '' :
-      `<button class="btn-sm adv-raise-btn"
+      `<button class="btn-ghost btn-sm adv-raise-btn"
         data-group="${traitGroup}" data-col="${traitCol || ''}"
         data-key="${escHtml(traitKey)}" data-label="${escHtml(traitLabel.replace(/<[^>]+>/g,''))}"
         data-from="${currentVal}" data-to="${currentVal + 1}" data-cost="${cost}"
         ${canAfford ? '' : 'disabled'}>Raise</button>`;
+
+    // Show an inline undo button when a pending (un-submitted, un-finalized) spend exists for this trait
+    const mapKey      = `${traitGroup}|${traitCol||''}|${traitKey}`;
+    const pendingEntry = this._pendingMap && this._pendingMap[mapKey];
+    const undoBtn     = pendingEntry
+      ? `<button class="adv-undo-inline-btn" data-log-idx="${pendingEntry.logIdx}" title="Undo this raise">↩</button>`
+      : '';
 
     return `<div class="adv-trait-row">
       <span class="adv-trait-name">${traitLabel}</span>
       <span class="dots readonly">${dotSpans}</span>
       ${costLabel}
       ${btn}
+      ${undoBtn}
     </div>`;
   },
 
@@ -10944,6 +11644,11 @@ const Advancement = {
 
     // Undo buttons inside the history panel
     document.querySelectorAll('.adv-undo-btn').forEach(btn => {
+      btn.addEventListener('click', () => this._undoSpend(parseInt(btn.dataset.logIdx)));
+    });
+
+    // Inline undo buttons on trait rows
+    document.querySelectorAll('.adv-undo-inline-btn').forEach(btn => {
       btn.addEventListener('click', () => this._undoSpend(parseInt(btn.dataset.logIdx)));
     });
 
