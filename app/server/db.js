@@ -357,6 +357,19 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_cbg_user ON custom_backgrounds(user_id)`);
 
+// ── User-defined custom wonders ──────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_wonders (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    level       INTEGER NOT NULL DEFAULT 1,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_cw_user ON custom_wonders(user_id)`);
+
 // ── Chronicle-level custom content ───────────────────────────────────────────
 // Created by Storytellers; visible to all chronicle members in the Grimoire.
 db.exec(`
