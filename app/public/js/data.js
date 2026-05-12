@@ -29,6 +29,45 @@ const M20 = {
     flaw:        { label: 'Flaw (bonus)', cost: 'as listed', maxBonus: 7 },
   },
 
+  // ─── Mortal Character Creation (Hunters Hunted II, p. 35) ────────────────
+  CREATION_MORTAL: {
+    attrPoints:   { primary: 6, secondary: 4, tertiary: 3 },        // standard spread
+    attrPointsAlt:{ primary: 7, secondary: 5, tertiary: 3 },        // optional ST-blessed spread
+    abilityPoints:{ primary: 13, secondary: 9, tertiary: 5 },
+    abilityMax:   3,
+    backgroundDots: 5,
+    virtuePoints: 7,            // distributed among 3 virtues; each auto-1
+    startWillpower: null,       // derived: equals Courage
+    startHumanity:  null,       // derived: equals Conscience + Self-Control
+    freebiePoints: 21,
+  },
+
+  FREEBIE_COSTS_MORTAL: {
+    attribute:   { label: 'Attribute',   cost: 5 },
+    ability:     { label: 'Ability',     cost: 2 },
+    newAbility:  { label: 'New Ability', cost: 3 },
+    background:  { label: 'Background',  cost: 1 },
+    virtue:      { label: 'Virtue',      cost: 2 },
+    humanity:    { label: 'Humanity',    cost: 2 },
+    willpower:   { label: 'Willpower',   cost: 1 },
+    numina:      { label: 'Numina',      cost: 7 },     // Phase 2 — UI not exposed yet
+    merit:       { label: 'Merit',       cost: 'as listed' },
+    flaw:        { label: 'Flaw (bonus)', cost: 'as listed', maxBonus: 7 },
+  },
+
+  VIRTUES: [
+    { id: 'conscience',   name: 'Conscience',   description: 'Your sense of right and wrong, and the discipline to do the right thing even when it costs you.' },
+    { id: 'self_control', name: 'Self-Control', description: 'Your ability to master your own impulses, fears, and desires under pressure.' },
+    { id: 'courage',      name: 'Courage',      description: 'Your willingness to face danger and adversity head-on without fleeing or freezing.' },
+  ],
+
+  // Backgrounds appropriate to mortal hunters (HH II, p. 37 — drops Mage- and
+  // Vampire-specific Backgrounds; Armory / Base of Operations / Guide are Phase 2).
+  BACKGROUNDS_MORTAL_IDS: [
+    'allies', 'alternateId', 'contacts', 'fame', 'influence',
+    'mentor', 'resources', 'retainers', 'status',
+  ],
+
   XP_COSTS: {
     newAbility:     3,
     newSphere:      10,

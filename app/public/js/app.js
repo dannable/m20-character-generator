@@ -1604,7 +1604,24 @@ const App = {
 
   startNewCharacter() {
     this.currentCharId = null;
-    Creator.init();
+    // Step 0 — let the user pick a character type before entering the wizard.
+    this.showPage('char-type');
+    this._attachCharTypePicker();
+  },
+
+  _attachCharTypePicker() {
+    document.querySelectorAll('#page-char-type .char-type-card').forEach(card => {
+      card.onclick = () => {
+        const t = card.dataset.charType;
+        if (t !== 'mortal' && t !== 'awakened') return;
+        this.newCharacterOfType(t);
+      };
+    });
+  },
+
+  newCharacterOfType(charType) {
+    this.currentCharId = null;
+    Creator.init({ charType });
     this.showPage('creator');
   },
 
@@ -6697,22 +6714,36 @@ function parseCostOptions(cost) {
    ═══════════════════════════════════════════════════════════════ */
 const Creator = {
   step: 0,
-  char: null,   // working character data
-  editId: null, // set if editing existing
+  char: null,    // working character data
+  editId: null,  // set if editing existing
+  charType: 'awakened', // 'awakened' (Mage M20) | 'mortal' (Hunters Hunted II)
 
-  STEPS: [
-    'Concept & Identity',
-    'Attributes',
-    'Abilities',
-    'Advantages',
-    'Focus & Practice',
-    'Spheres',
-    'Finishing Touches',
+  STEPS_AWAKENED: [
+    { id: 'concept',    label: 'Concept & Identity', renderer: 'renderStep0' },
+    { id: 'attributes', label: 'Attributes',         renderer: 'renderStep1' },
+    { id: 'abilities',  label: 'Abilities',          renderer: 'renderStep2' },
+    { id: 'advantages', label: 'Advantages',         renderer: 'renderStep3' },
+    { id: 'focus',      label: 'Focus & Practice',   renderer: 'renderStep4' },
+    { id: 'spheres',    label: 'Spheres',            renderer: 'renderStep5' },
+    { id: 'finishing',  label: 'Finishing Touches',  renderer: 'renderStep6' },
+  ],
+  STEPS_MORTAL: [
+    { id: 'concept',    label: 'Concept',              renderer: 'renderStep0Mortal' },
+    { id: 'attributes', label: 'Attributes',           renderer: 'renderStep1Mortal' },
+    { id: 'abilities',  label: 'Abilities',            renderer: 'renderStep2Mortal' },
+    { id: 'advantages', label: 'Advantages & Virtues', renderer: 'renderStep3Mortal' },
+    { id: 'finishing',  label: 'Finishing Touches',    renderer: 'renderStep4Mortal' },
   ],
 
-  defaultChar() {
-    return {
+  // Active step list for the current charType. Use everywhere instead of STEPS_*.
+  _steps() {
+    return this.charType === 'mortal' ? this.STEPS_MORTAL : this.STEPS_AWAKENED;
+  },
+
+  defaultChar(charType = 'awakened') {
+    const base = {
       name: '', player: '', chronicle: '', concept: '',
+      character_type: charType,
       affiliation: 'Traditions', tradition: '', faction: '',
       essence: '', nature: '', demeanor: '',
       // Attributes
@@ -6740,25 +6771,55 @@ const Creator = {
       specialties: {},
       custom_ability_names: {},
       customArchetypes: [],
+      // Mortal-only — always present so server round-trip is consistent
+      virtues: charType === 'mortal' ? { conscience: 1, self_control: 1, courage: 1 } : {},
+      humanity: charType === 'mortal' ? 2 : 0,
     };
+    if (charType === 'mortal') {
+      base.affiliation = '';   // mortals have no Tradition affiliation
+      base.willpower = 1;       // mortals derive WP from Courage (1 by default)
+      base.arete = 0;           // mortals have no Arete/Spheres
+    }
+    return base;
   },
 
-  init() {
+  init(opts = {}) {
     this.step = 0;
+    this.charType = opts.charType === 'mortal' ? 'mortal' : 'awakened';
     this._lockedBaselines = null;
-    this.char = this.defaultChar();
+    this.char = this.defaultChar(this.charType);
     this.editId = null;
+    this._renderSidebarSteps();
     this.renderStep();
     this.updateSidebar();
     this.updateFreebieDisplay();
   },
 
+  // Render sidebar step list dynamically based on the current charType.
+  _renderSidebarSteps() {
+    const ol = document.getElementById('step-list');
+    if (!ol) return;
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    ol.innerHTML = this._steps().map((s, i) => `
+      <li class="step-item" data-step="${i}">
+        <span class="step-num">${ROMAN[i] || (i + 1)}</span>
+        <span class="step-label">${s.label}</span>
+      </li>`).join('');
+    // Update the sidebar ref tag too
+    const ref = document.querySelector('.creator-sidebar .sidebar-ref');
+    if (ref) ref.textContent = this.charType === 'mortal' ? 'Hunters Hunted II p. 35' : 'M20 p. 254–260';
+    // The step-list click handler is bound globally on DOMContentLoaded and uses
+    // event delegation on the <ol>, so it still works after this innerHTML swap.
+  },
+
   loadCharacter(char) {
     this.step = 0;
+    this.charType = (char.character_type === 'mortal') ? 'mortal' : 'awakened';
     this._lockedBaselines = null;
     this.char = {
-      ...this.defaultChar(),
+      ...this.defaultChar(this.charType),
       ...char,
+      character_type: this.charType,
       instruments: Array.isArray(char.instruments) ? char.instruments : [],
       // Derive in-memory practices array from stored comma-separated practice string
       practices: Array.isArray(char.practices) && char.practices.length
@@ -6789,6 +6850,7 @@ const Creator = {
         rating:      r.rating      || 1,
       }));
     }
+    this._renderSidebarSteps();
     this.renderStep();
     this.updateSidebar();
     // Finalized characters: restore saved creation_baselines so XP spending on traits
@@ -6865,7 +6927,22 @@ const Creator = {
     const old = $('#step-content');
     const content = old.cloneNode(false);
     old.parentNode.replaceChild(content, old);
-    content.innerHTML = this[`renderStep${this.step}`]();
+    const steps = this._steps();
+    const idx = Math.max(0, Math.min(this.step, steps.length - 1));
+    this.step = idx;  // clamp in case charType change shortened the list
+    const desc = steps[idx];
+    const rendererName = desc?.renderer || `renderStep${this.step}`;
+    const renderer = this[rendererName];
+    if (typeof renderer === 'function') {
+      content.innerHTML = renderer.call(this);
+    } else {
+      // Fallback during partial rollout (mortal renderers not yet implemented)
+      content.innerHTML = `<div class="step-stub">
+        <h2 style="color:var(--gold-mid)">${escHtml(desc.label)}</h2>
+        <p style="color:var(--text-faint)">This step of the mortal builder is still under construction. Phase 1 is rolling out incrementally — check back soon.</p>
+        <p style="color:var(--text-faint);font-size:0.85rem">In the meantime, you can save a draft and return to the dashboard.</p>
+      </div>`;
+    }
     this.attachStepListeners();
     this.updateNav();
     this.updateSidebar();
@@ -6876,7 +6953,7 @@ const Creator = {
     const next = $('#btn-next');
     const save = $('#btn-save');
     back.style.visibility = this.step > 0 ? 'visible' : 'hidden';
-    next.textContent = this.step === this.STEPS.length - 1 ? 'Finalize Character ✓' : 'Next →';
+    next.textContent = this.step === this._steps().length - 1 ? 'Finalize Character ✓' : 'Next →';
     if (save) {
       const complete = this.isCharacterComplete();
       save.textContent = complete ? 'Finalize' : 'Save Draft';
@@ -6962,7 +7039,8 @@ const Creator = {
 
   // True when all required fields across all steps are filled
   isCharacterComplete() {
-    for (let s = 0; s <= 5; s++) {
+    const last = this._steps().length - 1; // skip the final Finishing step in the check
+    for (let s = 0; s < last; s++) {
       if (this.getStepIncomplete(s).length > 0) return false;
     }
     return true;
@@ -7099,16 +7177,21 @@ const Creator = {
 
   prevStep() {
     if (this.step > 0) {
-      if (this.step === 6) this._lockedBaselines = null; // re-lock next time step 6 is entered
+      const steps = this._steps();
+      // Re-lock baselines next time we re-enter the final step
+      if (this.step === steps.length - 1) this._lockedBaselines = null;
       this.step--;
       this.renderStep();
     }
   },
 
   nextStep() {
-    if (this.step < this.STEPS.length - 1) {
+    const steps = this._steps();
+    if (this.step < steps.length - 1) {
       this.step++;
-      if (this.step === 6) this._lockBaselines(); // lock creation baselines on entering step 6
+      // Lock creation baselines on entering the final (Finishing) step.
+      // For Mage that's step 6; for Mortal it's step 4.
+      if (this.step === steps.length - 1) this._lockBaselines();
       this.renderStep();
       // Push a history entry so the browser back button steps back through creation
       const stepState = { page: 'creator', step: this.step };

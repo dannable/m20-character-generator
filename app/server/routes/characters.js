@@ -5,7 +5,7 @@ const db      = require('../db');
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
   'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-  'creation_baselines','wonders','gear','weapons'];
+  'creation_baselines','wonders','gear','weapons','virtues'];
 
 const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons']);
 
@@ -55,6 +55,7 @@ const EDITABLE_FIELDS = new Set([
   'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
   'age','gender','hair','eyes','height','weight','ethnicity','gear','weapons',
+  'character_type','virtues','humanity',
 ]);
 
 // ── computeDiff: produce a human-readable diff for a pending edit ─────────────
