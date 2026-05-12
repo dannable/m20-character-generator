@@ -236,7 +236,7 @@ router.get('/:id/members/:charId', (req, res) => {
     const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
       'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
       'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-      'creation_baselines','wonders','gear','weapons'];
+      'creation_baselines','wonders','gear','weapons','virtues'];
     const ARRAY_FIELDS = new Set(['instruments','wonders','gear','weapons']);
     const parsed = { ...char };
     JSON_FIELDS.forEach(f => {
@@ -377,6 +377,7 @@ router.post('/:id/pending-edits/:editId/review', (req, res) => {
         'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
         'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
         'freebie_spent','attr_priority','ability_priority','description','notes',
+        'character_type','virtues','humanity',
       ]);
       const snapshot = JSON.parse(edit.char_snapshot);
       const allowed  = Object.keys(snapshot).filter(k => EDITABLE.has(k));

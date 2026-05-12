@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css?v=48" />
+  <link rel="stylesheet" href="/css/style.css?v=51" />
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -213,6 +213,35 @@
   </section>
 
   <!-- ─── CHARACTER CREATOR PAGE ────────────────────────────────── -->
+  <!-- ─── CHARACTER TYPE PICKER (Step 0) ────────────────────────────────── -->
+  <section id="page-char-type" class="page">
+    <div class="char-type-container">
+      <div class="char-type-header">
+        <h1 class="char-type-title">Choose Your Path</h1>
+        <p class="char-type-subtitle">What kind of character will you create?</p>
+      </div>
+      <div class="char-type-cards">
+        <button class="char-type-card" data-char-type="awakened">
+          <div class="char-type-card-icon">✦</div>
+          <div class="char-type-card-name">Awakened</div>
+          <div class="char-type-card-rules">Mage: The Ascension 20th</div>
+          <div class="char-type-card-desc">A Tradition mage, Technocrat, or Disparate — Awakened to the True Magick and capable of bending reality through Will and Sphere.</div>
+          <div class="char-type-card-cta">Begin Awakening →</div>
+        </button>
+        <button class="char-type-card" data-char-type="mortal">
+          <div class="char-type-card-icon">☥</div>
+          <div class="char-type-card-name">Mortal</div>
+          <div class="char-type-card-rules">The Hunters Hunted II</div>
+          <div class="char-type-card-desc">A hunter, witness, or ordinary soul. Mortal but no less dangerous — your faith, training, and resolve are your only edge against the Damned.</div>
+          <div class="char-type-card-cta">Take Up the Hunt →</div>
+        </button>
+      </div>
+      <div class="char-type-footer">
+        <button class="btn-ghost" onclick="App.showDashboard()">← Cancel</button>
+      </div>
+    </div>
+  </section>
+
   <section id="page-creator" class="page">
     <div class="creator-layout">
 
@@ -383,18 +412,51 @@
 
 <!-- ═══════════════════════════════════════════════════════ WIZARD EASTER EGG -->
 <img id="wizard-darrell" src="/darrell_cartoon.png" alt="" aria-hidden="true">
+<div id="wizard-balloon" aria-hidden="true"><span class="wizard-balloon-text"></span></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
-<script src="/js/data.js?v=39"></script>
-<script src="/js/app.js?v=48"></script>
+<script src="/js/data.js?v=40"></script>
+<script src="/js/app.js?v=49"></script>
 <script>
 (function() {
-  var wizard = document.getElementById('wizard-darrell');
+  var wizard      = document.getElementById('wizard-darrell');
+  var balloon     = document.getElementById('wizard-balloon');
+  var balloonText = balloon ? balloon.querySelector('.wizard-balloon-text') : null;
   var visible = false;
   var hideTimer = null;
   var TRIGGER_X = 180;   // px from left edge
   var TRIGGER_Y = 180;   // px from bottom edge
+
+  // What's new lately — randomly chosen for Darrell's speech balloon.
+  // Add a new entry each time a notable feature ships.
+  var RECENT_FEATURES = [
+    "Have you tried the new Custom Wonders in the Grimoire? Conjure away!",
+    "You can drop a Wonder straight into Gear & Equipment now — no background dots required.",
+    "Edit Character finally lets you tinker with your Specialties. About time!",
+    "Your sheet now has proper Description, Combat, and Gear sections. Fancy!",
+    "Storytellers can publish custom Merits, Flaws, Rotes, Backgrounds, and Wonders to a whole Chronicle.",
+    "The dashboard got a face-lift. Marvelous, isn't it?",
+    "Favourite a character on your dashboard with the little star ✦.",
+    "The Wonder picker is fully searchable — every book in the catalogue at your fingertips.",
+    "An XP attention strip on the dashboard makes sure you never miss an award.",
+    "Every rote, merit, and flaw — all waiting for you in the Grimoire."
+  ];
+  var lastIdx = -1;
+
+  function showBalloon() {
+    if (!balloon || !balloonText || !RECENT_FEATURES.length) return;
+    var idx;
+    do { idx = Math.floor(Math.random() * RECENT_FEATURES.length); }
+    while (idx === lastIdx && RECENT_FEATURES.length > 1);
+    lastIdx = idx;
+    balloonText.textContent = RECENT_FEATURES[idx];
+    balloon.classList.add('wizard-balloon-visible');
+  }
+
+  function hideBalloon() {
+    if (balloon) balloon.classList.remove('wizard-balloon-visible');
+  }
 
   function show() {
     if (visible) return;
@@ -407,6 +469,7 @@
     if (!visible) return;
     visible = false;
     wizard.classList.remove('wizard-visible');
+    hideBalloon();
   }
 
   document.addEventListener('mousemove', function(e) {
@@ -433,6 +496,16 @@
       }, 1200);
     }
   });
+
+  // Auto-show the balloon when the wizard finishes sliding in.
+  // (transitionend fires for slide-out too — gated on `visible` so we only
+  // show when he just arrived, never as he leaves.)
+  if (wizard) {
+    wizard.addEventListener('transitionend', function(e) {
+      if (e.propertyName !== 'transform') return;
+      if (visible) showBalloon();
+    });
+  }
 })();
 </script>
 </body>

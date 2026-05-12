@@ -250,6 +250,15 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN ethnicity TEXT DEFAULT ''`); } 
 try { db.exec(`ALTER TABLE characters ADD COLUMN gear TEXT DEFAULT '[]'`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN weapons TEXT DEFAULT '[]'`); } catch {}
 
+// ── Character type & Mortal/Hunter-specific traits ───────────────────────────
+// character_type: 'awakened' (Mage, default for all existing rows) | 'mortal' (Hunters Hunted)
+// Future values may include 'vampire', 'werewolf', etc.
+try { db.exec(`ALTER TABLE characters ADD COLUMN character_type TEXT DEFAULT 'awakened'`); } catch {}
+// Virtues (mortal only): { conscience, self_control, courage } — auto-1 each
+try { db.exec(`ALTER TABLE characters ADD COLUMN virtues TEXT DEFAULT '{}'`); } catch {}
+// Humanity (mortal only): derived from Conscience + Self-Control, persisted for fast read
+try { db.exec(`ALTER TABLE characters ADD COLUMN humanity INTEGER DEFAULT 0`); } catch {}
+
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS chronicle_notes (
