@@ -6946,9 +6946,13 @@ const Creator = {
     return { attrAllocs, abilAllocs, bgPool, sphPool };
   },
 
-  renderStep() {
-    // Scroll to top of page when switching steps
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderStep(opts = {}) {
+    // Scroll to top of page when switching steps, but allow callers (e.g. a
+    // dot click inside the current step) to opt out to preserve the user's
+    // scroll position.
+    if (opts.scroll !== false) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     // Replace the element with a fresh clone to clear any stacked event listeners
     // from previous renders — otherwise delegated handlers accumulate and fire
     // multiple times, causing toggles to cancel each other out.
@@ -8841,11 +8845,19 @@ const Creator = {
      5-step flow: Concept → Attributes → Abilities → Advantages → Finishing
      ══════════════════════════════════════════════════════════════ */
 
-  // Shared helper: render a small read-only attribute pool counter
-  _mortalPoolCounter(label, used, total) {
+  // Shared helper: render a small read-only allocation pool counter.
+  // costPerDot: when used > total, the overage is shown as freebies-spent
+  // (in purple) instead of a negative number. Pass 0 to disable.
+  _mortalPoolCounter(label, used, total, costPerDot = 0) {
     const rem = total - used;
-    const cls = rem < 0 ? 'pool-over' : (rem === 0 ? 'pool-zero' : '');
-    return `<span class="pool-counter ${cls}"><span class="pool-label">${label}</span> <strong>${rem}</strong> / ${total}</span>`;
+    if (rem >= 0) {
+      const cls = rem === 0 ? 'pool-zero' : '';
+      return `<span class="pool-counter ${cls}"><span class="pool-label">${label}</span> <strong>${rem}</strong> / ${total}</span>`;
+    }
+    // Over-allocation — show freebies spent on the overage in purple.
+    const over = -rem;
+    const fbCost = over * (costPerDot || 0);
+    return `<span class="pool-counter pool-freebie"><span class="pool-label">${label}</span> <strong>0</strong> / ${total} <span class="pool-freebie-cost">+${fbCost} freebie${fbCost !== 1 ? 's' : ''}</span></span>`;
   },
 
   // Shared helper: render the priority sorter (P/S/T) for a category set.
@@ -8859,24 +8871,43 @@ const Creator = {
       ...M20.ARCHETYPES,
       ...c.customArchetypes.map(ca => ({ ...ca, isCustom: true })),
     ];
-    const cards = allArchetypes.map(a => {
+    const archView = UiPrefs.get('archetypeView', 'card');
+
+    // Reuse Awakened class names so the existing view-toggle, N/D click,
+    // custom-archetype form, and delete handlers all fire for mortal too.
+    const archetypeCards = allArchetypes.map(a => {
       const isNature   = c.nature   === a.name;
       const isDemeanor = c.demeanor === a.name;
       const deleteBtn  = a.isCustom
         ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">×</button>`
         : '';
+      if (archView === 'list') {
+        const classes = ['archetype-list-row', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
+        const tipParts = [a.description, a.willpower ? `Willpower: ${a.willpower}` : ''].filter(Boolean);
+        const tipAttr  = tipParts.length ? ` data-tip="${tipParts.join(' · ').replace(/"/g, '&quot;')}"` : '';
+        return `
+          <div class="${classes}" data-archetype="${a.name}">
+            <div class="archetype-nd-row" style="margin-bottom:0;flex-shrink:0">
+              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
+              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+              ${deleteBtn}
+            </div>
+            <span class="archetype-list-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</span>
+            ${tipParts.length ? `<span class="info-tip"${tipAttr}>?</span>` : ''}
+          </div>`;
+      }
       const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
       return `
-      <div class="${classes}" data-archetype="${a.name}">
-        <div class="archetype-name">${a.name}</div>
-        <div class="archetype-desc">${a.description}</div>
-        ${a.willpower ? `<div class="archetype-wp">Willpower: ${a.willpower}</div>` : ''}
-        <div class="archetype-nd-row">
-          <button class="archetype-nd-btn nd-n${isNature   ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature"   title="Set as Nature">Nature</button>
-          <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">Demeanor</button>
-          ${deleteBtn}
-        </div>
-      </div>`;
+        <div class="${classes}" data-archetype="${a.name}">
+          <div class="archetype-nd-row">
+            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
+            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+            ${deleteBtn}
+          </div>
+          <div class="archetype-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</div>
+          ${a.willpower ? `<div class="archetype-wp">${a.willpower}</div>` : ''}
+          ${a.description ? `<div class="archetype-desc">${a.description}</div>` : ''}
+        </div>`;
     }).join('');
 
     return `
@@ -8884,36 +8915,96 @@ const Creator = {
         '"It takes uncommon strength of will to fight monsters alone in the night."',
         'Choose your hunter\'s concept, motivation, and the two masks they wear: Nature (inner self) and Demeanor (outward face).')}
 
-      <div class="step-section">
-        <div class="step-section-title">Identity</div>
-        <div class="creator-grid-2">
-          <div class="form-field"><label>Name</label>
-            <input class="form-input" id="f-name" type="text" value="${escHtml(c.name || '')}" placeholder="Hunter's name…" maxlength="80"></div>
-          <div class="form-field"><label>Player</label>
-            <input class="form-input" id="f-player" type="text" value="${escHtml(c.player || '')}" placeholder="Your name (optional)" maxlength="80"></div>
-          <div class="form-field"><label>Chronicle</label>
-            <input class="form-input" id="f-chronicle" type="text" value="${escHtml(c.chronicle || '')}" placeholder="Chronicle name (optional)" maxlength="80"></div>
-          <div class="form-field"><label>Concept</label>
-            <input class="form-input" id="f-concept" type="text" value="${escHtml(c.concept || '')}" placeholder="e.g. discharged soldier, struggling vitae addict, militant priest" maxlength="100"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Character Name</label>
+          <input type="text" id="f-name" value="${escHtml(c.name || '')}" placeholder="Your hunter's name" />
+        </div>
+        <div class="form-group">
+          <label>Player Name</label>
+          <input type="text" id="f-player" value="${escHtml(c.player || '')}" placeholder="Your name" />
+        </div>
+        <div class="form-group">
+          <label>Chronicle</label>
+          ${c.chronicle_id
+            ? `<input type="text" id="f-chronicle" value="${escHtml(c.linked_chronicle_name || c.chronicle || '')}" readonly class="form-input-readonly" />`
+            : `<input type="text" id="f-chronicle" value="${escHtml(c.chronicle || '')}" placeholder="Story name" />`
+          }
+          ${App.currentUser?.role === 'guest' ? '' : c.chronicle_id
+            ? `<div class="chronicle-linked-notice">
+                 <span class="chronicle-linked-tick">✓</span>
+                 Linked to <strong>${escHtml(c.linked_chronicle_name || c.chronicle || 'a Chronicle')}</strong>
+                 <button type="button" class="btn-ghost btn-sm" id="btn-unlink-chronicle">Unlink</button>
+               </div>`
+            : `<div class="join-code-row">
+                 <label class="join-code-label">
+                   Join Code
+                   <span class="info-tip" data-tip="Enter a 5-character code to link this character to a Chronicle. Ask your Storyteller for the code.">?</span>
+                 </label>
+                 <div class="join-code-input-wrap">
+                   <input type="text" id="f-join-code" maxlength="5"
+                     value="${escHtml(c._join_code || '')}"
+                     placeholder="XXXXX"
+                     autocomplete="off"
+                     spellcheck="false"
+                     style="text-transform:uppercase;letter-spacing:0.15em;width:7rem"
+                   />
+                   <span id="join-code-status" class="join-code-status"></span>
+                 </div>
+               </div>`
+          }
+        </div>
+        <div class="form-group">
+          <label>Concept
+            <span class="info-tip" data-tip="A brief phrase that captures who your hunter is — e.g. 'discharged soldier with PTSD' or 'reformed cultist'.">?</span>
+          </label>
+          <input type="text" id="f-concept" value="${escHtml(c.concept || '')}" placeholder="e.g. discharged soldier, struggling vitae addict, militant priest" />
         </div>
       </div>
 
       <div class="step-section">
-        <div class="step-section-title">Motivation</div>
+        <div class="step-section-title">Motivation
+          <span class="info-tip" data-tip="Why does your hunter risk acceptance, freedom, and life to fight the Damned? Saved to Notes.">?</span>
+        </div>
         <p class="step-instructions" style="margin-top:0">How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?</p>
         <textarea class="form-input" id="f-mortal-motivation" rows="4" maxlength="1000"
           placeholder="A few sentences describing what drives your hunter…">${escHtml(c.notes || '')}</textarea>
-        <p class="step-note">Saved to your character's Notes. You can refine this later from the sheet.</p>
       </div>
 
-      <div class="step-section">
-        <div class="step-section-title">Nature &amp; Demeanor</div>
-        <p class="step-instructions" style="margin-top:0">Click <strong>Nature</strong> for your inner self; click <strong>Demeanor</strong> for the mask you show the world. They can be the same archetype.</p>
-        <div class="archetype-card-grid">${cards}</div>
-        <button class="btn-ghost btn-sm" id="btn-add-custom-archetype" style="margin-top:0.75rem">＋ Add Custom Archetype</button>
-        <div class="mortal-nd-current">
-          <span><strong>Nature:</strong> ${escHtml(c.nature || '—')}</span>
-          <span><strong>Demeanor:</strong> ${escHtml(c.demeanor || '—')}</span>
+      <div class="ornate-divider">— Nature &amp; Demeanor —</div>
+      <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.6rem">
+        <strong style="color:var(--text-mid)">Nature</strong> is your true self — fulfilling it is how you regain Willpower.
+        <strong style="color:var(--text-mid)">Demeanor</strong> is the face you show the world.
+        <span class="page-ref">V20 p. 87–96</span>
+      </p>
+      <div class="archetype-nd-legend">
+        <span id="archetype-nd-legend-nature"><span class="nd-legend-n">N</span> Nature${c.nature ? ` — <em>${c.nature}</em>` : ''}</span>
+        <span id="archetype-nd-legend-demeanor"><span class="nd-legend-d">D</span> Demeanor${c.demeanor ? ` — <em>${c.demeanor}</em>` : ''}</span>
+        <span style="margin-left:auto">
+          <span class="view-toggle">
+            <span class="view-toggle-label">View:</span>
+            <button class="view-toggle-btn${archView === 'card' ? ' vt-active' : ''}" data-pref="archetypeView" data-val="card" title="Card view">⊞ Cards</button>
+            <button class="view-toggle-btn${archView === 'list' ? ' vt-active' : ''}" data-pref="archetypeView" data-val="list" title="List view">☰ List</button>
+          </span>
+        </span>
+      </div>
+      <div class="${archView === 'list' ? 'archetype-list' : 'archetype-grid'}" id="archetype-grid">
+        ${archetypeCards}
+      </div>
+      <div id="nature-wp" style="font-size:0.78rem;color:var(--purple-mid);margin-bottom:0.75rem;font-style:italic"></div>
+
+      <div class="custom-archetype-adder">
+        <button class="btn-secondary" id="btn-show-custom-arch">＋ Create Custom Archetype</button>
+        <div id="custom-archetype-form" style="display:none">
+          <div class="custom-arch-fields">
+            <input type="text" id="f-custom-arch-name" placeholder="Archetype name…" />
+            <input type="text" id="f-custom-arch-wp" placeholder="Willpower condition (optional)…" />
+            <textarea id="f-custom-arch-desc" placeholder="Description (optional)…" rows="2"></textarea>
+          </div>
+          <div class="custom-arch-actions">
+            <button class="btn-primary" id="btn-custom-arch-submit">Add to Grid</button>
+            <button class="btn-secondary" id="btn-custom-arch-cancel">Cancel</button>
+          </div>
         </div>
       </div>`;
   },
@@ -8923,40 +9014,57 @@ const Creator = {
     const c = this.char;
     const pools = M20.CREATION_MORTAL.attrPoints; // {primary:6, secondary:4, tertiary:3}
     const groups = {
-      Physical: ['strength', 'dexterity', 'stamina'],
-      Social:   ['charisma', 'manipulation', 'appearance'],
-      Mental:   ['perception', 'intelligence', 'wits'],
+      Physical: M20.ATTRIBUTES.physical,
+      Social:   M20.ATTRIBUTES.social,
+      Mental:   M20.ATTRIBUTES.mental,
     };
     const priorityIdx = (cat) => c.attr_priority.indexOf(cat);
     const poolForCat = (cat) => [pools.primary, pools.secondary, pools.tertiary][priorityIdx(cat)] || 0;
-    const usedForCat = (cat) => groups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+    const usedForCat = (cat) => groups[cat].reduce((s, a) => s + Math.max(0, (c[a.id] || 1) - 1), 0);
 
-    const dotRow = (id, name) => {
-      const v = c[id] || 1;
-      return `<div class="mortal-trait-row">
-        <span class="mortal-trait-name">${name}</span>
-        <span class="dots mortal-trait-dots" data-mortal-attr="${id}">
-          ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
-        </span>
+    const dotRow = (a) => {
+      const v = c[a.id] || 1;
+      const safeDesc = (a.description || '').replace(/"/g, '&quot;');
+      const dotTip = (i) => {
+        const lvl = a.levels && a.levels[i] ? a.levels[i] : '';
+        return lvl ? ` title="${lvl.replace(/"/g, '&quot;')}"` : '';
+      };
+      const specs = a.specialties || [];
+      return `<div class="attr-row" data-attr-id="${a.id}">
+        <div class="attr-row-main">
+          <div class="attr-info">
+            <div class="attr-name">${a.name}
+              <span class="info-tip" data-tip="${safeDesc}">?</span>
+            </div>
+          </div>
+          <span class="dots mortal-trait-dots" data-mortal-attr="${a.id}">
+            ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
+          </span>
+        </div>
+        <div class="specialty-row" ${v < 4 ? 'style="display:none"' : ''}>
+          <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+            placeholder="Specialty…" value="${escHtml((c.specialties || {})[a.id] || '')}">
+          <datalist id="spec-${a.id}">${specs.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>
+        </div>
       </div>`;
     };
 
     const groupHTML = (cat) => {
-      const ids = groups[cat];
+      const attrs = groups[cat];
       const tier = ['priority-primary', 'priority-secondary', 'priority-tertiary'][priorityIdx(cat)] || '';
       return `<div class="mortal-attr-group ${tier}">
         <div class="mortal-attr-group-header">
           <span class="mortal-attr-group-name">${cat}</span>
-          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat))}
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), M20.FREEBIE_COSTS_MORTAL.attribute.cost)}
         </div>
-        ${ids.map(id => dotRow(id, id.charAt(0).toUpperCase() + id.slice(1))).join('')}
+        ${attrs.map(dotRow).join('')}
       </div>`;
     };
 
     return `
       ${this.stepHeader('Step II — Attributes',
         '"All character creation begins with raw acumen — the body, the mind, the spirit."',
-        `Distribute <strong>6 / 4 / 3</strong> dots across Physical, Social, and Mental. Each Attribute starts at 1 (free). Drag the tiers below to choose your priority.`)}
+        `Distribute <strong>6 / 4 / 3</strong> dots across Physical, Social, and Mental. Each Attribute starts at 1 (free). Drag the tiers below to choose your priority. Hover the <strong>?</strong> for the Attribute's meaning; the line beneath each name is the flavor for the dots you have.`)}
 
       <div class="step-section">
         <div class="step-section-title">Category Priority</div>
@@ -8990,11 +9098,28 @@ const Creator = {
 
     const dotRow = (a, key) => {
       const v = (c[key] || {})[a.id] || 0;
-      return `<div class="mortal-trait-row">
-        <span class="mortal-trait-name">${a.name}</span>
-        <span class="dots mortal-trait-dots" data-mortal-abil="${a.id}" data-cat="${key}">
-          ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"></span>`).join('')}
-        </span>
+      const safeDesc = (a.description || '').replace(/"/g, '&quot;');
+      const dotTip = (i) => {
+        const lvl = a.levels && a.levels[i] ? a.levels[i] : '';
+        return lvl ? ` title="${lvl.replace(/"/g, '&quot;')}"` : '';
+      };
+      const specs = a.specialties || [];
+      return `<div class="attr-row" data-attr-id="${a.id}">
+        <div class="attr-row-main">
+          <div class="attr-info">
+            <div class="attr-name">${a.name}
+              <span class="info-tip" data-tip="${safeDesc}">?</span>
+            </div>
+          </div>
+          <span class="dots mortal-trait-dots" data-mortal-abil="${a.id}" data-cat="${key}">
+            ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
+          </span>
+        </div>
+        <div class="specialty-row" ${v < 4 ? 'style="display:none"' : ''}>
+          <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
+            placeholder="Specialty…" value="${escHtml((c.specialties || {})[a.id] || '')}">
+          <datalist id="spec-${a.id}">${specs.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>
+        </div>
       </div>`;
     };
 
@@ -9005,7 +9130,7 @@ const Creator = {
       return `<div class="mortal-attr-group ${tier}">
         <div class="mortal-attr-group-header">
           <span class="mortal-attr-group-name">${cat}</span>
-          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat))}
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), M20.FREEBIE_COSTS_MORTAL.ability.cost)}
         </div>
         ${list.map(a => dotRow(a, key)).join('')}
       </div>`;
@@ -9014,7 +9139,7 @@ const Creator = {
     return `
       ${this.stepHeader('Step III — Abilities',
         '"Skills are the tools of the hunt — without them you are prey, however brave."',
-        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V.`)}
+        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V. Hover the <strong>?</strong> for the Ability's meaning; the line beneath the name shows the flavor for the dots you have.`)}
 
       <div class="step-section">
         <div class="step-section-title">Category Priority</div>
@@ -9048,18 +9173,32 @@ const Creator = {
       const val = (c.backgrounds || {})[b.id] || 0;
       const max = b.max || 5;
       const display = b.traditionName && b.technocracyName ? b.name : (b.name || b.id);
-      return `<div class="mortal-trait-row" title="${escHtml(b.description || '')}">
-        <span class="mortal-trait-name">${display}</span>
+      const safeDesc = (b.description || '').replace(/"/g, '&quot;');
+      const dotTip = (i) => {
+        const lvl = b.levels && b.levels[i] ? b.levels[i] : '';
+        return lvl ? ` title="${lvl.replace(/"/g, '&quot;')}"` : '';
+      };
+      return `<div class="attr-row mortal-trait-row" data-attr-id="${b.id}">
+        <div class="attr-info">
+          <div class="attr-name">${display}
+            <span class="info-tip" data-tip="${safeDesc}">?</span>
+          </div>
+        </div>
         <span class="dots mortal-trait-dots" data-mortal-bg="${b.id}">
-          ${Array.from({length: Math.min(max, 5)}, (_, i) => `<span class="dot${i < val ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
+          ${Array.from({length: Math.min(max, 5)}, (_, i) => `<span class="dot${i < val ? ' filled' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
         </span>
       </div>`;
     };
 
     const virtueRow = (vd) => {
       const cur = v[vd.id] || 1;
-      return `<div class="mortal-trait-row" title="${escHtml(vd.description)}">
-        <span class="mortal-trait-name">${vd.name}</span>
+      const safeDesc = (vd.description || '').replace(/"/g, '&quot;');
+      return `<div class="attr-row mortal-trait-row" data-attr-id="${vd.id}">
+        <div class="attr-info">
+          <div class="attr-name">${vd.name}
+            <span class="info-tip" data-tip="${safeDesc}">?</span>
+          </div>
+        </div>
         <span class="dots mortal-trait-dots" data-mortal-virtue="${vd.id}">
           ${Array.from({length: 5}, (_, i) => `<span class="dot${i < cur ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
         </span>
@@ -9074,7 +9213,7 @@ const Creator = {
       <div class="step-section">
         <div class="step-section-title">
           Backgrounds
-          ${this._mortalPoolCounter('Background', bgUsed, bgPool)}
+          ${this._mortalPoolCounter('Background', bgUsed, bgPool, M20.FREEBIE_COSTS_MORTAL.background.cost)}
         </div>
         <p class="step-note">Mortal-appropriate Backgrounds only. Mage and Vampire-specific ones (Avatar, Wonder, Chantry, etc.) are not available; Armory, Base of Operations and Guide will arrive in a later update.</p>
         <div class="mortal-bg-grid">
@@ -9085,7 +9224,7 @@ const Creator = {
       <div class="step-section">
         <div class="step-section-title">
           Virtues
-          ${this._mortalPoolCounter('Virtue', virtueExtra, virtuePool)}
+          ${this._mortalPoolCounter('Virtue', virtueExtra, virtuePool, M20.FREEBIE_COSTS_MORTAL.virtue.cost)}
         </div>
         <p class="step-note">Conscience + Self-Control determines starting <strong>Humanity</strong>. Courage determines starting <strong>Willpower</strong>.</p>
         <div class="mortal-virtues-grid">
@@ -9251,19 +9390,6 @@ const Creator = {
       motiv.addEventListener('input', () => { c.notes = motiv.value; });
     }
 
-    // Custom-archetype add button (mortal Concept step)
-    const addArch = content.querySelector('#btn-add-custom-archetype');
-    if (addArch) {
-      addArch.addEventListener('click', () => {
-        const name = prompt('Custom Archetype name?')?.trim();
-        if (!name) return;
-        const desc = prompt('Short description? (optional)')?.trim() || '';
-        if (!c.customArchetypes) c.customArchetypes = [];
-        c.customArchetypes.push({ name, description: desc });
-        this.renderStep();
-      });
-    }
-
     // Mortal attribute dots
     content.querySelectorAll('[data-mortal-attr]').forEach(grp => {
       grp.addEventListener('click', e => {
@@ -9273,7 +9399,7 @@ const Creator = {
         const val = parseInt(dot.dataset.val);
         const cur = c[id] || 1;
         c[id] = (cur === val) ? Math.max(1, val - 1) : val;
-        this.renderStep();
+        this.renderStep({ scroll: false });
         this.updateFreebieDisplay();
       });
     });
@@ -9298,7 +9424,7 @@ const Creator = {
         } else {
           c[key][id] = val;
         }
-        this.renderStep();
+        this.renderStep({ scroll: false });
         this.updateFreebieDisplay();
       });
     });
@@ -9318,7 +9444,7 @@ const Creator = {
         } else {
           c.backgrounds[id] = val;
         }
-        this.renderStep();
+        this.renderStep({ scroll: false });
         this.updateFreebieDisplay();
       });
     });
@@ -9333,7 +9459,7 @@ const Creator = {
         if (!c.virtues) c.virtues = { conscience: 1, self_control: 1, courage: 1 };
         const cur = c.virtues[id] || 1;
         c.virtues[id] = (cur === val) ? Math.max(1, val - 1) : val;
-        this.renderStep();
+        this.renderStep({ scroll: false });
         this.updateFreebieDisplay();
       });
     });
