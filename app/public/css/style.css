@@ -7660,6 +7660,39 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .fe-affinity-row { background: rgba(180,130,30,0.08); border-radius: 3px; padding: 0 0.25rem; }
 .fe-affinity-label { color: var(--gold-mid) !important; font-weight: 600; }
 
+/* Trait group wraps a trait row + its (optional) specialty input row */
+.fe-trait-group {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.fe-trait-group:last-child { border-bottom: none; }
+.fe-trait-group .fe-trait-row { border-bottom: none; }
+
+.fe-spec-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0 0.35rem 0.5rem;
+}
+.fe-spec-arrow {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+.fe-spec-input {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.18rem 0.45rem;
+  color: var(--text-bright);
+  font-size: 0.78rem;
+  font-style: italic;
+  flex: 1;
+  max-width: 18rem;
+  transition: border-color 0.15s;
+}
+.fe-spec-input:focus { border-color: var(--gold-dim); outline: none; }
+.fe-spec-input::placeholder { color: var(--text-faint); font-style: italic; }
+
 /* Editable dots */
 .fe-dots .dot { cursor: pointer; transition: border-color 0.1s; }
 .fe-dots .dot:hover { border-color: var(--gold-bright); transform: scale(1.15); }

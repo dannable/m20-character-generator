@@ -10655,6 +10655,7 @@ const FreeEdit = {
   // Entry point — pass already-fetched char object
   open(char) {
     this.char = JSON.parse(JSON.stringify(char));
+    if (!this.char.specialties) this.char.specialties = {};
     this._chronicleId = char.chronicle_id || null;
     App.showPage('free-edit');
     this._renderToolbar();
@@ -10686,6 +10687,26 @@ const FreeEdit = {
     return `<input class="fe-number" type="number" data-fe-field="${field}" value="${value || 0}" min="${min}" max="${max}">`;
   },
 
+  // Specialty input row — shown when val >= 4 or when a specialty is already set.
+  // `id` is the trait id (attribute name lowercased, ability id, or sphere id).
+  _specRow(id, val, name, suggestions = []) {
+    const cur     = (this.char.specialties || {})[id] || '';
+    const visible = val >= 4 || !!cur;
+    const listId  = (suggestions && suggestions.length) ? `fe-spec-suggest-${id}` : '';
+    const listAttr = listId ? `list="${listId}"` : '';
+    const datalist = listId
+      ? `<datalist id="${listId}">${suggestions.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>`
+      : '';
+    return `<div class="fe-spec-row" data-fe-spec-id="${id}" style="${visible ? '' : 'display:none'}">
+      <span class="fe-spec-arrow">↳</span>
+      <input class="fe-spec-input" type="text" maxlength="40"
+             data-fe-spec="${id}" ${listAttr}
+             value="${escHtml(cur)}"
+             placeholder="${escHtml(name)} specialty…">
+      ${datalist}
+    </div>`;
+  },
+
   // ── Toolbar ───────────────────────────────────────────────────────────────
   _renderToolbar() {
     const tb = $('#free-edit-toolbar');
@@ -10713,21 +10734,39 @@ const FreeEdit = {
     if (!el) return;
     const isChronicle = !!this._chronicleId;
 
+    // Specialty suggestion lookup maps (id -> string[]).
+    const attrSpecMap = {};
+    Object.values(M20.ATTRIBUTES).forEach(grp => grp.forEach(a => { attrSpecMap[a.id] = a.specialties || []; }));
+    const abilSpecMap = {};
+    [
+      ...M20.TALENTS, ...(M20.SECONDARY_TALENTS || []),
+      ...M20.SKILLS, ...(M20.SECONDARY_SKILLS || []),
+      ...M20.KNOWLEDGES, ...(M20.SECONDARY_KNOWLEDGES || []),
+    ].forEach(a => { abilSpecMap[a.id] = a.specialties || []; });
+    const sphSpecMap = {};
+    M20.SPHERES.forEach(s => { sphSpecMap[s.id] = s.specialties || []; });
+
     // Attribute row helper
     const attrRow = (name, id) => {
       const val = c[id] || 1;
-      return `<div class="fe-trait-row">
-        <span class="fe-trait-label">${name}</span>
-        ${this._dots(val, 5, id)}
+      return `<div class="fe-trait-group">
+        <div class="fe-trait-row">
+          <span class="fe-trait-label">${name}</span>
+          ${this._dots(val, 5, id)}
+        </div>
+        ${this._specRow(id, val, name, attrSpecMap[id] || [])}
       </div>`;
     };
 
     // Ability row helper
     const abilRow = (name, id, catKey, max = 5, badgeHtml = '') => {
       const val = (c[catKey] || {})[id] || 0;
-      return `<div class="fe-trait-row">
-        <span class="fe-trait-label">${name}${badgeHtml}</span>
-        ${this._dots(val, max, catKey, id)}
+      return `<div class="fe-trait-group">
+        <div class="fe-trait-row">
+          <span class="fe-trait-label">${name}${badgeHtml}</span>
+          ${this._dots(val, max, catKey, id)}
+        </div>
+        ${this._specRow(id, val, name, abilSpecMap[id] || [])}
       </div>`;
     };
 
@@ -10744,9 +10783,12 @@ const FreeEdit = {
     const sphRow = (name, id) => {
       const val = (c.spheres || {})[id] || 0;
       const isAff = id === (c.affinity_sphere || '').toLowerCase();
-      return `<div class="fe-trait-row${isAff ? ' fe-affinity-row' : ''}">
-        <span class="fe-trait-label${isAff ? ' fe-affinity-label' : ''}">${isAff ? '✦ ' : ''}${name}</span>
-        ${this._dots(val, 5, 'spheres', id)}
+      return `<div class="fe-trait-group${isAff ? ' fe-affinity-row' : ''}">
+        <div class="fe-trait-row">
+          <span class="fe-trait-label${isAff ? ' fe-affinity-label' : ''}">${isAff ? '✦ ' : ''}${name}</span>
+          ${this._dots(val, 5, 'spheres', id)}
+        </div>
+        ${this._specRow(id, val, name, sphSpecMap[id] || [])}
       </div>`;
     };
 
@@ -10945,22 +10987,43 @@ const FreeEdit = {
       const max    = dotsEl.querySelectorAll('.dot').length;
       if (!field) return;
 
+      let newVal;
       if (subkey) {
         if (!c[field]) c[field] = {};
         const cur = c[field][subkey] || 0;
-        c[field][subkey] = cur === val ? Math.max(0, val - 1) : Math.min(max, val);
-        this._refreshDots(dotsEl, c[field][subkey]);
+        newVal = cur === val ? Math.max(0, val - 1) : Math.min(max, val);
+        c[field][subkey] = newVal;
+        this._refreshDots(dotsEl, newVal);
       } else {
         const cur    = c[field] || 0;
         const minVal = ['arete','willpower'].includes(field) ? 1 : 0;
-        c[field] = cur === val ? Math.max(minVal, val - 1) : Math.min(max, val);
-        this._refreshDots(dotsEl, c[field]);
+        newVal = cur === val ? Math.max(minVal, val - 1) : Math.min(max, val);
+        c[field] = newVal;
+        this._refreshDots(dotsEl, newVal);
+      }
+
+      // Refresh specialty row visibility for this trait, if it has one.
+      const group = dotsEl.closest('.fe-trait-group');
+      if (group) {
+        const specRow = group.querySelector('.fe-spec-row');
+        if (specRow) {
+          const specId = specRow.dataset.feSpecId;
+          const curSpec = (c.specialties || {})[specId] || '';
+          specRow.style.display = (newVal >= 4 || !!curSpec) ? '' : 'none';
+        }
       }
     });
 
     // Text inputs
     el.addEventListener('input', e => {
       const inp = e.target;
+      if (inp.classList.contains('fe-spec-input') && inp.dataset.feSpec) {
+        if (!c.specialties) c.specialties = {};
+        const v = inp.value.trim();
+        if (v) c.specialties[inp.dataset.feSpec] = v;
+        else delete c.specialties[inp.dataset.feSpec];
+        return;
+      }
       if (inp.classList.contains('fe-input') && inp.dataset.feField) {
         c[inp.dataset.feField] = inp.value;
       }
