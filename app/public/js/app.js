@@ -8768,7 +8768,7 @@ const Creator = {
         <span class="fb-details-hint">5 pts/dot over allocation · <span class="page-ref">p. 258</span></span>
       </summary>
       <div class="fb-section-note">Gold dots = covered by creation allocation. Purple dots = freebie cost.</div>
-      <div id="fb-attrs">${attrSection}</div>
+      <div id="fb-attrs" class="fb-cols-3">${attrSection}</div>
     </details>
 
     <!-- ── Abilities ── -->
@@ -8778,7 +8778,7 @@ const Creator = {
         <span class="fb-details-hint">2 pts/dot over allocation · <span class="page-ref">p. 259</span></span>
       </summary>
       <div class="fb-section-note">Gold dots = covered by creation allocation. Purple dots = freebie cost.</div>
-      <div id="fb-abilities">${abilSection}</div>
+      <div id="fb-abilities" class="fb-cols-3">${abilSection}</div>
     </details>
 
     <!-- ── Backgrounds ── -->
@@ -9472,7 +9472,7 @@ const Creator = {
           <span class="fb-section-cost" id="fb-cost-attrs"></span>
           <span class="fb-section-caret"></span>
         </summary>
-        ${attrSection}
+        <div class="fb-cols-3">${attrSection}</div>
       </details>
 
       <!-- Abilities -->
@@ -9482,7 +9482,7 @@ const Creator = {
           <span class="fb-section-cost" id="fb-cost-abilities"></span>
           <span class="fb-section-caret"></span>
         </summary>
-        ${abilSection}
+        <div class="fb-cols-3">${abilSection}</div>
       </details>
 
       <!-- Backgrounds -->

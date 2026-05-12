@@ -2643,6 +2643,58 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 /* ─── Freebie groups (attribute/ability groupings) ───────────── */
 .fb-group { margin-bottom: 0.5rem; }
 
+/* 3-column freebie grid — used in Step V (mortal) and Step VII (awakened)
+   for Attributes and Abilities. Matches the card layout used in earlier steps. */
+.fb-cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .fb-cols-3 { grid-template-columns: 1fr; }
+}
+.fb-cols-3 .fb-group {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0;
+}
+.fb-cols-3 .fb-group-header {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 0.4rem 0;
+  margin-bottom: 0.4rem;
+}
+.fb-cols-3 .fb-group-alloc {
+  display: block;
+  width: 100%;
+  font-size: 0.56rem;
+}
+/* Rows in 3-col mode: label flexes, dots + cost pack to the right. */
+.fb-cols-3 .fb-row {
+  grid-template-columns: 1fr auto auto;
+  gap: 0.4rem;
+  padding: 0.3rem 0.25rem;
+}
+/* The per-row level flavor doubles up with the dot-hover tooltips inside
+   these compact cards — hide it to keep the column tidy. */
+.fb-cols-3 .fb-row-desc { display: none; }
+/* Secondary/custom adder controls wrap inside a narrow column. */
+.fb-cols-3 .fb7-adder-row {
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.fb-cols-3 .fb7-adder-row .fb7-secondary-select,
+.fb-cols-3 .fb7-adder-row .fb7-custom-input {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.fb-cols-3 .fb7-adder-row .fb7-custom-add-btn { flex: 0 0 auto; }
+/* The specialty input rendered after a 4+ trait — let it span the card. */
+.fb-cols-3 .specialty-row { padding-left: 0.25rem; }
+
 .fb-group-header {
   display: flex;
   align-items: center;
