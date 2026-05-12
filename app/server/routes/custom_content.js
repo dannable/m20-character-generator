@@ -153,4 +153,51 @@ router.delete('/backgrounds/:id', (req, res) => {
   res.json({ deleted: true });
 });
 
+// ── Custom Wonders ────────────────────────────────────────────────────────────
+
+// GET /api/custom/wonders
+router.get('/wonders', (req, res) => {
+  const items = db.prepare(
+    `SELECT * FROM custom_wonders WHERE user_id = ? ORDER BY name`
+  ).all(req.session.userId);
+  res.json({ items });
+});
+
+// POST /api/custom/wonders
+router.post('/wonders', (req, res) => {
+  const { name, description, level } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const lvl = Math.min(Math.max(parseInt(level) || 1, 1), 10);
+  const result = db.prepare(
+    `INSERT INTO custom_wonders (user_id, name, description, level)
+     VALUES (?, ?, ?, ?)`
+  ).run(req.session.userId, name.trim(), (description || '').slice(0, 1000), lvl);
+  const item = db.prepare(`SELECT * FROM custom_wonders WHERE id = ?`).get(result.lastInsertRowid);
+  res.status(201).json({ item });
+});
+
+// PUT /api/custom/wonders/:id
+router.put('/wonders/:id', (req, res) => {
+  const id  = parseInt(req.params.id);
+  const row = db.prepare(`SELECT id FROM custom_wonders WHERE id = ? AND user_id = ?`).get(id, req.session.userId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  const { name, description, level } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const lvl = Math.min(Math.max(parseInt(level) || 1, 1), 10);
+  db.prepare(
+    `UPDATE custom_wonders SET name=?, description=?, level=? WHERE id=?`
+  ).run(name.trim(), (description || '').slice(0, 1000), lvl, id);
+  const item = db.prepare(`SELECT * FROM custom_wonders WHERE id = ?`).get(id);
+  res.json({ item });
+});
+
+// DELETE /api/custom/wonders/:id
+router.delete('/wonders/:id', (req, res) => {
+  const id  = parseInt(req.params.id);
+  const row = db.prepare(`SELECT id FROM custom_wonders WHERE id = ? AND user_id = ?`).get(id, req.session.userId);
+  if (!row) return res.status(404).json({ error: 'Not found' });
+  db.prepare(`DELETE FROM custom_wonders WHERE id = ?`).run(id);
+  res.json({ deleted: true });
+});
+
 module.exports = router;

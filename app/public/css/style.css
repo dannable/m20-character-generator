@@ -8110,6 +8110,36 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .wonder-result-item:hover { background: rgba(200,168,76,0.08); }
 .wonder-result-purchased { background: rgba(200,168,76,0.06); }
 .wonder-result-purchased .wonder-result-cost { color: var(--gold-mid); }
+.wonder-result-custom { background: rgba(138,110,47,0.05); }
+.wonder-result-custom-badge { margin-left: 0.45rem; font-size: 0.55rem; }
+
+/* Gear & Equipment — Add Wonder picker (modal) */
+.sheet-gear-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+.gear-wonder-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.gear-wonder-search { width: 100%; }
+.gear-wonder-results-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-raised);
+}
+.gear-wonder-results { display: flex; flex-direction: column; }
+.gear-wonder-hint {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  font-style: italic;
+  margin: 0;
+}
 .wonder-result-main {
   display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 0.05rem;
 }

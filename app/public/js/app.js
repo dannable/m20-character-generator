@@ -363,6 +363,53 @@ async function _loadUserCustomBg() {
 function _invalidateUserCustomBg() { _userCustomBgCache = null; _userCustomBgLoading = null; }
 function _getUserCustomBg()        { return _userCustomBgCache || []; }
 
+let _userCustomWondersCache = null;
+let _userCustomWondersLoading = null;
+async function _loadUserCustomWonders() {
+  if (_userCustomWondersCache !== null) return _userCustomWondersCache;
+  if (_userCustomWondersLoading)        return _userCustomWondersLoading;
+  _userCustomWondersLoading = fetch('/api/custom/wonders')
+    .then(r => r.ok ? r.json() : { items: [] })
+    .then(d => { _userCustomWondersCache = d.items || []; _userCustomWondersLoading = null; return _userCustomWondersCache; })
+    .catch(() => { _userCustomWondersCache = []; _userCustomWondersLoading = null; return _userCustomWondersCache; });
+  return _userCustomWondersLoading;
+}
+function _invalidateUserCustomWonders() { _userCustomWondersCache = null; _userCustomWondersLoading = null; }
+function _getUserCustomWonders()        { return _userCustomWondersCache || []; }
+
+// Normalize a custom wonder (user or chronicle) into the shape used by the wonder picker.
+// Built-in wonders have: name, source_book, source_page, background_cost, arete, quintessence, gnosis, description.
+// Customs have: name, description, level — we map level → background_cost and tag the source.
+function _normalizeCustomWonder(item, sourceLabel) {
+  return {
+    name: item.name,
+    source_book: sourceLabel,
+    source_page: '',
+    background_cost: String(item.level || 1),
+    arete: '',
+    quintessence: '',
+    gnosis: '',
+    description: item.description || '',
+    _custom: true,
+    _customSource: sourceLabel,
+  };
+}
+
+// Combined wonder catalogue: built-ins + user's custom wonders + chronicle custom wonders
+// from every chronicle the caller's characters belong to. Custom entries are tagged
+// so the picker can render a "Custom" badge and the source label can be shown.
+function getMergedWonders() {
+  const builtins = getWondersData();
+  const userCustoms = _getUserCustomWonders().map(w => _normalizeCustomWonder(w, 'Custom'));
+  const chronCustoms = [];
+  _getChronicleCustom().forEach(chron => {
+    (chron.wonders || []).forEach(w => {
+      chronCustoms.push(_normalizeCustomWonder(w, `Custom · ${chron.name}`));
+    });
+  });
+  return [...builtins, ...userCustoms, ...chronCustoms];
+}
+
 // Chronicle-level custom content (visible to all chronicle members)
 let _chronicleCustomCache = null;
 let _chronicleCustomLoading = null;
@@ -389,7 +436,7 @@ const App = {
   setUser(user) {
     this.currentUser = user;
     const isGuest = user.role === 'guest';
-    if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); _loadChronicleCustom(); } // pre-warm caches
+    if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); _loadUserCustomWonders(); _loadChronicleCustom(); } // pre-warm caches
     $('#user-name').textContent = isGuest ? 'Guest' : user.username;
     $('#user-info').style.display = 'flex';
     $('#nav-dashboard').style.display = '';
@@ -1858,6 +1905,8 @@ const Grimoire = {
       this._renderMFTab();
     } else if (this.state.activeTab === 'backgrounds') {
       this._renderBgTab();
+    } else if (this.state.activeTab === 'wonders') {
+      this._renderWondersTab();
     }
   },
 
@@ -1891,6 +1940,7 @@ const Grimoire = {
           <button class="grimoire-tab${t==='rotes'?' active':''}" data-tab="rotes">⊕ Rotes</button>
           <button class="grimoire-tab${t==='merits-flaws'?' active':''}" data-tab="merits-flaws">✦ Merits &amp; Flaws</button>
           <button class="grimoire-tab${t==='backgrounds'?' active':''}" data-tab="backgrounds">⊡ Backgrounds</button>
+          <button class="grimoire-tab${t==='wonders'?' active':''}" data-tab="wonders">⊙ Wonders</button>
         </div>
         <div id="grimoire-tab-content"></div>
       </div>`;
@@ -2650,6 +2700,233 @@ const Grimoire = {
         _invalidateUserCustomBg();
         await _loadUserCustomBg();
         this._renderBgContent();
+        toast(editId ? `"${name}" updated.` : `"${name}" created.`);
+      } catch (err) { toast(err.message || 'Failed to save.', 'error'); }
+    });
+  },
+
+  // ── Wonders tab ───────────────────────────────────────────────────────────
+  async _renderWondersTab() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+    tc.innerHTML = '<div class="grimoire-loading">Loading…</div>';
+    await Promise.all([ensureWondersLoaded(), _loadUserCustomWonders(), _loadChronicleCustom()]);
+    this._renderWondersContent();
+  },
+
+  _renderWondersContent() {
+    const tc = $('#grimoire-tab-content');
+    if (!tc) return;
+
+    const openState = {};
+    tc.querySelectorAll('details[data-key]').forEach(d => { openState[d.dataset.key] = d.open; });
+
+    const isGuest  = App.currentUser?.role === 'guest';
+    const q        = (this.state.wonderSearch || '').toLowerCase().trim();
+    const builtins = getWondersData();
+    const userCustoms = _getUserCustomWonders();
+    const chronData   = _getChronicleCustom();
+
+    const _match = w => !q ||
+      (w.name || '').toLowerCase().includes(q) ||
+      (w.description || '').toLowerCase().includes(q) ||
+      (w.source_book || '').toLowerCase().includes(q);
+
+    const _wonderItemHTML = (w, opts = {}) => {
+      const isCustom = !!opts.custom;
+      const cost = isCustom ? String(w.level || 1) : (w.background_cost ?? '?');
+      const custBadge = isCustom ? `<span class="mf-custom-badge">CUSTOM</span>` : '';
+      const meta = [];
+      if (w.source_book && !isCustom) meta.push(`${escHtml(w.source_book)}${w.source_page ? ' p.' + w.source_page : ''}`);
+      if (w.arete)        meta.push(`Arete ${escHtml(String(w.arete))}`);
+      if (w.quintessence) meta.push(`Q ${escHtml(String(w.quintessence))}`);
+      const metaStr = meta.join(' · ');
+      const actions = isCustom && opts.editable
+        ? `<div class="gmf-item-actions">
+             <button class="btn-ghost btn-sm wonder-edit-btn" data-id="${w.id}">Edit</button>
+             <button class="btn-ghost btn-sm wonder-del-btn delete" data-id="${w.id}">Delete</button>
+           </div>`
+        : '';
+      const idAttr = w.id != null ? `data-id="${w.id}"` : '';
+      return `<details class="bg-item${isCustom ? ' bg-item-custom' : ''}" ${idAttr}>
+        <summary class="bg-item-summary">
+          <span class="bg-item-name">${escHtml(w.name)}${custBadge}</span>
+          <span class="bg-item-meta">
+            <span class="bg-max-dots" title="Background cost">${cost} pts</span>
+            ${metaStr ? `<span class="gmf-item-page">${metaStr}</span>` : ''}
+            ${actions}
+          </span>
+        </summary>
+        <div class="bg-item-body">
+          ${w.description ? `<div class="bg-item-desc">${escHtml(w.description).replace(/\n/g, '<br>')}</div>` : ''}
+        </div>
+      </details>`;
+    };
+
+    const builtinItems = builtins.filter(_match);
+    const customItems  = userCustoms.filter(_match);
+
+    const wonderFormId = 'gwonder-form';
+    const allSecKey = 'wonder-all';
+    const customSecKey = 'wonder-custom';
+    const allSecOpen = openState[allSecKey] === true; // default collapsed (large list)
+    const customSecOpen = openState[customSecKey] !== false; // default open
+
+    const builtinSection = builtinItems.length
+      ? `<details class="gmf-section" data-key="${allSecKey}"${allSecOpen ? ' open' : ''}>
+          <summary class="gmf-section-summary">
+            <span class="gmf-section-title">M20 Wonders</span>
+            <span class="gmf-section-count">${builtinItems.length}</span>
+            <span class="gmf-section-caret"></span>
+          </summary>
+          <div class="bg-items-list">${builtinItems.map(w => _wonderItemHTML(w)).join('')}</div>
+        </details>`
+      : `<p class="gmf-empty">No built-in wonders match your search.</p>`;
+
+    const customSection = `
+      <details class="gmf-section" data-key="${customSecKey}"${customSecOpen ? ' open' : ''}>
+        <summary class="gmf-section-summary">
+          <span class="gmf-section-title">My Custom Wonders</span>
+          <span class="gmf-section-count">${customItems.length}</span>
+          <span class="gmf-section-caret"></span>
+        </summary>
+        <div id="${wonderFormId}" class="gmf-form" style="display:none"></div>
+        ${customItems.length
+          ? `<div class="bg-items-list">${customItems.map(w => _wonderItemHTML(w, { custom: true, editable: true })).join('')}</div>`
+          : `<p class="gmf-empty">No custom wonders yet.</p>`}
+      </details>`;
+
+    const _buildChronSection = () => {
+      return chronData.map(chron => {
+        const items = (chron.wonders || []).filter(_match);
+        if (!items.length) return '';
+        const key = `wonder-chron-${chron.id}`;
+        const isOpen = openState[key] !== false;
+        return `
+          <details class="gmf-section gmf-section-chronicle" data-key="${key}"${isOpen ? ' open' : ''}>
+            <summary class="gmf-section-summary">
+              <span class="gmf-section-title">⊕ ${escHtml(chron.name)}</span>
+              <span class="gmf-section-count">${items.length}</span>
+              <span class="gmf-section-caret"></span>
+            </summary>
+            <div class="bg-items-list">${items.map(w => _wonderItemHTML(w, { custom: true })).join('')}</div>
+          </details>`;
+      }).join('');
+    };
+
+    tc.innerHTML = `
+      <div class="gmf-container">
+        <div class="gmf-filter-bar">
+          <input type="search" class="gmf-search-input" placeholder="Search wonders…"
+            value="${escHtml(this.state.wonderSearch || '')}" autocomplete="off" />
+          ${!isGuest ? `
+          <div class="gmf-top-actions">
+            <button class="btn-secondary btn-sm" id="gwonder-new-btn">＋ Add Custom Wonder</button>
+          </div>` : ''}
+        </div>
+        <div id="gwonder-form-top" class="gmf-form" style="display:none"></div>
+        ${customSection}
+        ${_buildChronSection()}
+        <hr class="gmf-divider" />
+        ${builtinSection}
+      </div>`;
+
+    tc.querySelector('.gmf-search-input')?.addEventListener('input', e => {
+      this.state.wonderSearch = e.target.value;
+      this._renderWondersContent();
+    });
+
+    tc.querySelector('#gwonder-new-btn')?.addEventListener('click', () => {
+      const fd = tc.querySelector('#gwonder-form-top');
+      if (!fd) return;
+      fd.innerHTML = this._wonderFormHTML();
+      fd.style.display = '';
+      fd.querySelector('.gmf-f-name')?.focus();
+      this._attachWonderFormListeners(fd, tc);
+    });
+
+    tc.addEventListener('click', async e => {
+      const editBtn = e.target.closest('.wonder-edit-btn');
+      const delBtn  = e.target.closest('.wonder-del-btn');
+
+      if (editBtn) {
+        const id   = parseInt(editBtn.dataset.id);
+        const item = _getUserCustomWonders().find(x => x.id === id);
+        if (!item) return;
+        const fd   = tc.querySelector(`#${wonderFormId}`);
+        if (!fd) return;
+        fd.innerHTML = this._wonderFormHTML(item);
+        fd.style.display = '';
+        fd.querySelector('.gmf-f-name')?.focus();
+        this._attachWonderFormListeners(fd, tc, id);
+        fd.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      if (delBtn) {
+        const id   = parseInt(delBtn.dataset.id);
+        const item = _getUserCustomWonders().find(x => x.id === id);
+        if (!item) return;
+        if (!confirm(`Delete wonder "${item.name}"? This cannot be undone.`)) return;
+        try {
+          const r = await fetch(`/api/custom/wonders/${id}`, { method: 'DELETE' });
+          if (!r.ok) throw new Error();
+          _invalidateUserCustomWonders();
+          await _loadUserCustomWonders();
+          this._renderWondersContent();
+          toast(`"${item.name}" deleted.`);
+        } catch { toast('Failed to delete.', 'error'); }
+      }
+    });
+  },
+
+  _wonderFormHTML(item = null) {
+    const isEdit = !!item;
+    const level = Math.min(Math.max(parseInt(item?.level) || 1, 1), 10);
+    return `<div class="gmf-form-inner" data-id="${item?.id ?? ''}">
+      <div class="gmf-form-title">${isEdit ? 'Edit Custom Wonder' : 'New Custom Wonder'}</div>
+      <div class="gmf-form-row">
+        <div class="gmf-form-field">
+          <label>Name</label>
+          <input type="text" class="form-input gmf-f-name" value="${escHtml(item?.name || '')}" placeholder="Wonder name…" maxlength="80" />
+        </div>
+        <div class="gmf-form-field gmf-field-cost">
+          <label>Background Cost (1–10)</label>
+          <input type="number" class="form-input gwonder-f-level" value="${level}" min="1" max="10" />
+        </div>
+      </div>
+      <div class="gmf-form-field">
+        <label>Description (optional)</label>
+        <textarea class="form-input gmf-f-desc" rows="3" maxlength="1000" placeholder="What does this wonder do?">${escHtml(item?.description || '')}</textarea>
+      </div>
+      <div class="gmf-form-actions">
+        <button class="btn-primary btn-sm gmf-save-btn">${isEdit ? 'Save Changes' : 'Create Wonder'}</button>
+        <button class="btn-ghost btn-sm gmf-cancel-btn">Cancel</button>
+      </div>
+    </div>`;
+  },
+
+  _attachWonderFormListeners(fd, tc, editId = null) {
+    fd.querySelector('.gmf-cancel-btn')?.addEventListener('click', () => {
+      fd.style.display = 'none';
+      fd.innerHTML = '';
+    });
+    fd.querySelector('.gmf-save-btn')?.addEventListener('click', async () => {
+      const name  = fd.querySelector('.gmf-f-name')?.value?.trim() || '';
+      const desc  = fd.querySelector('.gmf-f-desc')?.value?.trim() || '';
+      const level = parseInt(fd.querySelector('.gwonder-f-level')?.value) || 1;
+      if (!name) { toast('Name is required.', 'error'); return; }
+      try {
+        const url    = editId ? `/api/custom/wonders/${editId}` : '/api/custom/wonders';
+        const method = editId ? 'PUT' : 'POST';
+        const r = await fetch(url, {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, description: desc, level }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Failed');
+        _invalidateUserCustomWonders();
+        await _loadUserCustomWonders();
+        this._renderWondersContent();
         toast(editId ? `"${name}" updated.` : `"${name}" created.`);
       } catch (err) { toast(err.message || 'Failed to save.', 'error'); }
     });
@@ -4835,7 +5112,7 @@ const Sheet = {
         return bg ? `<div class="sheet-trait-row"><span class="sheet-trait-name">${bgDisplayName(bg, char.affiliation)}</span>${dots(v, 5, 'readonly')}</div>` : '';
       }).join('');
     // Wonder instances (each as its own row)
-    const _wCat = getWondersData();
+    const _wCat = getMergedWonders();
     const wonderRows = (char.wonders || []).filter(w => !!w.name).map(w => {
       const label = `Wonder: ${w.name}`;
       const entry = _wCat.find(wd => wd.name === w.name);
@@ -5215,7 +5492,10 @@ const Sheet = {
         <div class="sheet-band-title">Gear &amp; Equipment</div>
         <div class="sheet-gear-body">
           <div class="sheet-gear-list" id="sheet-gear-list">${itemsHTML}</div>
-          ${ro ? '' : `<button class="btn-ghost sheet-gear-add" id="sheet-gear-add">＋ Add Item</button>`}
+          ${ro ? '' : `<div class="sheet-gear-actions">
+            <button class="btn-ghost sheet-gear-add" id="sheet-gear-add">＋ Add Item</button>
+            <button class="btn-ghost sheet-gear-add" id="sheet-gear-add-wonder">＋ Add Wonder…</button>
+          </div>`}
         </div>
       </div>`;
   },
@@ -6164,6 +6444,87 @@ const Sheet = {
       const last = this.char.gear.length - 1;
       const inp = document.querySelector(`.sheet-gear-name-input[data-row="${last}"]`);
       inp?.focus();
+    });
+
+    $('#sheet-gear-add-wonder')?.addEventListener('click', () => this._openGearWonderPicker());
+  },
+
+  // ── Wonder-as-gear picker ─────────────────────────────────────────────────
+  // Opens the catalogue in the global modal; selecting a wonder appends it to
+  // char.gear (NOT char.wonders), so it doesn't consume the Wonder background.
+  async _openGearWonderPicker() {
+    await Promise.all([ensureWondersLoaded(), _loadUserCustomWonders(), _loadChronicleCustom()]);
+    $('#modal-title').textContent = 'Add Wonder to Gear';
+    $('#modal-body').innerHTML = `
+      <div class="gear-wonder-picker">
+        <input type="search" class="form-input gear-wonder-search" placeholder="Search wonders by name, description, or book…" autocomplete="off" />
+        <div class="gear-wonder-results-scroll">
+          <div class="gear-wonder-results"></div>
+        </div>
+        <p class="gear-wonder-hint">Adding here records the wonder as gear only — it does not spend Wonder-background dots.</p>
+      </div>`;
+    // Hide confirm button; relabel Cancel → Close.
+    const confirmBtn = $('#modal-confirm');
+    if (confirmBtn) confirmBtn.style.display = 'none';
+    const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
+    if (cancelBtn) cancelBtn.textContent = 'Close';
+    $('#modal-overlay').style.display = 'flex';
+
+    const body      = $('#modal-body');
+    const searchInp = body.querySelector('.gear-wonder-search');
+    const listEl    = body.querySelector('.gear-wonder-results');
+
+    const renderList = () => {
+      const q   = (searchInp.value || '').toLowerCase().trim();
+      const all = getMergedWonders();
+      const filtered = all.filter(w => {
+        if (!q) return true;
+        return (w.name || '').toLowerCase().includes(q)
+            || (w.description || '').toLowerCase().includes(q)
+            || (w.source_book || '').toLowerCase().includes(q);
+      });
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="wonder-no-results">No wonders match your search.</div>';
+        return;
+      }
+      listEl.innerHTML = filtered.map(w => {
+        const cost = w.background_cost ?? '?';
+        const src  = w._custom ? (w._customSource || 'Custom') : (w.source_book || '');
+        const custBadge = w._custom ? `<span class="mf-custom-badge wonder-result-custom-badge">CUSTOM</span>` : '';
+        return `<div class="wonder-result-item${w._custom ? ' wonder-result-custom' : ''}" data-wonder-name="${escHtml(w.name)}">
+          <div class="wonder-result-main">
+            <span class="wonder-result-name">${escHtml(w.name)}${custBadge}</span>
+            <span class="wonder-result-src">${escHtml(src)}</span>
+          </div>
+          <span class="wonder-result-cost">${cost} pts</span>
+        </div>`;
+      }).join('');
+    };
+    renderList();
+    searchInp.addEventListener('input', renderList);
+    setTimeout(() => searchInp.focus(), 0);
+
+    listEl.addEventListener('click', e => {
+      const item = e.target.closest('.wonder-result-item[data-wonder-name]');
+      if (!item) return;
+      const name = item.dataset.wonderName;
+      const entry = getMergedWonders().find(w => w.name === name);
+      if (!entry) return;
+      // Build a description body that includes book/page/cost for built-ins, or just description for customs.
+      const descParts = [];
+      if (entry.description) descParts.push(entry.description);
+      const metaBits = [];
+      if (!entry._custom && entry.source_book) metaBits.push(`${entry.source_book}${entry.source_page ? ' p.' + entry.source_page : ''}`);
+      if (entry.background_cost) metaBits.push(`Cost ${entry.background_cost} pts`);
+      if (entry.arete)           metaBits.push(`Arete ${entry.arete}`);
+      if (entry.quintessence)    metaBits.push(`Quintessence ${entry.quintessence}`);
+      if (metaBits.length) descParts.unshift(metaBits.join(' · '));
+      if (!Array.isArray(this.char.gear)) this.char.gear = [];
+      this.char.gear.push({ name, description: descParts.join('\n\n') });
+      this._rerenderGear();
+      this.saveGear();
+      App.closeModal();
+      toast(`"${name}" added to gear.`);
     });
   },
 
@@ -10063,7 +10424,7 @@ const Creator = {
   // Falls back to catalogue lookup if stored cost is missing (migration from old format).
   // Call this any time c.wonders changes.
   _syncWonderBackground() {
-    const wData = getWondersData();
+    const wData = getMergedWonders();
     const total = (this.char.wonders || []).reduce((s, w) => {
       let cost = parseInt(w.background_cost);
       if (isNaN(cost) && w.name && wData.length) {
@@ -10151,9 +10512,10 @@ const Creator = {
         wd.quintessence ? `Q${wd.quintessence}` : '',
       ].filter(Boolean).join(' · ');
       const checkMark = count > 0 ? (count > 1 ? ` ✓×${count}` : ' ✓') : '';
-      return `<div class="wonder-result-item${count > 0 ? ' wonder-result-purchased' : ''}" data-wonder-name="${escHtml(wd.name)}">
+      const custBadge = wd._custom ? `<span class="mf-custom-badge wonder-result-custom-badge">CUSTOM</span>` : '';
+      return `<div class="wonder-result-item${count > 0 ? ' wonder-result-purchased' : ''}${wd._custom ? ' wonder-result-custom' : ''}" data-wonder-name="${escHtml(wd.name)}">
         <div class="wonder-result-main">
-          <span class="wonder-result-name">${escHtml(wd.name)}</span>
+          <span class="wonder-result-name">${escHtml(wd.name)}${custBadge}</span>
           <span class="wonder-result-src">${escHtml(src)}${extras ? ' · ' + extras : ''}</span>
         </div>
         <span class="wonder-result-cost">${cost} pts${checkMark}</span>
@@ -10166,7 +10528,7 @@ const Creator = {
   // Build the full wonder section HTML for Step 3 or Step 6
   _wonderSectionHTML() {
     const wonders  = this.char.wonders || [];
-    const wData    = getWondersData();
+    const wData    = getMergedWonders();
     const loadNote = _wondersData === null
       ? '<p class="wonder-loading">Loading wonders catalogue…</p>'
       : '';
@@ -10266,7 +10628,7 @@ const Creator = {
       if (savedSearch && searchInp) searchInp.value = savedSearch;
       if (savedBook   && bookSel)   bookSel.value   = savedBook;
       if (!listEl) return;
-      const wData  = getWondersData();
+      const wData  = getMergedWonders();
       const avail  = wData.filter(wd => wd.background_cost != null && wd.background_cost !== '');
       const purchased = (this.char.wonders || []).map(w => w.name).filter(Boolean);
       const n = this._renderWonderResults(listEl, avail, purchased, savedSearch || '', savedBook || '');
@@ -10286,7 +10648,7 @@ const Creator = {
       const bookSel   = panel.querySelector('.wonder-book-filter');
       const countEl   = panel.querySelector('.wonder-results-count');
       if (!listEl) return;
-      const wData  = getWondersData();
+      const wData  = getMergedWonders();
       const avail  = wData.filter(wd => wd.background_cost != null && wd.background_cost !== '');
       const purchased = (this.char.wonders || []).map(w => w.name).filter(Boolean);
       const n = this._renderWonderResults(listEl, avail, purchased, searchInp?.value || '', bookSel?.value || '');
@@ -10339,8 +10701,8 @@ const Creator = {
         const savedSearch = panel?.querySelector('.wonder-search-input')?.value || '';
         const savedBook   = panel?.querySelector('.wonder-book-filter')?.value   || '';
 
-        // Look up cost from catalogue to store alongside name
-        const wData = getWondersData();
+        // Look up cost from catalogue (built-in + custom + chronicle custom)
+        const wData = getMergedWonders();
         const entry = wData.find(wd => wd.name === name);
         const cost  = entry ? (parseInt(entry.background_cost) || 0) : 0;
 
@@ -10815,7 +11177,7 @@ const FreeEdit = {
     const chronBgs = (c._chronicleRules?.customBackgrounds || []).filter(b => b.name);
     const bgRows = [...allBgs, ...chronBgs.map(b => ({ id: b.id, name: b.name, max: b.max || 5 }))].map(bg => bgRow(bg.name || bg.id, bg.id, bg.max || 5)).join('');
     // Wonder instances (read-only display — managed via the wonder section)
-    const _feWData = getWondersData();
+    const _feWData = getMergedWonders();
     const feWonderRows = (c.wonders || []).filter(w => !!w.name).map((w) => {
       const label = `Wonder: ${escHtml(w.name)}`;
       const entry = _feWData.find(wd => wd.name === w.name);
