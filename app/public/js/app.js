@@ -5231,6 +5231,12 @@ const Sheet = {
           <span class="sheet-field-label">Concept</span>
           <span class="sheet-field-value">${char.concept || '—'}</span>
         </div>
+        ${char.character_type === 'mortal' ? `
+        <div class="sheet-field">
+          <span class="sheet-field-label">Type</span>
+          <span class="sheet-field-value">Mortal Hunter</span>
+        </div>
+        ` : `
         <div class="sheet-field">
           <span class="sheet-field-label">Affiliation</span>
           <span class="sheet-field-value">${char.tradition || char.affiliation || '—'}</span>
@@ -5239,7 +5245,7 @@ const Sheet = {
         <div class="sheet-field">
           <span class="sheet-field-label">Essence</span>
           <span class="sheet-field-value">${char.essence || '—'}</span>
-        </div>
+        </div>`}
         <div class="sheet-field">
           <span class="sheet-field-label">Nature / Demeanor</span>
           <span class="sheet-field-value">${char.nature || '—'} / ${char.demeanor || '—'}</span>
@@ -5290,7 +5296,28 @@ const Sheet = {
         </div>
       </div>
 
-      <!-- Band 3: SPHERES -->
+      ${char.character_type === 'mortal' ? `
+      <!-- Band 3 (Mortal): VIRTUES & HUMANITY -->
+      <div class="sheet-band">
+        <div class="sheet-band-title">Virtues &amp; Humanity</div>
+        <div class="sheet-cols-3">
+          ${M20.VIRTUES.map(vd => {
+            const val = (char.virtues || {})[vd.id] || 1;
+            return `<div class="sheet-group">
+              <div class="sheet-trait-row">
+                <span class="sheet-trait-name" title="${escHtml(vd.description)}">${vd.name}</span>
+                ${dots(val, 5, 'readonly')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="sheet-humanity-row">
+          <span class="sheet-humanity-label">Humanity</span>
+          ${dots(char.humanity || 0, 10, 'readonly')}
+        </div>
+      </div>
+      ` : `
+      <!-- Band 3 (Awakened): SPHERES -->
       <div class="sheet-band">
         <div class="sheet-band-title">Spheres</div>
         <div class="sheet-cols-3">
@@ -5325,7 +5352,7 @@ const Sheet = {
             }).join('')}
           </div>
         </div>
-      </div>
+      </div>`}
 
       <!-- Band 4: ADVANTAGES -->
       <div class="sheet-band">
@@ -5336,6 +5363,7 @@ const Sheet = {
             ${bgsAll}
             ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits</div>${meritsHTML}` : ''}
             ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws</div>${flawsHTML}` : ''}
+            ${char.character_type === 'mortal' ? '' : `
             <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus</div>
             <div class="sheet-focus-row">
               <div class="sheet-focus-item">
@@ -5355,13 +5383,13 @@ const Sheet = {
                 <div class="sheet-resonance-list" id="sheet-resonance-list">${resonanceSheetHTML}</div>
                 ${!ro ? `<button class="sheet-res-add-btn" id="sheet-add-resonance">＋ Add</button>` : ''}
               </div>
-            </div>
+            </div>`}
           </div>
           <div class="sheet-group core-stats-group">
             <div class="sheet-group-title">Core Statistics</div>
-            ${this.coreStatBox('Arete', char.arete || 1, 10)}
-            ${this.willpowerBox(char.willpower || 5, char.willpower_spent || 0)}
-            ${this.qpControls(char.quintessence || 0, char.paradox || 0)}
+            ${char.character_type === 'mortal' ? '' : this.coreStatBox('Arete', char.arete || 1, 10)}
+            ${this.willpowerBox(char.willpower || (char.character_type === 'mortal' ? 1 : 5), char.willpower_spent || 0)}
+            ${char.character_type === 'mortal' ? '' : this.qpControls(char.quintessence || 0, char.paradox || 0)}
           </div>
           <div class="sheet-group">
             ${this.healthTrack(char)}
@@ -5369,7 +5397,7 @@ const Sheet = {
         </div>
       </div>
 
-      ${this.rotesSection(char)}
+      ${char.character_type === 'mortal' ? '' : this.rotesSection(char)}
 
       ${this.combatSection(char, ro)}
 
@@ -6966,6 +6994,48 @@ const Creator = {
   getStepIncomplete(step) {
     const c = this.char;
     const issues = [];
+    // ── Mortal flow validation (5 steps) ──────────────────────────────────
+    if (this.charType === 'mortal') {
+      if (step === 0) {
+        if (!c.name?.trim())    issues.push('Name not set');
+        if (!c.concept?.trim()) issues.push('Concept not set');
+        if (!c.nature)          issues.push('Nature not set');
+        if (!c.demeanor)        issues.push('Demeanor not set');
+      } else if (step === 1) {
+        const pri = c.attr_priority || ['Physical','Social','Mental'];
+        const pools = M20.CREATION_MORTAL.attrPoints;
+        const ranks = ['primary','secondary','tertiary'];
+        const groups = { Physical:['strength','dexterity','stamina'], Social:['charisma','manipulation','appearance'], Mental:['perception','intelligence','wits'] };
+        let rem = 0;
+        pri.forEach((cat, i) => {
+          const used = groups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+          rem += Math.max(0, pools[ranks[i]] - used);
+        });
+        if (rem > 0) issues.push(`${rem} attribute point${rem !== 1 ? 's' : ''} unspent`);
+      } else if (step === 2) {
+        const pri = c.ability_priority || ['Talents','Skills','Knowledges'];
+        const pools = M20.CREATION_MORTAL.abilityPoints;
+        const ranks = ['primary','secondary','tertiary'];
+        const keyMap = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
+        let rem = 0;
+        pri.forEach((cat, i) => {
+          const used = Object.values(c[keyMap[cat]] || {}).reduce((s, v) => s + (v || 0), 0);
+          rem += Math.max(0, pools[ranks[i]] - used);
+        });
+        if (rem > 0) issues.push(`${rem} ability point${rem !== 1 ? 's' : ''} unspent`);
+      } else if (step === 3) {
+        const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+        const used = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
+        const remBg = Math.max(0, M20.CREATION_MORTAL.backgroundDots - used);
+        if (remBg > 0) issues.push(`${remBg} background point${remBg !== 1 ? 's' : ''} unspent`);
+        const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+        const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
+        const remV = Math.max(0, M20.CREATION_MORTAL.virtuePoints - virtueExtra);
+        if (remV > 0) issues.push(`${remV} virtue dot${remV !== 1 ? 's' : ''} unspent`);
+      }
+      return issues;
+    }
+    // ── Awakened flow (existing 7-step rules) ────────────────────────────
     if (step === 0) {
       if (!c.name?.trim())    issues.push('Name not set');
       if (!c.concept?.trim()) issues.push('Concept not set');
@@ -7123,6 +7193,9 @@ const Creator = {
   },
 
   calcFreebies() {
+    if (this.charType === 'mortal') {
+      return { total: this.calcMortalFreebies() };
+    }
     const c = this.char;
     // Merits cost freebies; flaws grant them (capped by chronicle rule)
     const meritCost = this.calcMeritCost();
@@ -7140,6 +7213,17 @@ const Creator = {
   },
 
   updateFreebieDisplay() {
+    // Mortal flow: simpler — pool stays fixed at 21, no chronicle Arete bonus.
+    if (this.charType === 'mortal') {
+      const total     = this.calcMortalFreebies();
+      const remaining = this.freebiesPool() - total;
+      const el = $('#freebie-display');
+      if (el) {
+        el.textContent = remaining;
+        el.style.color = remaining < 0 ? 'var(--crimson)' : 'var(--gold-bright)';
+      }
+      return;
+    }
     // Re-compute baselines during steps 1-5 so that traits added within the
     // creation allocation pool are never incorrectly shown as costing freebies.
     // In step 6 the baselines are frozen at step-entry to give stable dot coloring.
@@ -7211,6 +7295,12 @@ const Creator = {
   //   .areteBonus — bonus arete dots (reduces calcFreebies arete cost)
   _lockBaselines() {
     const c = this.char;
+    // Mortal flow has no Spheres/Arete/chronicle bonus baselines to lock.
+    if (this.charType === 'mortal') {
+      this._lockedBaselines = { attrs: {}, abilities: {}, backgrounds: {}, spheres: {},
+        bonusAttrs: {}, bonusAbilities: {}, bonusBgs: {}, bonusSpheres: {}, areteBonus: 0 };
+      return;
+    }
     const bonusDots = c._chronicleRules?.bonusDots || [];
 
     // Distribute `pool` bonus dots (lowest-value traits first, capped at current value - startVal)
@@ -8746,10 +8836,516 @@ const Creator = {
     </div>`;
   },
 
+  /* ══════════════════════════════════════════════════════════════
+     MORTAL CREATOR — Hunters Hunted II (p. 35)
+     5-step flow: Concept → Attributes → Abilities → Advantages → Finishing
+     ══════════════════════════════════════════════════════════════ */
+
+  // Shared helper: render a small read-only attribute pool counter
+  _mortalPoolCounter(label, used, total) {
+    const rem = total - used;
+    const cls = rem < 0 ? 'pool-over' : (rem === 0 ? 'pool-zero' : '');
+    return `<span class="pool-counter ${cls}"><span class="pool-label">${label}</span> <strong>${rem}</strong> / ${total}</span>`;
+  },
+
+  // Shared helper: render the priority sorter (P/S/T) for a category set.
+  // Reuses Mage's renderPrioritySorter (id-compatible dropzones / chips).
+
+  /* ── Mortal Step 0 — Concept ───────────────────────────────── */
+  renderStep0Mortal() {
+    const c = this.char;
+    if (!c.customArchetypes) c.customArchetypes = [];
+    const allArchetypes = [
+      ...M20.ARCHETYPES,
+      ...c.customArchetypes.map(ca => ({ ...ca, isCustom: true })),
+    ];
+    const cards = allArchetypes.map(a => {
+      const isNature   = c.nature   === a.name;
+      const isDemeanor = c.demeanor === a.name;
+      const deleteBtn  = a.isCustom
+        ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">×</button>`
+        : '';
+      const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
+      return `
+      <div class="${classes}" data-archetype="${a.name}">
+        <div class="archetype-name">${a.name}</div>
+        <div class="archetype-desc">${a.description}</div>
+        ${a.willpower ? `<div class="archetype-wp">Willpower: ${a.willpower}</div>` : ''}
+        <div class="archetype-nd-row">
+          <button class="archetype-nd-btn nd-n${isNature   ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature"   title="Set as Nature">Nature</button>
+          <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">Demeanor</button>
+          ${deleteBtn}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `
+      ${this.stepHeader('Step I — Concept',
+        '"It takes uncommon strength of will to fight monsters alone in the night."',
+        'Choose your hunter\'s concept, motivation, and the two masks they wear: Nature (inner self) and Demeanor (outward face).')}
+
+      <div class="step-section">
+        <div class="step-section-title">Identity</div>
+        <div class="creator-grid-2">
+          <div class="form-field"><label>Name</label>
+            <input class="form-input" id="f-name" type="text" value="${escHtml(c.name || '')}" placeholder="Hunter's name…" maxlength="80"></div>
+          <div class="form-field"><label>Player</label>
+            <input class="form-input" id="f-player" type="text" value="${escHtml(c.player || '')}" placeholder="Your name (optional)" maxlength="80"></div>
+          <div class="form-field"><label>Chronicle</label>
+            <input class="form-input" id="f-chronicle" type="text" value="${escHtml(c.chronicle || '')}" placeholder="Chronicle name (optional)" maxlength="80"></div>
+          <div class="form-field"><label>Concept</label>
+            <input class="form-input" id="f-concept" type="text" value="${escHtml(c.concept || '')}" placeholder="e.g. discharged soldier, struggling vitae addict, militant priest" maxlength="100"></div>
+        </div>
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">Motivation</div>
+        <p class="step-instructions" style="margin-top:0">How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?</p>
+        <textarea class="form-input" id="f-mortal-motivation" rows="4" maxlength="1000"
+          placeholder="A few sentences describing what drives your hunter…">${escHtml(c.notes || '')}</textarea>
+        <p class="step-note">Saved to your character's Notes. You can refine this later from the sheet.</p>
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">Nature &amp; Demeanor</div>
+        <p class="step-instructions" style="margin-top:0">Click <strong>Nature</strong> for your inner self; click <strong>Demeanor</strong> for the mask you show the world. They can be the same archetype.</p>
+        <div class="archetype-card-grid">${cards}</div>
+        <button class="btn-ghost btn-sm" id="btn-add-custom-archetype" style="margin-top:0.75rem">＋ Add Custom Archetype</button>
+        <div class="mortal-nd-current">
+          <span><strong>Nature:</strong> ${escHtml(c.nature || '—')}</span>
+          <span><strong>Demeanor:</strong> ${escHtml(c.demeanor || '—')}</span>
+        </div>
+      </div>`;
+  },
+
+  /* ── Mortal Step 1 — Attributes (6/4/3 default) ────────────── */
+  renderStep1Mortal() {
+    const c = this.char;
+    const pools = M20.CREATION_MORTAL.attrPoints; // {primary:6, secondary:4, tertiary:3}
+    const groups = {
+      Physical: ['strength', 'dexterity', 'stamina'],
+      Social:   ['charisma', 'manipulation', 'appearance'],
+      Mental:   ['perception', 'intelligence', 'wits'],
+    };
+    const priorityIdx = (cat) => c.attr_priority.indexOf(cat);
+    const poolForCat = (cat) => [pools.primary, pools.secondary, pools.tertiary][priorityIdx(cat)] || 0;
+    const usedForCat = (cat) => groups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+
+    const dotRow = (id, name) => {
+      const v = c[id] || 1;
+      return `<div class="mortal-trait-row">
+        <span class="mortal-trait-name">${name}</span>
+        <span class="dots mortal-trait-dots" data-mortal-attr="${id}">
+          ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
+        </span>
+      </div>`;
+    };
+
+    const groupHTML = (cat) => {
+      const ids = groups[cat];
+      const tier = ['priority-primary', 'priority-secondary', 'priority-tertiary'][priorityIdx(cat)] || '';
+      return `<div class="mortal-attr-group ${tier}">
+        <div class="mortal-attr-group-header">
+          <span class="mortal-attr-group-name">${cat}</span>
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat))}
+        </div>
+        ${ids.map(id => dotRow(id, id.charAt(0).toUpperCase() + id.slice(1))).join('')}
+      </div>`;
+    };
+
+    return `
+      ${this.stepHeader('Step II — Attributes',
+        '"All character creation begins with raw acumen — the body, the mind, the spirit."',
+        `Distribute <strong>6 / 4 / 3</strong> dots across Physical, Social, and Mental. Each Attribute starts at 1 (free). Drag the tiers below to choose your priority.`)}
+
+      <div class="step-section">
+        <div class="step-section-title">Category Priority</div>
+        ${this.renderPrioritySorter(['Physical','Social','Mental'], c.attr_priority, 'attr_priority', pools)}
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">Allocate Dots</div>
+        <div class="mortal-attr-grid">
+          ${groupHTML('Physical')}
+          ${groupHTML('Social')}
+          ${groupHTML('Mental')}
+        </div>
+        <p class="step-note">Going over a category's pool is allowed — the overage will be paid from freebies in Step V.</p>
+      </div>`;
+  },
+
+  /* ── Mortal Step 2 — Abilities (13/9/5, cap 3 at creation) ── */
+  renderStep2Mortal() {
+    const c = this.char;
+    const pools = M20.CREATION_MORTAL.abilityPoints;
+    const cats = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
+    const catKey = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
+    const priorityIdx = (cat) => c.ability_priority.indexOf(cat);
+    const poolForCat = (cat) => [pools.primary, pools.secondary, pools.tertiary][priorityIdx(cat)] || 0;
+    const usedForCat = (cat) => {
+      const key = catKey[cat];
+      const map = c[key] || {};
+      return Object.values(map).reduce((s, v) => s + (v || 0), 0);
+    };
+
+    const dotRow = (a, key) => {
+      const v = (c[key] || {})[a.id] || 0;
+      return `<div class="mortal-trait-row">
+        <span class="mortal-trait-name">${a.name}</span>
+        <span class="dots mortal-trait-dots" data-mortal-abil="${a.id}" data-cat="${key}">
+          ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"></span>`).join('')}
+        </span>
+      </div>`;
+    };
+
+    const groupHTML = (cat) => {
+      const list = cats[cat];
+      const key  = catKey[cat];
+      const tier = ['priority-primary', 'priority-secondary', 'priority-tertiary'][priorityIdx(cat)] || '';
+      return `<div class="mortal-attr-group ${tier}">
+        <div class="mortal-attr-group-header">
+          <span class="mortal-attr-group-name">${cat}</span>
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat))}
+        </div>
+        ${list.map(a => dotRow(a, key)).join('')}
+      </div>`;
+    };
+
+    return `
+      ${this.stepHeader('Step III — Abilities',
+        '"Skills are the tools of the hunt — without them you are prey, however brave."',
+        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V.`)}
+
+      <div class="step-section">
+        <div class="step-section-title">Category Priority</div>
+        ${this.renderPrioritySorter(['Talents','Skills','Knowledges'], c.ability_priority, 'ability_priority', pools)}
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">Allocate Dots</div>
+        <div class="mortal-attr-grid">
+          ${groupHTML('Talents')}
+          ${groupHTML('Skills')}
+          ${groupHTML('Knowledges')}
+        </div>
+      </div>`;
+  },
+
+  /* ── Mortal Step 3 — Advantages (5 BG + 7 Virtue dots) ─────── */
+  renderStep3Mortal() {
+    const c = this.char;
+    const bgPool = M20.CREATION_MORTAL.backgroundDots; // 5
+    const virtuePool = M20.CREATION_MORTAL.virtuePoints; // 7
+
+    // Filter backgrounds to mortal-appropriate
+    const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+    const bgUsed = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
+
+    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+    const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
+
+    const bgRow = (b) => {
+      const val = (c.backgrounds || {})[b.id] || 0;
+      const max = b.max || 5;
+      const display = b.traditionName && b.technocracyName ? b.name : (b.name || b.id);
+      return `<div class="mortal-trait-row" title="${escHtml(b.description || '')}">
+        <span class="mortal-trait-name">${display}</span>
+        <span class="dots mortal-trait-dots" data-mortal-bg="${b.id}">
+          ${Array.from({length: Math.min(max, 5)}, (_, i) => `<span class="dot${i < val ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
+        </span>
+      </div>`;
+    };
+
+    const virtueRow = (vd) => {
+      const cur = v[vd.id] || 1;
+      return `<div class="mortal-trait-row" title="${escHtml(vd.description)}">
+        <span class="mortal-trait-name">${vd.name}</span>
+        <span class="dots mortal-trait-dots" data-mortal-virtue="${vd.id}">
+          ${Array.from({length: 5}, (_, i) => `<span class="dot${i < cur ? ' filled' : ''}" data-val="${i + 1}"></span>`).join('')}
+        </span>
+      </div>`;
+    };
+
+    return `
+      ${this.stepHeader('Step IV — Advantages &amp; Virtues',
+        '"What sets a hunter apart from prey is not strength of arm, but strength of soul."',
+        `<strong>5</strong> Background dots and <strong>7</strong> Virtue dots. Each Virtue starts at 1 (free) — distribute the remaining 7 across Conscience, Self-Control, and Courage. Humanity and Willpower are derived from these in the final step.`)}
+
+      <div class="step-section">
+        <div class="step-section-title">
+          Backgrounds
+          ${this._mortalPoolCounter('Background', bgUsed, bgPool)}
+        </div>
+        <p class="step-note">Mortal-appropriate Backgrounds only. Mage and Vampire-specific ones (Avatar, Wonder, Chantry, etc.) are not available; Armory, Base of Operations and Guide will arrive in a later update.</p>
+        <div class="mortal-bg-grid">
+          ${bgs.map(bgRow).join('')}
+        </div>
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">
+          Virtues
+          ${this._mortalPoolCounter('Virtue', virtueExtra, virtuePool)}
+        </div>
+        <p class="step-note">Conscience + Self-Control determines starting <strong>Humanity</strong>. Courage determines starting <strong>Willpower</strong>.</p>
+        <div class="mortal-virtues-grid">
+          ${M20.VIRTUES.map(virtueRow).join('')}
+        </div>
+        <div class="mortal-derived-preview">
+          <span>Humanity preview: <strong>${(v.conscience || 1) + (v.self_control || 1)}</strong></span>
+          <span>Willpower preview: <strong>${v.courage || 1}</strong></span>
+        </div>
+      </div>`;
+  },
+
+  /* ── Mortal Step 4 — Finishing Touches ────────────────────── */
+  renderStep4Mortal() {
+    const c = this.char;
+    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+    const humanity   = (v.conscience || 1) + (v.self_control || 1);
+    const willpower  = v.courage || 1;
+    // Pin derived values on the char so save persists them
+    c.humanity  = humanity;
+    c.willpower = willpower;
+
+    const freebies = M20.CREATION_MORTAL.freebiePoints; // 21
+    const spent    = this.calcMortalFreebies();
+    const remaining = freebies - spent;
+    const overCls = remaining < 0 ? 'freebie-over' : '';
+
+    return `
+      ${this.stepHeader('Step V — Finishing Touches',
+        '"Now the steel is forged — only the temper remains."',
+        `You have <strong>21 freebie points</strong> to round out your hunter. Spend them on Attributes (5/dot), Abilities (2/dot), Backgrounds (1/dot), Virtues (2/dot), Humanity (2/dot), or Willpower (1/dot). Optionally take up to <strong>7 points</strong> of Flaws to earn bonus freebies.`)}
+
+      <div class="step-section">
+        <div class="step-section-title">Derived Traits</div>
+        <div class="mortal-derived-grid">
+          <div class="mortal-derived-card">
+            <div class="mortal-derived-label">Humanity</div>
+            <div class="mortal-derived-value">${humanity}</div>
+            <div class="mortal-derived-formula">Conscience + Self-Control</div>
+          </div>
+          <div class="mortal-derived-card">
+            <div class="mortal-derived-label">Willpower</div>
+            <div class="mortal-derived-value">${willpower}</div>
+            <div class="mortal-derived-formula">equals Courage</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">
+          Freebie Points
+          <span class="pool-counter ${overCls}"><strong>${remaining}</strong> / ${freebies} remaining</span>
+        </div>
+        <p class="step-instructions">Increase any trait beyond its starting allocation, raise Humanity or Willpower above their derived values, or buy a Virtue dot.</p>
+        <div class="mortal-freebie-summary">
+          ${this._mortalFreebieBreakdown()}
+        </div>
+        <p class="step-note">Detailed freebie spending UI for individual traits will land in a follow-up — for now, any over-allocation in earlier steps is automatically charged here.</p>
+      </div>
+
+      <div class="step-section">
+        <div class="step-section-title">Merits &amp; Flaws (optional, max 7-pt Flaw bonus)</div>
+        <p class="step-note">Full Merits &amp; Flaws picker is shared with the Awakened wizard and will be wired into the mortal flow in a follow-up. You can add them via Free Edit after creation.</p>
+      </div>`;
+  },
+
+  /* ── Mortal freebie cost calculation ───────────────────────── */
+  calcMortalFreebies() {
+    const c = this.char;
+    const costs = M20.FREEBIE_COSTS_MORTAL;
+    let total = 0;
+
+    // Attributes: cost = (current - 1) - allocation pool used; overage * 5
+    const attrPools = M20.CREATION_MORTAL.attrPoints;
+    const attrGroups = {
+      Physical: ['strength','dexterity','stamina'],
+      Social:   ['charisma','manipulation','appearance'],
+      Mental:   ['perception','intelligence','wits'],
+    };
+    Object.keys(attrGroups).forEach(cat => {
+      const used = attrGroups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+      const pi   = c.attr_priority.indexOf(cat);
+      const pool = [attrPools.primary, attrPools.secondary, attrPools.tertiary][pi] || 0;
+      const over = Math.max(0, used - pool);
+      total += over * costs.attribute.cost;
+    });
+
+    // Abilities: same logic
+    const abilPools = M20.CREATION_MORTAL.abilityPoints;
+    const abilCats = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
+    Object.keys(abilCats).forEach(cat => {
+      const key = abilCats[cat];
+      const used = Object.values(c[key] || {}).reduce((s, v) => s + (v || 0), 0);
+      const pi   = c.ability_priority.indexOf(cat);
+      const pool = [abilPools.primary, abilPools.secondary, abilPools.tertiary][pi] || 0;
+      const over = Math.max(0, used - pool);
+      total += over * costs.ability.cost;
+    });
+
+    // Backgrounds: any over 5 dots
+    const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+    const bgUsed = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
+    total += Math.max(0, bgUsed - M20.CREATION_MORTAL.backgroundDots) * costs.background.cost;
+
+    // Virtues: any extra dots beyond the 7-point pool
+    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+    const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
+    total += Math.max(0, virtueExtra - M20.CREATION_MORTAL.virtuePoints) * costs.virtue.cost;
+
+    return total;
+  },
+
+  _mortalFreebieBreakdown() {
+    const c = this.char;
+    const rows = [];
+    const attrPools = M20.CREATION_MORTAL.attrPoints;
+    const attrGroups = {
+      Physical: ['strength','dexterity','stamina'],
+      Social:   ['charisma','manipulation','appearance'],
+      Mental:   ['perception','intelligence','wits'],
+    };
+    let total = 0;
+    Object.keys(attrGroups).forEach(cat => {
+      const used = attrGroups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+      const pi   = c.attr_priority.indexOf(cat);
+      const pool = [attrPools.primary, attrPools.secondary, attrPools.tertiary][pi] || 0;
+      const over = Math.max(0, used - pool);
+      if (over > 0) { rows.push(`<div class="freebie-row"><span>${cat} Attributes (+${over} dots)</span><strong>${over * 5} pts</strong></div>`); total += over * 5; }
+    });
+    const abilPools = M20.CREATION_MORTAL.abilityPoints;
+    const abilCats = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
+    Object.keys(abilCats).forEach(cat => {
+      const key = abilCats[cat];
+      const used = Object.values(c[key] || {}).reduce((s, v) => s + (v || 0), 0);
+      const pi   = c.ability_priority.indexOf(cat);
+      const pool = [abilPools.primary, abilPools.secondary, abilPools.tertiary][pi] || 0;
+      const over = Math.max(0, used - pool);
+      if (over > 0) { rows.push(`<div class="freebie-row"><span>${cat} Abilities (+${over} dots)</span><strong>${over * 2} pts</strong></div>`); total += over * 2; }
+    });
+    const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+    const bgUsed = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
+    const bgOver = Math.max(0, bgUsed - M20.CREATION_MORTAL.backgroundDots);
+    if (bgOver > 0) { rows.push(`<div class="freebie-row"><span>Backgrounds (+${bgOver} dots)</span><strong>${bgOver} pts</strong></div>`); total += bgOver; }
+
+    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+    const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
+    const virtueOver = Math.max(0, virtueExtra - M20.CREATION_MORTAL.virtuePoints);
+    if (virtueOver > 0) { rows.push(`<div class="freebie-row"><span>Virtues (+${virtueOver} dots)</span><strong>${virtueOver * 2} pts</strong></div>`); total += virtueOver * 2; }
+
+    if (rows.length === 0) {
+      return `<p class="freebie-empty">No freebie spending yet — all earlier steps stayed within their allocation pools.</p>`;
+    }
+    return rows.join('') + `<div class="freebie-row freebie-row-total"><span>Total</span><strong>${total} pts</strong></div>`;
+  },
+
+  /* ─── Mortal step listeners (delegated, no-op when DOM not present) ── */
+  _attachMortalListeners(content) {
+    const c = this.char;
+
+    // Mortal motivation textarea → save to c.notes
+    const motiv = content.querySelector('#f-mortal-motivation');
+    if (motiv) {
+      motiv.addEventListener('input', () => { c.notes = motiv.value; });
+    }
+
+    // Custom-archetype add button (mortal Concept step)
+    const addArch = content.querySelector('#btn-add-custom-archetype');
+    if (addArch) {
+      addArch.addEventListener('click', () => {
+        const name = prompt('Custom Archetype name?')?.trim();
+        if (!name) return;
+        const desc = prompt('Short description? (optional)')?.trim() || '';
+        if (!c.customArchetypes) c.customArchetypes = [];
+        c.customArchetypes.push({ name, description: desc });
+        this.renderStep();
+      });
+    }
+
+    // Mortal attribute dots
+    content.querySelectorAll('[data-mortal-attr]').forEach(grp => {
+      grp.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const id  = grp.dataset.mortalAttr;
+        const val = parseInt(dot.dataset.val);
+        const cur = c[id] || 1;
+        c[id] = (cur === val) ? Math.max(1, val - 1) : val;
+        this.renderStep();
+        this.updateFreebieDisplay();
+      });
+    });
+
+    // Mortal ability dots — capped at 3 during creation (4-5 require freebies, deferred)
+    content.querySelectorAll('[data-mortal-abil]').forEach(grp => {
+      grp.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const id   = grp.dataset.mortalAbil;
+        const key  = grp.dataset.cat;
+        const val  = parseInt(dot.dataset.val);
+        if (val > M20.CREATION_MORTAL.abilityMax) {
+          toast('Abilities are capped at 3 dots at creation. Use Free Edit later to raise further.', 'error');
+          return;
+        }
+        if (!c[key]) c[key] = {};
+        const cur = c[key][id] || 0;
+        if (cur === val) {
+          if (val - 1 === 0) delete c[key][id];
+          else c[key][id] = val - 1;
+        } else {
+          c[key][id] = val;
+        }
+        this.renderStep();
+        this.updateFreebieDisplay();
+      });
+    });
+
+    // Mortal background dots
+    content.querySelectorAll('[data-mortal-bg]').forEach(grp => {
+      grp.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const id  = grp.dataset.mortalBg;
+        const val = parseInt(dot.dataset.val);
+        if (!c.backgrounds) c.backgrounds = {};
+        const cur = c.backgrounds[id] || 0;
+        if (cur === val) {
+          if (val - 1 === 0) delete c.backgrounds[id];
+          else c.backgrounds[id] = val - 1;
+        } else {
+          c.backgrounds[id] = val;
+        }
+        this.renderStep();
+        this.updateFreebieDisplay();
+      });
+    });
+
+    // Mortal virtue dots — minimum 1 (auto)
+    content.querySelectorAll('[data-mortal-virtue]').forEach(grp => {
+      grp.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const id  = grp.dataset.mortalVirtue;
+        const val = parseInt(dot.dataset.val);
+        if (!c.virtues) c.virtues = { conscience: 1, self_control: 1, courage: 1 };
+        const cur = c.virtues[id] || 1;
+        c.virtues[id] = (cur === val) ? Math.max(1, val - 1) : val;
+        this.renderStep();
+        this.updateFreebieDisplay();
+      });
+    });
+  },
+
   /* ─── Event Listeners ──────────────────────────────────────── */
   attachStepListeners() {
     const content = $('#step-content');
     const c = this.char;
+
+    // Mortal-flow listeners (no-op when the matching DOM isn't in the current step)
+    this._attachMortalListeners(content);
 
     // Step 0 — Basic fields
     const bind = (id, field, transform) => {
@@ -10458,6 +11054,9 @@ const Creator = {
 
   // ── Chronicle rules helpers ───────────────────────────────────────────────
   freebiesPool() {
+    if (this.charType === 'mortal') {
+      return this.char._chronicleRules?.freebiePoints ?? M20.CREATION_MORTAL.freebiePoints;
+    }
     return this.char._chronicleRules?.freebiePoints ?? M20.CREATION.freebiePoints;
   },
 
@@ -11101,6 +11700,11 @@ const FreeEdit = {
   open(char) {
     this.char = JSON.parse(JSON.stringify(char));
     if (!this.char.specialties) this.char.specialties = {};
+    if (this.char.character_type === 'mortal') {
+      if (!this.char.virtues || typeof this.char.virtues !== 'object') {
+        this.char.virtues = { conscience: 1, self_control: 1, courage: 1 };
+      }
+    }
     this._chronicleId = char.chronicle_id || null;
     App.showPage('free-edit');
     this._renderToolbar();
@@ -11362,7 +11966,20 @@ const FreeEdit = {
       ${feWonderRows ? `<div style="margin-top:0.75rem"><div class="fe-group-label">Wonders</div>${feWonderRows}</div>` : ''}
     </div>
 
-    <!-- Spheres -->
+    ${c.character_type === 'mortal' ? `
+    <!-- Virtues (Mortal) -->
+    <div class="fe-section">
+      <div class="fe-section-title">Virtues</div>
+      <div class="fe-grid-3">
+        ${M20.VIRTUES.map(vd => `
+          <div class="fe-trait-row" title="${escHtml(vd.description)}">
+            <span class="fe-trait-label">${vd.name}</span>
+            ${this._dots((c.virtues || {})[vd.id] || 1, 5, 'virtues', vd.id)}
+          </div>`).join('')}
+      </div>
+    </div>
+    ` : `
+    <!-- Spheres (Awakened) -->
     <div class="fe-section">
       <div class="fe-section-title">Spheres</div>
       <div class="fe-grid-3">
@@ -11370,16 +11987,21 @@ const FreeEdit = {
         <div>${['life','matter','mind'].map(id => sphRow(M20.SPHERES.find(s=>s.id===id)?.name||id, id)).join('')}</div>
         <div>${['prime','spirit','time'].map(id => sphRow(M20.SPHERES.find(s=>s.id===id)?.name||id, id)).join('')}</div>
       </div>
-    </div>
+    </div>`}
 
     <!-- Core Stats -->
     <div class="fe-section">
       <div class="fe-section-title">Core Stats</div>
       <div class="fe-stat-grid">
-        <div class="fe-trait-row"><span class="fe-trait-label">Arete</span>${this._dots(c.arete||1, 10, 'arete')}</div>
-        <div class="fe-trait-row"><span class="fe-trait-label">Willpower</span>${this._dots(c.willpower||5, 10, 'willpower')}</div>
-        <div class="fe-trait-row"><span class="fe-trait-label">Quintessence</span>${this._number('quintessence', c.quintessence||0, 0, 20)}</div>
-        <div class="fe-trait-row"><span class="fe-trait-label">Paradox</span>${this._number('paradox', c.paradox||0, 0, 20)}</div>
+        ${c.character_type === 'mortal' ? `
+          <div class="fe-trait-row"><span class="fe-trait-label">Humanity</span>${this._dots(c.humanity||0, 10, 'humanity')}</div>
+          <div class="fe-trait-row"><span class="fe-trait-label">Willpower</span>${this._dots(c.willpower||1, 10, 'willpower')}</div>
+        ` : `
+          <div class="fe-trait-row"><span class="fe-trait-label">Arete</span>${this._dots(c.arete||1, 10, 'arete')}</div>
+          <div class="fe-trait-row"><span class="fe-trait-label">Willpower</span>${this._dots(c.willpower||5, 10, 'willpower')}</div>
+          <div class="fe-trait-row"><span class="fe-trait-label">Quintessence</span>${this._number('quintessence', c.quintessence||0, 0, 20)}</div>
+          <div class="fe-trait-row"><span class="fe-trait-label">Paradox</span>${this._number('paradox', c.paradox||0, 0, 20)}</div>
+        `}
       </div>
     </div>
 
