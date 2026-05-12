@@ -8294,6 +8294,13 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .pool-counter .pool-label { text-transform: uppercase; font-size: 0.68rem; }
 .pool-counter.pool-over strong { color: var(--crimson); }
 .pool-counter.pool-zero strong { color: var(--gold-bright, var(--gold-mid)); }
+.pool-counter.pool-freebie strong { color: var(--gold-bright, var(--gold-mid)); }
+.pool-freebie-cost {
+  margin-left: 0.4rem;
+  color: var(--purple-mid);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 
 /* Mortal attribute/ability grid: 3 columns side by side */
 .mortal-attr-grid {
@@ -8338,6 +8345,20 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .mortal-trait-dots .dot { cursor: pointer; transition: border-color 0.1s, transform 0.1s; }
 .mortal-trait-dots .dot:hover { border-color: var(--gold-bright, var(--gold-mid)); transform: scale(1.15); }
 .mortal-trait-dots .dot.dot-locked { opacity: 0.4; cursor: not-allowed; }
+
+/* When an .attr-row carries .mortal-trait-row, lay it out side-by-side
+   like the Awakened wizard does — name + level flavor on the left, dots on the right. */
+.attr-row.mortal-trait-row {
+  flex-direction: row;
+  align-items: center;
+  padding: 0.4rem 0;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(58,52,40,0.18);
+}
+.attr-row.mortal-trait-row:last-child { border-bottom: none; }
+.attr-row.mortal-trait-row .attr-info { flex: 1; min-width: 0; }
+.attr-row.mortal-trait-row .attr-name { font-size: 0.86rem; }
+.attr-row.mortal-trait-row .attr-desc { font-size: 0.74rem; }
 
 /* Mortal background grid: 2 columns */
 .mortal-bg-grid {
