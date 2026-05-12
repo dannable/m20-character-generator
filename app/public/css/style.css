@@ -8279,6 +8279,191 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 }
 .char-type-footer { margin-top: 1.5rem; }
 
+/* ─── Mortal Creator UI ────────────────────────────────────────────────── */
+/* Pool counters shown next to section titles */
+.pool-counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-left: 0.5rem;
+  letter-spacing: 0.02em;
+}
+.pool-counter strong { color: var(--gold-mid); font-size: 0.92rem; }
+.pool-counter .pool-label { text-transform: uppercase; font-size: 0.68rem; }
+.pool-counter.pool-over strong { color: var(--crimson); }
+.pool-counter.pool-zero strong { color: var(--gold-bright, var(--gold-mid)); }
+
+/* Mortal attribute/ability grid: 3 columns side by side */
+.mortal-attr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 780px) {
+  .mortal-attr-grid { grid-template-columns: 1fr; }
+}
+.mortal-attr-group {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.7rem 0.85rem;
+}
+.mortal-attr-group.priority-primary   { border-color: rgba(180,130,30,0.45); }
+.mortal-attr-group.priority-secondary { border-color: rgba(120,120,150,0.4); }
+.mortal-attr-group.priority-tertiary  { border-color: rgba(80,80,90,0.4); }
+.mortal-attr-group-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+.mortal-attr-group-name {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  color: var(--gold-mid);
+}
+
+.mortal-trait-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.22rem 0;
+  font-size: 0.86rem;
+}
+.mortal-trait-name { color: var(--text-mid); }
+.mortal-trait-dots .dot { cursor: pointer; transition: border-color 0.1s, transform 0.1s; }
+.mortal-trait-dots .dot:hover { border-color: var(--gold-bright, var(--gold-mid)); transform: scale(1.15); }
+.mortal-trait-dots .dot.dot-locked { opacity: 0.4; cursor: not-allowed; }
+
+/* Mortal background grid: 2 columns */
+.mortal-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.3rem 1.5rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 600px) { .mortal-bg-grid { grid-template-columns: 1fr; } }
+
+/* Virtues grid */
+.mortal-virtues-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 600px) { .mortal-virtues-grid { grid-template-columns: 1fr; } }
+
+.mortal-derived-preview {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.7rem;
+  padding: 0.55rem 0.85rem;
+  background: rgba(180,130,30,0.07);
+  border-radius: 4px;
+  border-left: 3px solid var(--gold-dim);
+  font-size: 0.88rem;
+  color: var(--text-mid);
+}
+.mortal-derived-preview strong { color: var(--gold-mid); }
+
+/* Mortal Step 4 — Finishing */
+.mortal-derived-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+@media (max-width: 600px) { .mortal-derived-grid { grid-template-columns: 1fr; } }
+.mortal-derived-card {
+  background: var(--bg-raised);
+  border: 1.5px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+.mortal-derived-label {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  color: var(--gold-mid);
+  text-transform: uppercase;
+}
+.mortal-derived-value {
+  font-size: 2.4rem;
+  color: var(--gold-bright, var(--gold-mid));
+  font-family: var(--font-heading, 'Cinzel', serif);
+  line-height: 1.1;
+  margin: 0.3rem 0 0.1rem;
+}
+.mortal-derived-formula {
+  font-size: 0.74rem;
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.mortal-freebie-summary {
+  margin-top: 0.7rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.85rem;
+}
+.freebie-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.18rem 0;
+  font-size: 0.86rem;
+  color: var(--text-mid);
+}
+.freebie-row strong { color: var(--gold-mid); }
+.freebie-row-total {
+  border-top: 1px solid var(--border);
+  margin-top: 0.3rem;
+  padding-top: 0.4rem;
+  font-weight: 600;
+}
+.freebie-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.freebie-over strong, .pool-counter.freebie-over strong { color: var(--crimson); }
+
+/* Concept step — current Nature/Demeanor summary */
+.mortal-nd-current {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  background: rgba(180,130,30,0.07);
+  border-radius: 4px;
+  font-size: 0.88rem;
+  color: var(--text-mid);
+}
+.mortal-nd-current strong { color: var(--gold-mid); }
+
+/* Sheet — mortal Virtues / Humanity */
+.sheet-humanity-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem 0.2rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.4rem;
+}
+.sheet-humanity-label {
+  font-family: var(--font-heading, 'Cinzel', serif);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  color: var(--gold-mid);
+  text-transform: uppercase;
+}
+
 /* Stub shown when a mortal step renderer isn't yet implemented */
 .step-stub {
   padding: 2rem;
