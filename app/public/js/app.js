@@ -94,6 +94,7 @@ function bgDisplayName(bg, affiliation) {
 // Returns only backgrounds appropriate for the given affiliation
 function filteredBackgrounds(affiliation) {
   return M20.BACKGROUNDS.filter(bg => {
+    if (bg.mortalOnly) return false;                              // mortal-only Backgrounds never appear for mages
     if (bg.technocracy && affiliation !== 'Technocracy') return false;
     return true;
   });
@@ -7299,10 +7300,73 @@ const Creator = {
   //   .areteBonus — bonus arete dots (reduces calcFreebies arete cost)
   _lockBaselines() {
     const c = this.char;
-    // Mortal flow has no Spheres/Arete/chronicle bonus baselines to lock.
+    // ── Mortal flow ─────────────────────────────────────────────────────
+    // Snapshot allocation baselines so that any over-allocation in steps II/III/IV
+    // already shows up as "freebies spent" in step V, and any further raises in
+    // step V cost additional freebies via the standard fbRow / dot-click path.
     if (this.charType === 'mortal') {
-      this._lockedBaselines = { attrs: {}, abilities: {}, backgrounds: {}, spheres: {},
-        bonusAttrs: {}, bonusAbilities: {}, bonusBgs: {}, bonusSpheres: {}, areteBonus: 0 };
+      // Greedy: distribute `pool` points across `ids` (lowest current value last
+      // to fill), capped at each id's current value. Returns id→baseline map.
+      const greedy = (ids, getValue, pool, startVal = 0) => {
+        const result = {};
+        ids.forEach(id => { result[id] = startVal; });
+        if (pool <= 0) return result;
+        // Sort by current value DESC so we lock high-value dots first into the pool.
+        const sorted = [...ids].sort((a, b) => getValue(b) - getValue(a));
+        let rem = pool;
+        for (const id of sorted) {
+          if (rem <= 0) break;
+          const cap = Math.max(0, getValue(id) - startVal);
+          const take = Math.min(rem, cap);
+          result[id] = startVal + take;
+          rem -= take;
+        }
+        return result;
+      };
+
+      const attrPri  = c.attr_priority    || ['Physical','Social','Mental'];
+      const abilPri  = c.ability_priority || ['Talents','Skills','Knowledges'];
+      const ap = M20.CREATION_MORTAL.attrPoints;
+      const bp = M20.CREATION_MORTAL.abilityPoints;
+      const attrPool = { Physical:[ap.primary,ap.secondary,ap.tertiary][attrPri.indexOf('Physical')]??0,
+                          Social:  [ap.primary,ap.secondary,ap.tertiary][attrPri.indexOf('Social')]  ??0,
+                          Mental:  [ap.primary,ap.secondary,ap.tertiary][attrPri.indexOf('Mental')]  ??0 };
+      const abilPool = { Talents:   [bp.primary,bp.secondary,bp.tertiary][abilPri.indexOf('Talents')]   ??0,
+                          Skills:    [bp.primary,bp.secondary,bp.tertiary][abilPri.indexOf('Skills')]    ??0,
+                          Knowledges:[bp.primary,bp.secondary,bp.tertiary][abilPri.indexOf('Knowledges')]??0 };
+
+      const attrGroups = { Physical:['strength','dexterity','stamina'],
+                            Social:  ['charisma','manipulation','appearance'],
+                            Mental:  ['perception','intelligence','wits'] };
+      const attrs = {};
+      Object.keys(attrGroups).forEach(cat => {
+        // Baseline includes the auto-1 dot, so startVal = 1 and pool covers dots 2..n.
+        Object.assign(attrs, greedy(attrGroups[cat], id => c[id] || 1, attrPool[cat], 1));
+      });
+
+      const abilGroupMap = { Talents:    { key:'talents',    data: M20.TALENTS },
+                              Skills:     { key:'skills',     data: M20.SKILLS },
+                              Knowledges: { key:'knowledges', data: M20.KNOWLEDGES } };
+      const abilities = {};
+      Object.keys(abilGroupMap).forEach(cat => {
+        const { key, data } = abilGroupMap[cat];
+        Object.assign(abilities, greedy(data.map(a => a.id), id => (c[key] || {})[id] || 0, abilPool[cat], 0));
+      });
+
+      const bgIds = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id)).map(b => b.id);
+      const backgrounds = greedy(bgIds, id => (c.backgrounds || {})[id] || 0, M20.CREATION_MORTAL.backgroundDots, 0);
+
+      // Virtues: each starts at 1; 7 pool distributes across the three.
+      const virtIds = M20.VIRTUES.map(v => v.id);
+      const virtues = greedy(virtIds, id => (c.virtues || {})[id] || 1, M20.CREATION_MORTAL.virtuePoints, 1);
+
+      this._lockedBaselines = {
+        attrs, abilities, backgrounds, virtues, spheres: {},
+        bonusAttrs: {}, bonusAbilities: {}, bonusBgs: {}, bonusSpheres: {}, areteBonus: 0,
+        // Derived stat baselines (raised above these costs freebies):
+        humanity: (c.virtues?.conscience || 1) + (c.virtues?.self_control || 1),
+        willpower: c.virtues?.courage || 1,
+      };
       return;
     }
     const bonusDots = c._chronicleRules?.bonusDots || [];
@@ -9239,100 +9303,308 @@ const Creator = {
 
   /* ── Mortal Step 4 — Finishing Touches ────────────────────── */
   renderStep4Mortal() {
-    const c = this.char;
-    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
-    const humanity   = (v.conscience || 1) + (v.self_control || 1);
-    const willpower  = v.courage || 1;
-    // Pin derived values on the char so save persists them
-    c.humanity  = humanity;
-    c.willpower = willpower;
+    const c  = this.char;
+    const lb = this._lockedBaselines || {};
+    // Ensure Virtues / derived stats are populated for fresh entry.
+    if (!c.virtues || typeof c.virtues !== 'object') c.virtues = { conscience: 1, self_control: 1, courage: 1 };
+    // Derive Humanity / Willpower from Virtues on first entry to this step
+    // (subsequent freebie raises are on top of these baselines).
+    if (lb.humanity != null && (!c.humanity || c.humanity < lb.humanity)) c.humanity = lb.humanity;
+    if (lb.willpower != null && (!c.willpower || c.willpower < lb.willpower)) c.willpower = lb.willpower;
 
-    const freebies = M20.CREATION_MORTAL.freebiePoints; // 21
-    const spent    = this.calcMortalFreebies();
-    const remaining = freebies - spent;
-    const overCls = remaining < 0 ? 'freebie-over' : '';
+    const pool       = this.freebiesPool();
+    const spent      = this.calcMortalFreebies();
+    const remaining  = pool - spent;
+
+    // Local fbRow — same contract as the Awakened wizard's helper. Reuses the
+    // shared click handlers in attachFreebieListeners (data-fb-id / data-stat).
+    const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null,
+                    specOptions = null, currentSpec = '', specThreshold = 4, desc = '', inherentMin = 0) => {
+      const spentDots = Math.max(0, current - baseline) * costPer;
+      const dotsHtml  = Array.from({length: max}, (_, i) => {
+        const val      = i + 1;
+        const isFree   = val <= baseline;
+        const isFilled = val <= current;
+        const dotCls   = isFree ? 'dot-free' : 'dot-freebie';
+        const tipText  = isFree ? 'Free (creation)' : `Costs ${costPer} freebie pt${costPer>1?'s':''}`;
+        return `<span class="dot ${isFilled ? 'filled' : ''} ${dotCls}" data-val="${val}" title="${tipText}"></span>`;
+      }).join('');
+      const costDisplay = spentDots > 0
+        ? `<span class="fb-cost-badge">${spentDots} pt${spentDots>1?'s':''}</span>`
+        : `<span class="fb-cost-free">free</span>`;
+      const dataAttr = stat ? `data-stat="${stat}"` : `data-fb-id="${id}"`;
+      const specHtml = specOptions !== null
+        ? `<div class="specialty-row fb-specialty-row"${current < specThreshold ? ' style="display:none"' : ''}>` +
+          `<input class="specialty-input" list="fb-spec-${id}" data-specialty-for="${id}" ` +
+          `placeholder="Specialty…" value="${escHtml(currentSpec)}">` +
+          `<datalist id="fb-spec-${id}">${specOptions.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>` +
+          `</div>`
+        : '';
+      return `
+      <div class="fb-row" ${dataAttr} data-baseline="${baseline}" data-cost="${costPer}" data-max="${max}">
+        <div class="fb-row-label">
+          <span>${label}${costNote ? `<span class="fb-cost-hint">${costNote}</span>` : ''}</span>
+          <span class="fb-row-desc">${desc}</span>
+        </div>
+        <span class="dots" data-max="${max}">${dotsHtml}</span>
+        <div class="fb-row-cost">${costDisplay}</div>
+      </div>${specHtml}`;
+    };
+
+    // Build attribute spec map for the specialty input datalists.
+    const attrSpecMap = {};
+    Object.values(M20.ATTRIBUTES).forEach(group => group.forEach(a => { attrSpecMap[a.id] = a.specialties || []; }));
+
+    const attrGroups = [
+      { label: 'Physical', ids: M20.ATTRIBUTES.physical.map(a => [a.id, a.name]) },
+      { label: 'Social',   ids: M20.ATTRIBUTES.social.map(a => [a.id, a.name]) },
+      { label: 'Mental',   ids: M20.ATTRIBUTES.mental.map(a => [a.id, a.name]) },
+    ];
+    const attrSection = attrGroups.map(g => {
+      const rows = g.ids.map(([id, name]) => {
+        const cur     = c[id] || 1;
+        const baseline = lb.attrs?.[id] ?? 1;
+        return fbRow(id, name, cur, 5, baseline, M20.FREEBIE_COSTS_MORTAL.attribute.cost,
+          `${M20.FREEBIE_COSTS_MORTAL.attribute.cost} pts/dot`, null,
+          attrSpecMap[id] || [], (c.specialties || {})[id] || '', 4, '', 1);
+      }).join('');
+      return `<div class="fb-group">
+        <div class="fb-group-header">
+          <span class="fb-group-label">${g.label} Attributes</span>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+
+    const abilGroups = [
+      { label: 'Talents',    key: 'talents',    data: M20.TALENTS },
+      { label: 'Skills',     key: 'skills',     data: M20.SKILLS },
+      { label: 'Knowledges', key: 'knowledges', data: M20.KNOWLEDGES },
+    ];
+    const abilSection = abilGroups.map(g => {
+      const rows = g.data.map(a => {
+        const cur     = (c[g.key] || {})[a.id] || 0;
+        const baseline = lb.abilities?.[a.id] ?? 0;
+        const desc    = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
+        return fbRow(a.id, a.name, cur, 5, baseline, M20.FREEBIE_COSTS_MORTAL.ability.cost,
+          `${M20.FREEBIE_COSTS_MORTAL.ability.cost} pts/dot`, null,
+          a.specialties || [], (c.specialties || {})[a.id] || '', 4, desc, 0);
+      }).join('');
+      return `<div class="fb-group" data-cat="${g.key}">
+        <div class="fb-group-header">
+          <span class="fb-group-label">${g.label}</span>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+
+    const mortalBgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+    const bgRows = mortalBgs.map(b => {
+      const cur     = (c.backgrounds || {})[b.id] || 0;
+      const baseline = lb.backgrounds?.[b.id] ?? 0;
+      return fbRow(b.id, b.name, cur, b.max || 5, baseline, M20.FREEBIE_COSTS_MORTAL.background.cost,
+        `${M20.FREEBIE_COSTS_MORTAL.background.cost} pt/dot`, null,
+        null, '', 4, b.description || '', 0);
+    }).join('');
+
+    const virtueRows = M20.VIRTUES.map(v => {
+      const cur     = (c.virtues || {})[v.id] || 1;
+      const baseline = lb.virtues?.[v.id] ?? 1;
+      // Custom data attr for mortal virtue handler (not data-fb-id since c.virtues is nested)
+      const spent2 = Math.max(0, cur - baseline) * M20.FREEBIE_COSTS_MORTAL.virtue.cost;
+      const dotsHtml = Array.from({length: 5}, (_, i) => {
+        const val = i + 1;
+        const isFree = val <= baseline;
+        const isFilled = val <= cur;
+        const dotCls = isFree ? 'dot-free' : 'dot-freebie';
+        const tipText  = isFree ? 'Free (creation)' : `Costs ${M20.FREEBIE_COSTS_MORTAL.virtue.cost} freebie pts`;
+        return `<span class="dot ${isFilled ? 'filled' : ''} ${dotCls}" data-val="${val}" title="${tipText}"></span>`;
+      }).join('');
+      const costDisplay = spent2 > 0
+        ? `<span class="fb-cost-badge">${spent2} pts</span>`
+        : `<span class="fb-cost-free">free</span>`;
+      return `
+      <div class="fb-row" data-mortal-virtue-fb="${v.id}" data-baseline="${baseline}" data-cost="${M20.FREEBIE_COSTS_MORTAL.virtue.cost}" data-max="5">
+        <div class="fb-row-label">
+          <span>${v.name}<span class="fb-cost-hint">${M20.FREEBIE_COSTS_MORTAL.virtue.cost} pts/dot</span></span>
+          <span class="fb-row-desc">${v.description}</span>
+        </div>
+        <span class="dots" data-max="5">${dotsHtml}</span>
+        <div class="fb-row-cost">${costDisplay}</div>
+      </div>`;
+    }).join('');
+
+    // Derived stats — Humanity & Willpower can be raised above their auto-derived
+    // baseline by spending freebies. Min stays at baseline so they can't drop below.
+    const humanityRow = fbRow('humanity', 'Humanity', c.humanity || 0, 10,
+      lb.humanity || 0, M20.FREEBIE_COSTS_MORTAL.humanity.cost,
+      `${M20.FREEBIE_COSTS_MORTAL.humanity.cost} pts/dot`, 'humanity', null, '', 99,
+      `Base: Conscience (${c.virtues.conscience}) + Self-Control (${c.virtues.self_control})`, lb.humanity || 0);
+    const willpowerRow = fbRow('willpower', 'Willpower', c.willpower || 1, 10,
+      lb.willpower || 1, M20.FREEBIE_COSTS_MORTAL.willpower.cost,
+      `${M20.FREEBIE_COSTS_MORTAL.willpower.cost} pt/dot`, 'willpower', null, '', 99,
+      `Base: Courage (${c.virtues.courage})`, lb.willpower || 1);
+
+    // Freebie bank — same DOM ids as Awakened so updateFreebieBank() finds it.
+    const pipsHtml = Array.from({length: pool}, (_, i) =>
+      `<span class="fb-pip ${i < remaining ? 'available' : 'spent'}"></span>`).join('');
 
     return `
       ${this.stepHeader('Step V — Finishing Touches',
         '"Now the steel is forged — only the temper remains."',
-        `You have <strong>21 freebie points</strong> to round out your hunter. Spend them on Attributes (5/dot), Abilities (2/dot), Backgrounds (1/dot), Virtues (2/dot), Humanity (2/dot), or Willpower (1/dot). Optionally take up to <strong>7 points</strong> of Flaws to earn bonus freebies.`)}
+        `Spend your <strong>${pool} Freebie Points</strong> to push traits beyond their creation allocations, raise Humanity or Willpower above their derived values, or pick up Merits and Flaws. Click any dot to spend; click a filled dot to refund. <span class="page-ref">HH II p. 35, 41</span>`)}
 
-      <div class="step-section">
-        <div class="step-section-title">Derived Traits</div>
-        <div class="mortal-derived-grid">
-          <div class="mortal-derived-card">
-            <div class="mortal-derived-label">Humanity</div>
-            <div class="mortal-derived-value">${humanity}</div>
-            <div class="mortal-derived-formula">Conscience + Self-Control</div>
-          </div>
-          <div class="mortal-derived-card">
-            <div class="mortal-derived-label">Willpower</div>
-            <div class="mortal-derived-value">${willpower}</div>
-            <div class="mortal-derived-formula">equals Courage</div>
+      <!-- Freebie bank -->
+      <div class="fb-bank" id="fb-bank">
+        <div class="fb-bank-inner">
+          <div class="fb-bank-label">Freebie Points</div>
+          <div class="fb-bank-bar" id="fb-bar">${pipsHtml}</div>
+          <div class="fb-bank-numbers">
+            <span id="fb-remaining" class="${remaining < 0 ? 'fb-over' : ''}">${remaining} of ${pool} remaining</span>
           </div>
         </div>
       </div>
 
-      <div class="step-section">
-        <div class="step-section-title">
-          Freebie Points
-          <span class="pool-counter ${overCls}"><strong>${remaining}</strong> / ${freebies} remaining</span>
-        </div>
-        <p class="step-instructions">Increase any trait beyond its starting allocation, raise Humanity or Willpower above their derived values, or buy a Virtue dot.</p>
-        <div class="mortal-freebie-summary">
-          ${this._mortalFreebieBreakdown()}
-        </div>
-        <p class="step-note">Detailed freebie spending UI for individual traits will land in a follow-up — for now, any over-allocation in earlier steps is automatically charged here.</p>
-      </div>
+      <!-- Attributes -->
+      <details class="fb-section" id="fb-attrs" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Attributes</span>
+          <span class="fb-section-cost" id="fb-cost-attrs"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        ${attrSection}
+      </details>
 
-      <div class="step-section">
-        <div class="step-section-title">Merits &amp; Flaws (optional, max 7-pt Flaw bonus)</div>
-        <p class="step-note">Full Merits &amp; Flaws picker is shared with the Awakened wizard and will be wired into the mortal flow in a follow-up. You can add them via Free Edit after creation.</p>
-      </div>`;
+      <!-- Abilities -->
+      <details class="fb-section" id="fb-abilities" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Abilities</span>
+          <span class="fb-section-cost" id="fb-cost-abilities"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        ${abilSection}
+      </details>
+
+      <!-- Backgrounds -->
+      <details class="fb-section" id="fb-bgs" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Backgrounds</span>
+          <span class="fb-section-cost" id="fb-cost-bgs"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-group">${bgRows}</div>
+      </details>
+
+      <!-- Virtues -->
+      <details class="fb-section" id="fb-virtues" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Virtues</span>
+          <span class="fb-section-cost" id="fb-cost-virtues"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-group">${virtueRows}</div>
+      </details>
+
+      <!-- Core Stats: Humanity + Willpower -->
+      <details class="fb-section" id="fb-corestats" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Humanity &amp; Willpower</span>
+          <span class="fb-section-cost" id="fb-cost-corestats"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-group">${humanityRow}${willpowerRow}</div>
+      </details>
+
+      <!-- Merits & Flaws -->
+      <details class="fb-section" id="fb-merits-section" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Merits</span>
+          <span class="fb-section-cost" id="mf-cost-merits"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-section-note">Click a Merit to add it; click again to remove. Variable-cost Merits show a dropdown — choose your level first, then click the row to activate.</div>
+        <div id="fb-merits" class="mf-list"></div>
+      </details>
+      <details class="fb-section" id="fb-flaws-section" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Flaws (bonus, max ${this.flawCapRule() || 7})</span>
+          <span class="fb-section-cost" id="mf-cost-flaws"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-section-note">Taking a Flaw grants bonus freebie points equal to its cost (max +${this.flawCapRule() || 7} total). Variable-cost Flaws show a dropdown — select your level before clicking.</div>
+        <div id="fb-flaws" class="mf-list"></div>
+      </details>`;
   },
 
   /* ── Mortal freebie cost calculation ───────────────────────── */
   calcMortalFreebies() {
     const c = this.char;
     const costs = M20.FREEBIE_COSTS_MORTAL;
+    const lb = this._lockedBaselines;
     let total = 0;
 
-    // Attributes: cost = (current - 1) - allocation pool used; overage * 5
-    const attrPools = M20.CREATION_MORTAL.attrPoints;
-    const attrGroups = {
-      Physical: ['strength','dexterity','stamina'],
-      Social:   ['charisma','manipulation','appearance'],
-      Mental:   ['perception','intelligence','wits'],
-    };
-    Object.keys(attrGroups).forEach(cat => {
-      const used = attrGroups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
-      const pi   = c.attr_priority.indexOf(cat);
-      const pool = [attrPools.primary, attrPools.secondary, attrPools.tertiary][pi] || 0;
-      const over = Math.max(0, used - pool);
-      total += over * costs.attribute.cost;
-    });
+    if (lb && lb.attrs && Object.keys(lb.attrs).length) {
+      // Step V (Finishing) — baselines locked. Charge freebies for any trait
+      // above its baseline (which already absorbed the allocation pool).
+      const sum = (obj, key) => Object.keys(obj).reduce((s, id) => s + (obj[id] - (lb[key]?.[id] || 0)), 0);
 
-    // Abilities: same logic
-    const abilPools = M20.CREATION_MORTAL.abilityPoints;
-    const abilCats = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
-    Object.keys(abilCats).forEach(cat => {
-      const key = abilCats[cat];
-      const used = Object.values(c[key] || {}).reduce((s, v) => s + (v || 0), 0);
-      const pi   = c.ability_priority.indexOf(cat);
-      const pool = [abilPools.primary, abilPools.secondary, abilPools.tertiary][pi] || 0;
-      const over = Math.max(0, used - pool);
-      total += over * costs.ability.cost;
-    });
+      // Attributes
+      const attrIds = ['strength','dexterity','stamina','charisma','manipulation','appearance','perception','intelligence','wits'];
+      attrIds.forEach(id => {
+        total += Math.max(0, (c[id] || 1) - (lb.attrs[id] || 1)) * costs.attribute.cost;
+      });
+      // Abilities
+      ['talents','skills','knowledges'].forEach(key => {
+        Object.keys(c[key] || {}).forEach(id => {
+          total += Math.max(0, (c[key][id] || 0) - (lb.abilities[id] || 0)) * costs.ability.cost;
+        });
+      });
+      // Backgrounds (mortal only)
+      M20.BACKGROUNDS_MORTAL_IDS.forEach(id => {
+        total += Math.max(0, (c.backgrounds?.[id] || 0) - (lb.backgrounds[id] || 0)) * costs.background.cost;
+      });
+      // Virtues
+      M20.VIRTUES.forEach(v => {
+        total += Math.max(0, (c.virtues?.[v.id] || 1) - (lb.virtues?.[v.id] || 1)) * costs.virtue.cost;
+      });
+      // Derived stats above their baselines
+      total += Math.max(0, (c.humanity || 0) - (lb.humanity || 0)) * costs.humanity.cost;
+      total += Math.max(0, (c.willpower || 1) - (lb.willpower || 1)) * costs.willpower.cost;
+    } else {
+      // Earlier steps (no baselines yet) — preview over-allocation against
+      // the raw creation pools so the sidebar counter stays useful.
+      const attrPools = M20.CREATION_MORTAL.attrPoints;
+      const attrGroups = {
+        Physical: ['strength','dexterity','stamina'],
+        Social:   ['charisma','manipulation','appearance'],
+        Mental:   ['perception','intelligence','wits'],
+      };
+      Object.keys(attrGroups).forEach(cat => {
+        const used = attrGroups[cat].reduce((s, id) => s + Math.max(0, (c[id] || 1) - 1), 0);
+        const pi   = c.attr_priority.indexOf(cat);
+        const pool = [attrPools.primary, attrPools.secondary, attrPools.tertiary][pi] || 0;
+        total += Math.max(0, used - pool) * costs.attribute.cost;
+      });
+      const abilPools = M20.CREATION_MORTAL.abilityPoints;
+      const abilCats = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
+      Object.keys(abilCats).forEach(cat => {
+        const key = abilCats[cat];
+        const used = Object.values(c[key] || {}).reduce((s, v) => s + (v || 0), 0);
+        const pi   = c.ability_priority.indexOf(cat);
+        const pool = [abilPools.primary, abilPools.secondary, abilPools.tertiary][pi] || 0;
+        total += Math.max(0, used - pool) * costs.ability.cost;
+      });
+      const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
+      const bgUsed = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
+      total += Math.max(0, bgUsed - M20.CREATION_MORTAL.backgroundDots) * costs.background.cost;
+      const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
+      const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
+      total += Math.max(0, virtueExtra - M20.CREATION_MORTAL.virtuePoints) * costs.virtue.cost;
+    }
 
-    // Backgrounds: any over 5 dots
-    const bgs = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id));
-    const bgUsed = bgs.reduce((s, b) => s + (c.backgrounds?.[b.id] || 0), 0);
-    total += Math.max(0, bgUsed - M20.CREATION_MORTAL.backgroundDots) * costs.background.cost;
-
-    // Virtues: any extra dots beyond the 7-point pool
-    const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
-    const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
-    total += Math.max(0, virtueExtra - M20.CREATION_MORTAL.virtuePoints) * costs.virtue.cost;
+    // Merits cost freebies; flaws grant them (capped by chronicle rule, default 7)
+    total += this.calcMeritCost();
+    total -= this.calcFlawBonus();
 
     return total;
   },
@@ -10432,8 +10704,9 @@ const Creator = {
     this.updateNatureWillpower();
     this.updateAreteLabel();
 
-    // ── Step 6: Freebie panel dot listeners ───────────────────────
-    if (this.step === 6) this.attachFreebieListeners(content);
+    // ── Final step (Step 6 mage / Step 4 mortal): Freebie panel listeners ───
+    const finalStep = this._steps().length - 1;
+    if (this.step === finalStep) this.attachFreebieListeners(content);
   },
 
   attachFreebieListeners(content) {
@@ -10685,6 +10958,37 @@ const Creator = {
       delete char.specialties?.[id];
       if (char.custom_ability_names?.[id]) delete char.custom_ability_names[id];
       this.renderStep();
+    });
+
+    // ── Mortal: Virtue dots (Conscience / Self-Control / Courage) ─────
+    // Mortal-only; nested into char.virtues[id]. Same fbRow contract,
+    // distinct dataset key so we don't collide with the data-fb-id paths.
+    $$('.fb-row[data-mortal-virtue-fb]', content).forEach(row => {
+      const id      = row.dataset.mortalVirtueFb;
+      const costPer = parseFloat(row.dataset.cost) || 0;
+      const max     = parseInt(row.dataset.max) || 5;
+      const baseline = parseInt(row.dataset.baseline) || 1;
+      const dotsEl  = row.querySelector('.dots');
+      if (!dotsEl) return;
+      dotsEl.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const val = parseInt(dot.dataset.val);
+        if (!char.virtues) char.virtues = { conscience: 1, self_control: 1, courage: 1 };
+        const cur = char.virtues[id] || 1;
+        const tentative = cur === val ? Math.max(1, val - 1) : Math.min(max, val);
+        const oldCost = Math.max(0, cur - baseline) * costPer;
+        const newCost = Math.max(0, tentative - baseline) * costPer;
+        const delta = newCost - oldCost;
+        if (delta > 0 && !c.canSpendFreebie(delta)) {
+          toast(`Not enough freebie points (need ${delta}, have ${c.freebiesRemaining()}).`, 'error');
+          return;
+        }
+        char.virtues[id] = tentative;
+        // Virtues feed derived Humanity & Willpower baselines. Re-render to
+        // refresh both the virtue row and the linked core-stat rows.
+        c.renderStep({ scroll: false });
+      });
     });
 
     // Merits & Flaws card listeners
@@ -10975,6 +11279,16 @@ const Creator = {
     this.updateSectionCost('fb-cost-abilities', this.calcAbilityFreebies());
     this.updateSectionCost('fb-cost-bgs', this.calcBgFreebies());
     this.updateSectionCost('fb-cost-spheres', this.calcSphereFreebies());
+    // Mortal-only sections (no-op when not in mortal step V)
+    if (this.charType === 'mortal') {
+      const c = this.char;
+      const lb = this._lockedBaselines || {};
+      const vCost = M20.VIRTUES.reduce((s, v) => s + Math.max(0, (c.virtues?.[v.id] || 1) - (lb.virtues?.[v.id] || 1)) * M20.FREEBIE_COSTS_MORTAL.virtue.cost, 0);
+      this.updateSectionCost('fb-cost-virtues', vCost);
+      const hCost = Math.max(0, (c.humanity || 0) - (lb.humanity || 0)) * M20.FREEBIE_COSTS_MORTAL.humanity.cost;
+      const wCost = Math.max(0, (c.willpower || 1) - (lb.willpower || 1)) * M20.FREEBIE_COSTS_MORTAL.willpower.cost;
+      this.updateSectionCost('fb-cost-corestats', hCost + wCost);
+    }
     this.updateMFDisplay();
     this.updateAreteNotice();
   },
@@ -11572,23 +11886,27 @@ const Creator = {
   },
 
   effectiveMerits() {
+    const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
+    const builtins = M20.MERITS.filter(m => isMortal ? true : !m.mortalOnly);
     const chronicleCustoms = (this.char._chronicleRules?.customMerits || [])
       .filter(m => m.name)
       .map(m => ({ id: m.id, name: m.name, cost: m.cost || 1, category: m.category || 'Social', description: m.description || '', custom: true }));
     const userCustoms = _getUserCustomMF()
       .filter(m => m.kind === 'merit')
       .map(m => ({ id: 'ucmf_' + m.id, name: m.name, cost: m.cost, category: m.category || 'Social', description: m.description || '', repeatable: !!m.repeatable, custom: true, customDbId: m.id }));
-    return [...M20.MERITS, ...chronicleCustoms, ...userCustoms];
+    return [...builtins, ...chronicleCustoms, ...userCustoms];
   },
 
   effectiveFlaws() {
+    const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
+    const builtins = M20.FLAWS.filter(f => isMortal ? true : !f.mortalOnly);
     const chronicleCustoms = (this.char._chronicleRules?.customFlaws || [])
       .filter(f => f.name)
       .map(f => ({ id: f.id, name: f.name, cost: f.cost || 1, category: f.category || 'Social', description: f.description || '', custom: true }));
     const userCustoms = _getUserCustomMF()
       .filter(f => f.kind === 'flaw')
       .map(f => ({ id: 'ucmf_' + f.id, name: f.name, cost: f.cost, category: f.category || 'Social', description: f.description || '', repeatable: !!f.repeatable, custom: true, customDbId: f.id }));
-    return [...M20.FLAWS, ...chronicleCustoms, ...userCustoms];
+    return [...builtins, ...chronicleCustoms, ...userCustoms];
   },
 
   effectiveCustomAbilities(category) {

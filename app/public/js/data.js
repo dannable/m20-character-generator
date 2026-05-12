@@ -61,11 +61,13 @@ const M20 = {
     { id: 'courage',      name: 'Courage',      description: 'Your willingness to face danger and adversity head-on without fleeing or freezing.' },
   ],
 
-  // Backgrounds appropriate to mortal hunters (HH II, p. 37 — drops Mage- and
-  // Vampire-specific Backgrounds; Armory / Base of Operations / Guide are Phase 2).
+  // Backgrounds appropriate to mortal hunters (HH II, p. 37).
+  // The three at the end (armory / baseOfOperations / guide) are mortalOnly:true
+  // and are not shown to Awakened characters.
   BACKGROUNDS_MORTAL_IDS: [
     'allies', 'alternateId', 'contacts', 'fame', 'influence',
     'mentor', 'resources', 'retainers', 'status',
+    'armory', 'baseOfOperations', 'guide',
   ],
 
   XP_COSTS: {
@@ -1050,6 +1052,37 @@ const M20 = {
         'Impressive powers or a powerful Effect. (10-12 points.)',
         'Mighty powers or a single devastating Effect. (13-15 points.)',
       ] },
+
+    // ─── Mortal hunter Backgrounds (Hunters Hunted II, p. 37–39) ─────────────
+    // These appear only when char.character_type === 'mortal' (gated via
+    // BACKGROUNDS_MORTAL_IDS).
+    { id: 'armory', name: 'Armory', mortalOnly: true,
+      description: 'A collection of weapons, ammunition, and armor that your hunter possesses and can maintain in fire-ready condition.', page: 37,
+      levels: [
+        'A starter armory of legal weapons commonly available on the street, plus a handful of spares.',
+        'Enough legal weaponry to outfit a street gang of ten.',
+        'A small militia and gear in the legal gray area for five.',
+        'A SWAT-team-grade armory with military hardware for a 10-man team.',
+        'A paramilitary armory: significant illegal weapons, enough for a platoon.',
+      ] },
+    { id: 'baseOfOperations', name: 'Base of Operations', mortalOnly: true,
+      description: 'A secure headquarters owned and controlled by your hunter — anywhere from a bare apartment to a sprawling estate. Points split between Luxury, Size, and Security (track the split in your Notes).', page: 38,
+      levels: [
+        'A modest space — bare-bones, small (1–2 rooms), with little more than locks on the doors.',
+        'A working base — modestly furnished, a few rooms, deadbolts or a guard dog.',
+        'A comfortable HQ — appointed, 5–8 rooms or a warehouse, modern alarm + cameras.',
+        'A luxurious base — mansion or tunnel network, reinforced walls, sectioned access, panic rooms.',
+        'A sprawling, paramilitary-grade compound — every previous benefit plus unique geographic or occult protection.',
+      ] },
+    { id: 'guide', name: 'Guide', mortalOnly: true,
+      description: 'A mystical spirit guide that aids your hunter through dreams, signs, and portents. Patron and burden in equal measure.', page: 38,
+      levels: [
+        'Weak Guide — limited occult knowledge, unreliable, sometimes wrong.',
+        'Minor Guide — knowledgeable but rarely manifests; helps only when its goals align.',
+        'Apt Guide — recognized in the spirit world; will fight on your behalf and wield minor Numina.',
+        'Strong Guide — significant spirit personage; major occult expertise and one major Numina per story.',
+        'Puissant Guide — walks freely between worlds with two major Numina; may demand favors in return.',
+      ] },
   ],
 
   // ─── Spheres (pp. 512–527) ────────────────────────────────────────────────
@@ -1680,6 +1713,17 @@ M20.MERITS = [
   { id:'avatar_companion',      name:'Avatar Companion',            cost:7,        category:'Supernatural', description:'Your Avatar is unusually communicative and helpful. It actively guides you, assists with Resonance, and occasionally acts independently.', page:'BoS p. 82' },
   { id:'dual_affiliation',      name:'Dual Affiliation',            cost:7,        category:'Supernatural', description:'Recognized full member of two different factions. Gain the benefits of both; navigate the inevitable conflicts between them.', page:'BoS p. 82' },
   { id:'nephilim',              name:'Nephilim / Laham',            cost:7,        category:'Supernatural', description:'Offspring or descendant of a divine being. Gain potent supernatural powers as a being caught between worlds.', page:'BoS p. 82' },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // HUNTERS HUNTED II — Mortal-only Merits (p. 42–44)
+  // ══════════════════════════════════════════════════════════════════════════
+  { id:'detached',              name:'Detached',                    cost:4,        category:'Mental',       mortalOnly:true, description:'Wound penalties don\'t affect Psychic Numina until Incapacitated. While Incapacitated, spend a Willpower to use Psychic Numina at half pool (once per scene, then unconscious).', page:'HH II p. 42' },
+  { id:'occult_library',        name:'Occult Library',              cost:'2 or 4', category:'Social',       mortalOnly:true, description:'An estimable collection of arcane lore. -1 difficulty on Intelligence/Occult/research rolls to solve occult mysteries. 4-pt version adds an Occult Laboratory stocked for Numina rituals.', page:'HH II p. 43' },
+  { id:'science_laboratory',    name:'Science Laboratory',          cost:2,        category:'Social',       mortalOnly:true, description:'A fully stocked laboratory with functional scientific apparatuses. -2 difficulty on relevant Investigation/Science rolls; -1 on other appropriate rolls.', page:'HH II p. 43' },
+  { id:'pale_aura',             name:'Pale Aura',                   cost:2,        category:'Supernatural', mortalOnly:true, description:'Your aura has a pale cast like a vampire\'s. Unless your player gains 5+ successes on an Aura Perception roll, vampires read you as Kindred.', page:'HH II p. 43' },
+  { id:'clear_sighted',         name:'Clear-Sighted',               cost:3,        category:'Supernatural', mortalOnly:true, description:'Not easily fooled by illusions. Roll Perception + Alertness (diff = opposing power\'s level +3) to see through Obfuscate, Chimerstry, and the like.', page:'HH II p. 44' },
+  { id:'poisonous_blood',       name:'Poisonous Blood',             cost:5,        category:'Supernatural', mortalOnly:true, description:'Your blood is poisonous to vampires. Each blood point imbibed deals one health level of bashing damage. Kindred who learn of this will seek your destruction.', page:'HH II p. 44' },
+  { id:'sanctuary',             name:'Sanctuary',                   cost:5,        category:'Supernatural', mortalOnly:true, description:'A single building you call home is a true sanctuary. Supernatural creatures must succeed a Willpower roll (difficulty 9) to enter without invitation.', page:'HH II p. 44' },
 ];
 
 M20.FLAWS = [
@@ -1840,4 +1884,15 @@ M20.FLAWS = [
   { id:'bedeviled',             name:'Bedeviled',                   cost:6,        category:'Supernatural', description:'A dedicated, essentially unlimited metaphysical force has decided to make your life miserable — creatively, persistently, and without mercy.', page:'BoS p. 96' },
   { id:'sphere_inept',          name:'Sphere Inept',                cost:6,        category:'Supernatural', description:'One Sphere costs 130% the normal experience (rounded up) to learn. A deep incomprehension of that field of magic colors your practice.', page:'BoS p. 96' },
   { id:'phylactery',            name:'Phylactery',                  cost:7,        category:'Supernatural', description:'Your magick — perhaps your very soul — resides outside your physical body. Destroying the vessel destroys you; possessing it grants total control over you.', page:'BoS p. 96' },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // HUNTERS HUNTED II — Mortal-only Flaws (p. 42–44)
+  // ══════════════════════════════════════════════════════════════════════════
+  { id:'black_and_white',       name:'Black and White',             cost:1,        category:'Mental',       mortalOnly:true, description:'You see the world in absolutes. +1 difficulty on social rolls where your judgmental perspective comes to bear.', page:'HH II p. 42' },
+  { id:'combat_novice',         name:'Combat Novice',               cost:2,        category:'Mental',       mortalOnly:true, description:'When confronted with gunfire, brutal combat, or supernatural violence, roll Willpower (diff 7). On failure, you freeze (Courage > Self-Control) or flee. Resolves after 5 cumulative successes per night.', page:'HH II p. 42' },
+  { id:'addicted_vampire_blood',name:'Addicted to Vampire Blood',   cost:3,        category:'Mental',       mortalOnly:true, description:'You need vampire blood to feel whole. Storyteller may demand a Self-Control roll when vitae is available. Progressive +1 difficulty each week without it.', page:'HH II p. 42' },
+  { id:'hemophiliac',           name:'Hemophiliac',                 cost:3,        category:'Physical',     mortalOnly:true, description:'If cut, you bleed indefinitely without medical help. After taking lethal or aggravated damage, suffer +1 bashing damage every five minutes until the wound is dressed.', page:'HH II p. 42' },
+  { id:'psychic_feedback',      name:'Psychic Feedback',            cost:'1, 2, or 6', category:'Supernatural', mortalOnly:true, description:'Using Psychic Numina tires you (1 pt: headaches/-2 difficulty for one turn; 2 pt: bashing damage; 6 pt: lethal damage, on a failed Intelligence + Awareness roll vs the power\'s successes).', page:'HH II p. 44' },
+  { id:'unsettling_effect',     name:'Unsettling Effect',           cost:'1 or 3', category:'Supernatural', mortalOnly:true, description:'Your Numina powers produce a noticeable, eerie effect. 1 pt: one intangible power; 3 pt: all intangible powers share an unsettling signature.', page:'HH II p. 45' },
+  { id:'psi_focus',             name:'Psi Focus',                   cost:'3 or 5', category:'Supernatural', mortalOnly:true, description:'Your Psychic Numina require a focus to function. 3 pt: gesture or incantation; 5 pt: a physical focus (crystal, watch, lucky coin, etc.).', page:'HH II p. 45' },
 ];
