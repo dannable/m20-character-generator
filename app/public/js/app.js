@@ -9200,6 +9200,13 @@ const Creator = {
         return lvl ? ` title="${lvl.replace(/"/g, '&quot;')}"` : '';
       };
       const specs = a.specialties || [];
+      // General abilities (Art, Crafts, Academics, Esoterica, Science) need a
+      // specialty starting at 1 dot, not 4.
+      const specThreshold = GENERAL_ABILITY_IDS.has(a.id) ? 1 : 4;
+      const isGeneral = GENERAL_ABILITY_IDS.has(a.id);
+      const wscLabel = isGeneral
+        ? `<div class="wsc-label">Pick a Specialty <span class="wsc-rule">general ability</span></div>`
+        : '';
       return `<div class="attr-row" data-attr-id="${a.id}">
         <div class="attr-row-main">
           <div class="attr-info">
@@ -9211,7 +9218,8 @@ const Creator = {
             ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
           </span>
         </div>
-        <div class="specialty-row" ${v < 4 ? 'style="display:none"' : ''}>
+        <div class="specialty-row" ${v < specThreshold ? 'style="display:none"' : ''}>
+          ${wscLabel}
           <input class="specialty-input" list="spec-${a.id}" data-specialty-for="${a.id}"
             placeholder="Specialty…" value="${escHtml((c.specialties || {})[a.id] || '')}">
           <datalist id="spec-${a.id}">${specs.map(s => `<option value="${escHtml(s)}">`).join('')}</datalist>
@@ -9363,7 +9371,7 @@ const Creator = {
       }).join('');
       const costDisplay = spentDots > 0
         ? `<span class="fb-cost-badge">${spentDots} pt${spentDots>1?'s':''}</span>`
-        : `<span class="fb-cost-free">free</span>`;
+        : `<span class="fb-cost-free">${costPer}/dot</span>`;
       const dataAttr = stat ? `data-stat="${stat}"` : `data-fb-id="${id}"`;
       const specHtml = specOptions !== null
         ? `<div class="specialty-row fb-specialty-row"${current < specThreshold ? ' style="display:none"' : ''}>` +
@@ -9418,9 +9426,12 @@ const Creator = {
         const cur     = (c[g.key] || {})[a.id] || 0;
         const baseline = lb.abilities?.[a.id] ?? 0;
         const desc    = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
+        // General abilities (Art, Crafts, Academics, Esoterica, Science) require
+        // a specialty starting at 1 dot — the rating alone is meaningless.
+        const specThreshold = GENERAL_ABILITY_IDS.has(a.id) ? 1 : 4;
         return fbRow(a.id, a.name, cur, 5, baseline, M20.FREEBIE_COSTS_MORTAL.ability.cost,
           `${M20.FREEBIE_COSTS_MORTAL.ability.cost} pts/dot`, null,
-          a.specialties || [], (c.specialties || {})[a.id] || '', 4, desc, 0);
+          a.specialties || [], (c.specialties || {})[a.id] || '', specThreshold, desc, 0);
       }).join('');
       return `<div class="fb-group" data-cat="${g.key}">
         <div class="fb-group-header">
@@ -9434,9 +9445,12 @@ const Creator = {
     const bgRows = mortalBgs.map(b => {
       const cur     = (c.backgrounds || {})[b.id] || 0;
       const baseline = lb.backgrounds?.[b.id] ?? 0;
-      return fbRow(b.id, b.name, cur, b.max || 5, baseline, M20.FREEBIE_COSTS_MORTAL.background.cost,
+      const safeDesc = (b.description || '').replace(/"/g, '&quot;');
+      const labelWithTip = `${b.name} <span class="info-tip" data-tip="${safeDesc}">?</span>`;
+      // Pass empty desc so fbRow doesn't add the level-flavor block under the row.
+      return fbRow(b.id, labelWithTip, cur, b.max || 5, baseline, M20.FREEBIE_COSTS_MORTAL.background.cost,
         `${M20.FREEBIE_COSTS_MORTAL.background.cost} pt/dot`, null,
-        null, '', 4, b.description || '', 0);
+        null, '', 4, '', 0);
     }).join('');
 
     const virtueRows = M20.VIRTUES.map(v => {
@@ -9454,7 +9468,7 @@ const Creator = {
       }).join('');
       const costDisplay = spent2 > 0
         ? `<span class="fb-cost-badge">${spent2} pts</span>`
-        : `<span class="fb-cost-free">free</span>`;
+        : `<span class="fb-cost-free">${M20.FREEBIE_COSTS_MORTAL.virtue.cost}/dot</span>`;
       return `
       <div class="fb-row" data-mortal-virtue-fb="${v.id}" data-baseline="${baseline}" data-cost="${M20.FREEBIE_COSTS_MORTAL.virtue.cost}" data-max="5">
         <div class="fb-row-label">
@@ -9498,7 +9512,7 @@ const Creator = {
       </div>
 
       <!-- Attributes -->
-      <details class="fb-section" id="fb-attrs" open>
+      <details class="fb-section" id="fb-attrs">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Attributes</span>
           <span class="fb-section-cost" id="fb-cost-attrs"></span>
@@ -9508,7 +9522,7 @@ const Creator = {
       </details>
 
       <!-- Abilities -->
-      <details class="fb-section" id="fb-abilities" open>
+      <details class="fb-section" id="fb-abilities">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Abilities</span>
           <span class="fb-section-cost" id="fb-cost-abilities"></span>
@@ -9518,7 +9532,7 @@ const Creator = {
       </details>
 
       <!-- Backgrounds -->
-      <details class="fb-section" id="fb-bgs" open>
+      <details class="fb-section" id="fb-bgs">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Backgrounds</span>
           <span class="fb-section-cost" id="fb-cost-bgs"></span>
@@ -9528,7 +9542,7 @@ const Creator = {
       </details>
 
       <!-- Virtues -->
-      <details class="fb-section" id="fb-virtues" open>
+      <details class="fb-section" id="fb-virtues">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Virtues</span>
           <span class="fb-section-cost" id="fb-cost-virtues"></span>
@@ -9538,7 +9552,7 @@ const Creator = {
       </details>
 
       <!-- Core Stats: Humanity + Willpower -->
-      <details class="fb-section" id="fb-corestats" open>
+      <details class="fb-section" id="fb-corestats">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Humanity &amp; Willpower</span>
           <span class="fb-section-cost" id="fb-cost-corestats"></span>
@@ -9548,7 +9562,7 @@ const Creator = {
       </details>
 
       <!-- Numina (Hunters Hunted II, Ch. 4) -->
-      <details class="fb-section" id="fb-numina-section" open>
+      <details class="fb-section" id="fb-numina-section">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Numina</span>
           <span class="fb-section-cost" id="fb-cost-numina"></span>
@@ -9559,7 +9573,7 @@ const Creator = {
       </details>
 
       <!-- Merits & Flaws -->
-      <details class="fb-section" id="fb-merits-section" open>
+      <details class="fb-section" id="fb-merits-section">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Merits</span>
           <span class="fb-section-cost" id="mf-cost-merits"></span>
@@ -9568,7 +9582,7 @@ const Creator = {
         <div class="fb-section-note">Click a Merit to add it; click again to remove. Variable-cost Merits show a dropdown — choose your level first, then click the row to activate.</div>
         <div id="fb-merits" class="mf-list"></div>
       </details>
-      <details class="fb-section" id="fb-flaws-section" open>
+      <details class="fb-section" id="fb-flaws-section">
         <summary class="fb-section-summary">
           <span class="fb-section-title">Flaws (bonus, max ${this.flawCapRule() || 7})</span>
           <span class="fb-section-cost" id="mf-cost-flaws"></span>
@@ -9688,7 +9702,7 @@ const Creator = {
       }).join('');
       const costDisplay = spent > 0
         ? `<span class="fb-cost-badge">${spent} pts</span>`
-        : `<span class="fb-cost-free">—</span>`;
+        : `<span class="fb-cost-free">${cost}/dot</span>`;
       return `
       <div class="fb-row numina-row" data-numina-id="${p.id}" data-baseline="0" data-cost="${cost}" data-max="${max}" data-cap="${capAtCreation}">
         <div class="fb-row-label">
@@ -9705,12 +9719,17 @@ const Creator = {
     return M20.NUMINA_CLASSES.map(cls => {
       const paths = M20.NUMINA.filter(p => p.class === cls);
       if (!paths.length) return '';
-      return `<div class="numina-class">
-        <div class="numina-class-header">
-          <span class="numina-class-name">${cls}</span>
-        </div>
+      // Count taken paths in this class for a small badge in the summary.
+      const takenCount = paths.filter(p => (numina[p.id] || 0) > 0).length;
+      const classSpend = paths.reduce((s, p) => s + ((numina[p.id] || 0) * cost), 0);
+      const badge = takenCount > 0 ? ` <span class="numina-class-count">${takenCount} taken · ${classSpend} pts</span>` : '';
+      return `<details class="numina-class">
+        <summary class="numina-class-header">
+          <span class="numina-class-name">${cls}</span>${badge}
+          <span class="numina-class-caret"></span>
+        </summary>
         ${paths.map(pathRow).join('')}
-      </div>`;
+      </details>`;
     }).join('');
   },
 
