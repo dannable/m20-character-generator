@@ -573,8 +573,14 @@ a:hover { color: var(--gold-bright); }
   border-radius: var(--radius-lg);
   padding: 1.2rem;
   position: sticky;
-  top: 80px;
+  /* Stay pinned just below the live header height (kept in sync with the
+     real #app-header by the _updateNavH() script in app.js). 80px was a
+     hard-coded guess that drifted whenever the header was taller or shorter. */
+  top: calc(var(--nav-h, 72px) + 0.5rem);
   box-shadow: var(--shadow-card);
+  /* Cap height so a tall sidebar can scroll independently of the page. */
+  max-height: calc(100vh - var(--nav-h, 72px) - 1rem);
+  overflow-y: auto;
 }
 
 .sidebar-title {
