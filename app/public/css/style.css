@@ -572,26 +572,17 @@ a:hover { color: var(--gold-bright); }
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   padding: 1.2rem;
-  /* Fixed-positioned so the sidebar never moves with the scroll. The grid
-     cell in .creator-layout still reserves the 240px column, so the main
-     content lines up correctly.
-     Vertical: pinned just below the live header height (#app-header, tracked
-       by --nav-h in app.js).
-     Horizontal: matches the left edge of the centered #app-main container
-       (max-width: 1280px, padding: 1.5rem). On viewports narrower than
-       1280px the max() clamps to the 1.5rem outer padding. */
-  position: fixed;
-  /* 2rem matches #app-main's padding-top so the sidebar top lines up with
-     the first row of the main content area. */
+  /* Sticky-positioned so the sidebar stays in flow (preserving the
+     .creator-layout grid placement) but locks in place once scrolled.
+     The sticky top is set to exactly the sidebar's natural position
+     (header height + #app-main's 2rem top padding) so sticky engages
+     the instant the user starts scrolling — no visible upward slide. */
+  position: sticky;
   top: calc(var(--nav-h, 72px) + 2rem);
-  left: max(1.5rem, calc(50vw - 640px + 1.5rem));
-  width: 240px;
   box-shadow: var(--shadow-card);
   /* Cap height so a tall sidebar scrolls independently of the page. */
   max-height: calc(100vh - var(--nav-h, 72px) - 3rem);
   overflow-y: auto;
-  /* Box-sizing so the 240px width includes the 1.2rem padding. */
-  box-sizing: border-box;
 }
 
 .sidebar-title {
