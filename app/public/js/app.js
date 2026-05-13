@@ -10503,14 +10503,16 @@ const Creator = {
       });
     });
 
-    // Secondary ability — add (select change)
+    // Secondary ability — add (select change). Preserve scroll position so
+    // adding an entry near the bottom of a long Step III column doesn't yank
+    // the page back to the top.
     $$('.secondary-add-select', content).forEach(sel => {
       sel.addEventListener('change', () => {
         const id  = sel.value;
         const cat = sel.dataset.category;
         if (!id || !cat) return;
         c[cat][id] = 0;
-        this.renderStep();
+        this.renderStep({ scroll: false });
       });
     });
 
@@ -10527,7 +10529,7 @@ const Creator = {
       if (c.custom_ability_names && c.custom_ability_names[id]) {
         delete c.custom_ability_names[id];
       }
-      this.renderStep();
+      this.renderStep({ scroll: false });
     });
 
     // Custom ability — add (button click)
@@ -10544,7 +10546,7 @@ const Creator = {
       if (!c.custom_ability_names) c.custom_ability_names = {};
       c.custom_ability_names[id] = name;
       c[cat][id] = 0;
-      this.renderStep();
+      this.renderStep({ scroll: false });
     });
 
     // Custom ability — add on Enter key
