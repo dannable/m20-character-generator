@@ -7973,7 +7973,7 @@ const Creator = {
       M20.QUOTES.step2,
       `Rank your three Attribute categories as <strong>Primary (7 pts)</strong>, <strong>Secondary (5 pts)</strong>, and <strong>Tertiary (3 pts)</strong>. All attributes begin at 1. Distribute the bonus points within each category. Maximum 5 dots per attribute. <span class="page-ref">M20 p. 258</span>`)}
     ${priorityHtml}
-    ${blocks}`;
+    <div class="attr-block-grid">${blocks}</div>`;
   },
 
   /* ══════════════════════════════════════════════════════════════
@@ -8115,7 +8115,7 @@ const Creator = {
       M20.QUOTES.step3,
       `Rank Talents, Skills, and Knowledges as <strong>Primary (13 pts)</strong>, <strong>Secondary (9 pts)</strong>, and <strong>Tertiary (5 pts)</strong>. Maximum <strong>3 dots</strong> in any Ability at character creation. Secondary Abilities are optional and cost <strong>3 freebie pts/dot</strong> — add them below each group. <span class="page-ref">M20 p. 259, 275</span>`)}
     ${priorityHtml}
-    ${blocks}`;
+    <div class="attr-block-grid">${blocks}</div>`;
   },
 
   /* ══════════════════════════════════════════════════════════════

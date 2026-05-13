@@ -1028,6 +1028,44 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   margin-bottom: 1rem;
 }
 
+/* 3-column layout for the Awakened Step II (Attributes) and Step III
+   (Abilities) attr-block cards — matches the mortal builder layout. */
+.attr-block-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+@media (max-width: 1100px) {
+  .attr-block-grid { grid-template-columns: 1fr; }
+}
+.attr-block-grid .attr-block {
+  margin-bottom: 0;
+  padding: 0.85rem 0.95rem;
+}
+.attr-block-grid .attr-block-header {
+  /* Disable sticky inside the grid — columns of different heights
+     would make the headers chase each other awkwardly. */
+  position: static;
+  padding-top: 0;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+}
+.attr-block-grid .attr-block-title { font-size: 0.82rem; }
+.attr-block-grid .attr-block-points { font-size: 0.66rem; }
+.attr-block-grid .attr-block-points .pts { font-size: 0.92rem; }
+/* Hide the per-row level flavor in the compact 3-col layout — the
+   dot-hover tooltip already covers it, the ? tip covers the overall
+   description. Matches the .fb-cols-3 treatment in Step V. */
+.attr-block-grid .attr-desc { display: none; }
+.attr-block-grid .attr-row { padding: 0.3rem 0; }
+.attr-block-grid .attr-row .attr-name { font-size: 0.82rem; }
+/* Let the inline secondary-ability adder fit in a narrow column. */
+.attr-block-grid .custom-ability-adder { flex-wrap: wrap; }
+.attr-block-grid .custom-ability-input { flex: 1 1 100%; }
+
 .attr-block-header {
   display: flex;
   justify-content: space-between;
