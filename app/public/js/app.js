@@ -7376,13 +7376,18 @@ const Creator = {
         Object.assign(attrs, greedy(attrGroups[cat], id => c[id] || 1, attrPool[cat], 1));
       });
 
-      const abilGroupMap = { Talents:    { key:'talents',    data: M20.TALENTS },
-                              Skills:     { key:'skills',     data: M20.SKILLS },
-                              Knowledges: { key:'knowledges', data: M20.KNOWLEDGES } };
+      const abilGroupMap = { Talents:    { key:'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS    || [] },
+                              Skills:     { key:'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS     || [] },
+                              Knowledges: { key:'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES || [] } };
       const abilities = {};
       Object.keys(abilGroupMap).forEach(cat => {
-        const { key, data } = abilGroupMap[cat];
-        Object.assign(abilities, greedy(data.map(a => a.id), id => (c[key] || {})[id] || 0, abilPool[cat], 0));
+        const { key, data, sec } = abilGroupMap[cat];
+        // Include any secondary or custom abilities the player added in Step III
+        // so their dots count toward the allocation pool, not against freebies.
+        const presentSec = sec.filter(a => (c[key] || {})[a.id] !== undefined).map(a => a.id);
+        const custIds    = Object.keys(c.custom_ability_names || {}).filter(id => (c[key] || {})[id] !== undefined);
+        const allIds     = [...data.map(a => a.id), ...presentSec, ...custIds];
+        Object.assign(abilities, greedy(allIds, id => (c[key] || {})[id] || 0, abilPool[cat], 0));
       });
 
       const bgIds = M20.BACKGROUNDS.filter(b => M20.BACKGROUNDS_MORTAL_IDS.includes(b.id)).map(b => b.id);
@@ -9183,6 +9188,11 @@ const Creator = {
     const c = this.char;
     const pools = M20.CREATION_MORTAL.abilityPoints;
     const cats = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
+    const secCats = {
+      Talents:    M20.SECONDARY_TALENTS    || [],
+      Skills:     M20.SECONDARY_SKILLS     || [],
+      Knowledges: M20.SECONDARY_KNOWLEDGES || [],
+    };
     const catKey = { Talents: 'talents', Skills: 'skills', Knowledges: 'knowledges' };
     const priorityIdx = (cat) => c.ability_priority.indexOf(cat);
     const poolForCat = (cat) => [pools.primary, pools.secondary, pools.tertiary][priorityIdx(cat)] || 0;
@@ -9192,7 +9202,9 @@ const Creator = {
       return Object.values(map).reduce((s, v) => s + (v || 0), 0);
     };
 
-    const dotRow = (a, key) => {
+    const dotRow = (a, key, opts = {}) => {
+      const isSecondary = !!opts.isSecondary;
+      const isCustom    = !!opts.isCustom;
       const v = (c[key] || {})[a.id] || 0;
       const safeDesc = (a.description || '').replace(/"/g, '&quot;');
       const dotTip = (i) => {
@@ -9201,22 +9213,32 @@ const Creator = {
       };
       const specs = a.specialties || [];
       // General abilities (Art, Crafts, Academics, Esoterica, Science) need a
-      // specialty starting at 1 dot, not 4.
-      const specThreshold = GENERAL_ABILITY_IDS.has(a.id) ? 1 : 4;
-      const isGeneral = GENERAL_ABILITY_IDS.has(a.id);
+      // specialty starting at 1 dot, not 4. Custom abilities skip the rule.
+      const specThreshold = (!isCustom && GENERAL_ABILITY_IDS.has(a.id)) ? 1 : 4;
+      const isGeneral = !isCustom && GENERAL_ABILITY_IDS.has(a.id);
       const wscLabel = isGeneral
         ? `<div class="wsc-label">Pick a Specialty <span class="wsc-rule">general ability</span></div>`
         : '';
-      return `<div class="attr-row" data-attr-id="${a.id}">
+      const badge = isCustom
+        ? '<span class="secondary-badge">Custom</span>'
+        : (isSecondary ? '<span class="secondary-badge">Secondary</span>' : '');
+      const removeBtn = (isSecondary || isCustom)
+        ? `<button class="btn-remove-secondary${isCustom ? ' btn-remove-custom' : ''}" data-ability-id="${a.id}" data-category="${key}" title="Remove ${escHtml(a.name)}">×</button>`
+        : '';
+      const tip = a.description
+        ? `<span class="info-tip" data-tip="${safeDesc}">?</span>`
+        : '';
+      return `<div class="attr-row${isSecondary || isCustom ? ' secondary-ability-row' : ''}" data-attr-id="${a.id}" data-ability="${a.id}" data-category="${key}">
         <div class="attr-row-main">
           <div class="attr-info">
-            <div class="attr-name">${a.name}
-              <span class="info-tip" data-tip="${safeDesc}">?</span>
-            </div>
+            <div class="attr-name">${escHtml(a.name)}${badge}${tip}</div>
           </div>
-          <span class="dots mortal-trait-dots" data-mortal-abil="${a.id}" data-cat="${key}">
-            ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
-          </span>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <span class="dots mortal-trait-dots" data-mortal-abil="${a.id}" data-cat="${key}">
+              ${Array.from({length: 5}, (_, i) => `<span class="dot${i < v ? ' filled' : ''}${i >= 3 ? ' dot-locked' : ''}" data-val="${i + 1}"${dotTip(i)}></span>`).join('')}
+            </span>
+            ${removeBtn}
+          </div>
         </div>
         <div class="specialty-row" ${v < specThreshold ? 'style="display:none"' : ''}>
           ${wscLabel}
@@ -9229,21 +9251,43 @@ const Creator = {
 
     const groupHTML = (cat) => {
       const list = cats[cat];
+      const sec  = secCats[cat];
       const key  = catKey[cat];
       const tier = ['priority-primary', 'priority-secondary', 'priority-tertiary'][priorityIdx(cat)] || '';
+      const secAdded     = sec.filter(a => (c[key] || {})[a.id] !== undefined);
+      const secAvailable = sec.filter(a => (c[key] || {})[a.id] === undefined);
+      const custIds      = Object.keys(c.custom_ability_names || {}).filter(id => (c[key] || {})[id] !== undefined);
+      const adderHtml = `
+        ${secAvailable.length > 0 ? `
+        <div class="secondary-ability-adder">
+          <select class="secondary-add-select" data-category="${key}">
+            <option value="">＋ Add Secondary Ability…</option>
+            ${secAvailable.map(a => `<option value="${a.id}">${escHtml(a.name)}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <div class="secondary-ability-adder custom-ability-adder">
+          <input class="custom-ability-input" type="text" placeholder="✎ Custom ability name…" data-category="${key}" maxlength="40" />
+          <button class="btn-add-custom" data-category="${key}">＋ Add</button>
+        </div>`;
       return `<div class="mortal-attr-group ${tier}">
         <div class="mortal-attr-group-header">
           <span class="mortal-attr-group-name">${cat}</span>
           ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), M20.FREEBIE_COSTS_MORTAL.ability.cost)}
         </div>
         ${list.map(a => dotRow(a, key)).join('')}
+        ${secAdded.map(a => dotRow(a, key, { isSecondary: true })).join('')}
+        ${custIds.map(id => {
+          const name = (c.custom_ability_names || {})[id] || id;
+          return dotRow({ id, name, levels: null, specialties: [], description: 'Custom ability' }, key, { isCustom: true });
+        }).join('')}
+        ${adderHtml}
       </div>`;
     };
 
     return `
       ${this.stepHeader('Step III — Abilities',
         '"Skills are the tools of the hunt — without them you are prey, however brave."',
-        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V. Hover the <strong>?</strong> for the Ability's meaning; the line beneath the name shows the flavor for the dots you have.`)}
+        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V. Hover the <strong>?</strong> for the Ability's meaning; the line beneath the name shows the flavor for the dots you have. Need an ability not on the list? Use the secondary or custom-ability adders at the bottom of each column.`)}
 
       <div class="step-section">
         <div class="step-section-title">Category Priority</div>
@@ -9417,9 +9461,9 @@ const Creator = {
     }).join('');
 
     const abilGroups = [
-      { label: 'Talents',    key: 'talents',    data: M20.TALENTS },
-      { label: 'Skills',     key: 'skills',     data: M20.SKILLS },
-      { label: 'Knowledges', key: 'knowledges', data: M20.KNOWLEDGES },
+      { label: 'Talents',    key: 'talents',    data: M20.TALENTS,    sec: M20.SECONDARY_TALENTS    || [] },
+      { label: 'Skills',     key: 'skills',     data: M20.SKILLS,     sec: M20.SECONDARY_SKILLS     || [] },
+      { label: 'Knowledges', key: 'knowledges', data: M20.KNOWLEDGES, sec: M20.SECONDARY_KNOWLEDGES || [] },
     ];
     const abilSection = abilGroups.map(g => {
       const rows = g.data.map(a => {
@@ -9433,11 +9477,35 @@ const Creator = {
           `${M20.FREEBIE_COSTS_MORTAL.ability.cost} pts/dot`, null,
           a.specialties || [], (c.specialties || {})[a.id] || '', specThreshold, desc, 0);
       }).join('');
+      // Secondary abilities already added in Step III show up alongside primaries.
+      const secAdded = g.sec.filter(a => (c[g.key] || {})[a.id] !== undefined);
+      const secRows  = secAdded.map(a => {
+        const cur      = (c[g.key] || {})[a.id] || 0;
+        const baseline = lb.abilities?.[a.id] ?? 0;
+        const label    = `${a.name} <span class="secondary-badge">Secondary</span>`;
+        const desc     = cur > 0 && a.levels ? a.levels[cur - 1] : (a.description || '');
+        return fbRow(a.id, label, cur, 5, baseline, M20.FREEBIE_COSTS_MORTAL.ability.cost,
+          `${M20.FREEBIE_COSTS_MORTAL.ability.cost} pts/dot`, null,
+          a.specialties || [], (c.specialties || {})[a.id] || '', 4, desc, 0);
+      }).join('');
+      // Custom abilities added in Step III via the custom-ability adder.
+      const custIds  = Object.keys(c.custom_ability_names || {}).filter(id => (c[g.key] || {})[id] !== undefined);
+      const custRows = custIds.map(id => {
+        const cur      = (c[g.key] || {})[id] || 0;
+        const baseline = lb.abilities?.[id] ?? 0;
+        const name     = (c.custom_ability_names || {})[id] || id;
+        const label    = `${escHtml(name)} <span class="secondary-badge">Custom</span>`;
+        return fbRow(id, label, cur, 5, baseline, M20.FREEBIE_COSTS_MORTAL.ability.cost,
+          `${M20.FREEBIE_COSTS_MORTAL.ability.cost} pts/dot`, null,
+          [], (c.specialties || {})[id] || '', 4, '', 0);
+      }).join('');
       return `<div class="fb-group" data-cat="${g.key}">
         <div class="fb-group-header">
           <span class="fb-group-label">${g.label}</span>
         </div>
         ${rows}
+        ${secRows}
+        ${custRows}
       </div>`;
     }).join('');
 
