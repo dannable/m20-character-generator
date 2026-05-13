@@ -258,6 +258,8 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN character_type TEXT DEFAULT 'aw
 try { db.exec(`ALTER TABLE characters ADD COLUMN virtues TEXT DEFAULT '{}'`); } catch {}
 // Humanity (mortal only): derived from Conscience + Self-Control, persisted for fast read
 try { db.exec(`ALTER TABLE characters ADD COLUMN humanity INTEGER DEFAULT 0`); } catch {}
+// Numina (mortal only): { pathId: rating } map — Hunters Hunted II psychic powers
+try { db.exec(`ALTER TABLE characters ADD COLUMN numina TEXT DEFAULT '{}'`); } catch {}
 
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
