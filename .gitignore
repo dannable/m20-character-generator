@@ -16,6 +16,8 @@ app/node_modules/
 
 # ── Claude Code local settings (contains server IPs/hostnames) ───
 .claude/
+# ── CLAUDE.md (local project memory — may contain server IPs, paths) ─
+CLAUDE.md
 
 # ── Development patch/migration scripts ──────────────────────────
 patch_*.py
