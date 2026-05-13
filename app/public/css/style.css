@@ -572,9 +572,17 @@ a:hover { color: var(--gold-bright); }
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   padding: 1.2rem;
+  /* Sticky-positioned so the sidebar stays in flow (preserving the
+     .creator-layout grid placement) but locks in place once scrolled.
+     The sticky top is set to exactly the sidebar's natural position
+     (header height + #app-main's 2rem top padding) so sticky engages
+     the instant the user starts scrolling — no visible upward slide. */
   position: sticky;
-  top: 80px;
+  top: calc(var(--nav-h, 72px) + 2rem);
   box-shadow: var(--shadow-card);
+  /* Cap height so a tall sidebar scrolls independently of the page. */
+  max-height: calc(100vh - var(--nav-h, 72px) - 3rem);
+  overflow-y: auto;
 }
 
 .sidebar-title {
