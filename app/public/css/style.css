@@ -3031,6 +3031,33 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   font-style: italic;
 }
 
+/* ─── Specialty rows inside any 3-column step (Awakened II/III/VII,
+   Mortal II/III/V) — drop the leading "Specialty:" label and the
+   general-ability "Free Specialty / Pick a Specialty" hint. The
+   input's own placeholder is sufficient and the row stays compact. */
+.attr-block-grid .specialty-row::before,
+.mortal-attr-grid .specialty-row::before,
+.fb-cols-3 .specialty-row::before { display: none; }
+.attr-block-grid .wsc-label,
+.mortal-attr-grid .wsc-label,
+.fb-cols-3 .wsc-label { display: none; }
+
+.attr-block-grid .specialty-row,
+.mortal-attr-grid .specialty-row,
+.fb-cols-3 .specialty-row {
+  padding: 0.15rem 0.4rem 0.35rem 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.attr-block-grid .specialty-input,
+.mortal-attr-grid .specialty-input,
+.fb-cols-3 .specialty-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+}
+
 /* Specialty label on the character sheet */
 .sheet-specialty {
   font-size: 0.72rem;
