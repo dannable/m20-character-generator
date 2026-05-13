@@ -1028,6 +1028,56 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   margin-bottom: 1rem;
 }
 
+/* 3-column layout for the Awakened Step II (Attributes) and Step III
+   (Abilities) attr-block cards — matches the mortal builder layout. */
+.attr-block-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+@media (max-width: 1100px) {
+  .attr-block-grid { grid-template-columns: 1fr; }
+}
+.attr-block-grid .attr-block {
+  margin-bottom: 0;
+  padding: 0.85rem 0.95rem;
+  min-width: 0;       /* allow grid item to shrink instead of overflowing */
+}
+.attr-block-grid .attr-row,
+.attr-block-grid .attr-row-main,
+.attr-block-grid .attr-info { min-width: 0; }
+.attr-block-grid .attr-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+.attr-block-grid .secondary-ability-adder { width: 100%; box-sizing: border-box; }
+.attr-block-grid .secondary-ability-adder select { width: 100%; min-width: 0; }
+.attr-block-grid .attr-block-header {
+  /* Disable sticky inside the grid — columns of different heights
+     would make the headers chase each other awkwardly. */
+  position: static;
+  padding-top: 0;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
+}
+.attr-block-grid .attr-block-title { font-size: 0.82rem; }
+.attr-block-grid .attr-block-points { font-size: 0.66rem; }
+.attr-block-grid .attr-block-points .pts { font-size: 0.92rem; }
+/* Hide the per-row level flavor in the compact 3-col layout — the
+   dot-hover tooltip already covers it, the ? tip covers the overall
+   description. Matches the .fb-cols-3 treatment in Step V. */
+.attr-block-grid .attr-desc { display: none; }
+.attr-block-grid .attr-row { padding: 0.3rem 0; }
+.attr-block-grid .attr-row .attr-name { font-size: 0.82rem; }
+/* Let the inline secondary-ability adder fit in a narrow column. */
+.attr-block-grid .custom-ability-adder { flex-wrap: wrap; }
+.attr-block-grid .custom-ability-input { flex: 1 1 100%; }
+
 .attr-block-header {
   display: flex;
   justify-content: space-between;
@@ -2991,6 +3041,33 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .specialty-input::placeholder {
   color: var(--text-faint);
   font-style: italic;
+}
+
+/* ─── Specialty rows inside any 3-column step (Awakened II/III/VII,
+   Mortal II/III/V) — drop the leading "Specialty:" label and the
+   general-ability "Free Specialty / Pick a Specialty" hint. The
+   input's own placeholder is sufficient and the row stays compact. */
+.attr-block-grid .specialty-row::before,
+.mortal-attr-grid .specialty-row::before,
+.fb-cols-3 .specialty-row::before { display: none; }
+.attr-block-grid .wsc-label,
+.mortal-attr-grid .wsc-label,
+.fb-cols-3 .wsc-label { display: none; }
+
+.attr-block-grid .specialty-row,
+.mortal-attr-grid .specialty-row,
+.fb-cols-3 .specialty-row {
+  padding: 0.15rem 0.4rem 0.35rem 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.attr-block-grid .specialty-input,
+.mortal-attr-grid .specialty-input,
+.fb-cols-3 .specialty-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Specialty label on the character sheet */
@@ -8354,10 +8431,12 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   letter-spacing: 0.02em;
 }
 
-/* Mortal attribute/ability grid: 3 columns side by side */
+/* Mortal attribute/ability grid: 3 columns side by side.
+   minmax(0, 1fr) prevents children with long content (custom ability names,
+   the adder inputs) from forcing a column wider than its 1/3 share. */
 .mortal-attr-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
   margin-top: 0.5rem;
 }
@@ -8369,7 +8448,24 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.7rem 0.85rem;
+  min-width: 0;       /* allow flex/grid children to shrink instead of overflowing */
 }
+/* Keep ability rows from overflowing the column when names get long. */
+.mortal-attr-grid .attr-row,
+.mortal-attr-grid .attr-row-main { min-width: 0; }
+.mortal-attr-grid .attr-info { min-width: 0; }
+.mortal-attr-grid .attr-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+/* Adder controls fit inside their column rather than stretching it. */
+.mortal-attr-grid .secondary-ability-adder { width: 100%; box-sizing: border-box; }
+.mortal-attr-grid .secondary-ability-adder select { width: 100%; min-width: 0; }
+.mortal-attr-grid .custom-ability-adder { flex-wrap: wrap; }
+.mortal-attr-grid .custom-ability-input { flex: 1 1 100%; min-width: 0; }
+.mortal-attr-grid .btn-add-custom { flex: 0 0 auto; }
 .mortal-attr-group.priority-primary   { border-color: rgba(180,130,30,0.45); }
 .mortal-attr-group.priority-secondary { border-color: rgba(120,120,150,0.4); }
 .mortal-attr-group.priority-tertiary  { border-color: rgba(80,80,90,0.4); }
