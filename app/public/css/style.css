@@ -8520,6 +8520,34 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 }
 .mortal-nd-current strong { color: var(--gold-mid); }
 
+/* ─── Mortal Numina (Step V freebie panel + Free Edit) ─────────────────── */
+.numina-class {
+  margin-bottom: 0.6rem;
+}
+.numina-class:last-child { margin-bottom: 0; }
+.numina-class-header {
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+.numina-class-name {
+  font-family: var(--font-heading);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--purple-mid);
+}
+/* Lock styling for True Faith dots above the creation cap */
+.numina-row .dot.dot-locked {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: rgba(110,110,140,0.5);
+}
+
+/* Free Edit — Numina class headings reuse fe-group-label spacing */
+.fe-numina-class { margin-bottom: 0.6rem; }
+.fe-numina-class:last-child { margin-bottom: 0; }
+
 /* Sheet — mortal Virtues / Humanity */
 .sheet-humanity-row {
   display: flex;

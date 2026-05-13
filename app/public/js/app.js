@@ -5317,6 +5317,33 @@ const Sheet = {
           ${dots(char.humanity || 0, 10, 'readonly')}
         </div>
       </div>
+      ${(() => {
+        const numina = (char.numina && typeof char.numina === 'object') ? char.numina : {};
+        const taken = M20.NUMINA.filter(p => (numina[p.id] || 0) > 0);
+        if (!taken.length) return '';
+        // Group taken paths by class for a clean display.
+        const byClass = M20.NUMINA_CLASSES.map(cls => ({
+          cls,
+          paths: taken.filter(p => p.class === cls),
+        })).filter(g => g.paths.length);
+        return `
+        <div class="sheet-band">
+          <div class="sheet-band-title">Numina</div>
+          <div class="sheet-cols-3">
+            ${byClass.map(g => `<div class="sheet-group">
+              <div class="sheet-group-title">${g.cls}</div>
+              ${g.paths.map(p => {
+                const v = numina[p.id] || 0;
+                const tip = (p.description || '').replace(/"/g, '&quot;');
+                return `<div class="sheet-trait-row" title="${tip}">
+                  <span class="sheet-trait-name">${p.name}</span>
+                  ${dots(v, 5, 'readonly')}
+                </div>`;
+              }).join('')}
+            </div>`).join('')}
+          </div>
+        </div>`;
+      })()}
       ` : `
       <!-- Band 3 (Awakened): SPHERES -->
       <div class="sheet-band">
@@ -6803,6 +6830,7 @@ const Creator = {
       // Mortal-only — always present so server round-trip is consistent
       virtues: charType === 'mortal' ? { conscience: 1, self_control: 1, courage: 1 } : {},
       humanity: charType === 'mortal' ? 2 : 0,
+      numina:   {}, // mortal-only Numina paths { pathId: rating }
     };
     if (charType === 'mortal') {
       base.affiliation = '';   // mortals have no Tradition affiliation
@@ -6869,6 +6897,10 @@ const Creator = {
     this._syncWonderBackground();
     this.editId = char.id;
     if (!this.char.custom_ability_names) this.char.custom_ability_names = {};
+    // Ensure numina is always a plain object (server returns parsed JSON; arrays/null would break dot writes)
+    if (!this.char.numina || typeof this.char.numina !== 'object' || Array.isArray(this.char.numina)) {
+      this.char.numina = {};
+    }
     // Resonance migration: ensure valid array with at least one entry
     if (!Array.isArray(this.char.resonance) || this.char.resonance.length === 0) {
       this.char.resonance = [{ description: '', flavor: '', rating: 1 }];
@@ -9515,6 +9547,17 @@ const Creator = {
         <div class="fb-group">${humanityRow}${willpowerRow}</div>
       </details>
 
+      <!-- Numina (Hunters Hunted II, Ch. 4) -->
+      <details class="fb-section" id="fb-numina-section" open>
+        <summary class="fb-section-summary">
+          <span class="fb-section-title">Numina</span>
+          <span class="fb-section-cost" id="fb-cost-numina"></span>
+          <span class="fb-section-caret"></span>
+        </summary>
+        <div class="fb-section-note">Mystical and psychic powers — <strong>${M20.FREEBIE_COSTS_MORTAL.numina.cost} pts/dot</strong>. True Faith is capped at 1 dot at creation. Rarely does a mortal possess more than a single class (Hedge Magic, Psychic Numina, or True Faith); Storyteller approval required to mix. <span class="page-ref">HH II Ch. 4</span></div>
+        <div id="fb-numina">${this._renderMortalNuminaSection()}</div>
+      </details>
+
       <!-- Merits & Flaws -->
       <details class="fb-section" id="fb-merits-section" open>
         <summary class="fb-section-summary">
@@ -9570,6 +9613,10 @@ const Creator = {
       // Derived stats above their baselines
       total += Math.max(0, (c.humanity || 0) - (lb.humanity || 0)) * costs.humanity.cost;
       total += Math.max(0, (c.willpower || 1) - (lb.willpower || 1)) * costs.willpower.cost;
+      // Numina — no baseline, every dot costs full freebie cost
+      if (c.numina && typeof c.numina === 'object') {
+        Object.values(c.numina).forEach(r => { total += (r || 0) * costs.numina.cost; });
+      }
     } else {
       // Earlier steps (no baselines yet) — preview over-allocation against
       // the raw creation pools so the sidebar counter stays useful.
@@ -9600,6 +9647,10 @@ const Creator = {
       const v = c.virtues || { conscience: 1, self_control: 1, courage: 1 };
       const virtueExtra = (v.conscience - 1) + (v.self_control - 1) + (v.courage - 1);
       total += Math.max(0, virtueExtra - M20.CREATION_MORTAL.virtuePoints) * costs.virtue.cost;
+      // Numina (preview before Step V locks baselines)
+      if (c.numina && typeof c.numina === 'object') {
+        Object.values(c.numina).forEach(r => { total += (r || 0) * costs.numina.cost; });
+      }
     }
 
     // Merits cost freebies; flaws grant them (capped by chronicle rule, default 7)
@@ -9607,6 +9658,60 @@ const Creator = {
     total -= this.calcFlawBonus();
 
     return total;
+  },
+
+  /* ── Mortal Numina section renderer (used inside Step V's #fb-numina) ── */
+  _renderMortalNuminaSection() {
+    const c = this.char;
+    const numina = (c.numina && typeof c.numina === 'object') ? c.numina : {};
+    const cost = M20.FREEBIE_COSTS_MORTAL.numina.cost;
+
+    const pathRow = (p) => {
+      const cur = numina[p.id] || 0;
+      const max = 5;
+      const capAtCreation = p.maxAtCreation || 5;
+      const safeDesc = (p.description || '').replace(/"/g, '&quot;');
+      const systemTip = (p.system || '').replace(/"/g, '&quot;');
+      const spent = cur * cost;
+      const dotTip = (i) => {
+        const lvl = p.levels && p.levels[i] ? p.levels[i] : '';
+        return lvl ? ` title="${lvl.replace(/"/g, '&quot;')}"` : '';
+      };
+      const dotsHtml = Array.from({length: max}, (_, i) => {
+        const val = i + 1;
+        const isFilled = val <= cur;
+        // Dots above capAtCreation are visually locked during creation.
+        const isLocked = val > capAtCreation;
+        const dotCls = isFilled ? 'dot-freebie' : (isLocked ? 'dot-locked' : 'dot-freebie');
+        const title = isLocked ? ` title="Capped at ${capAtCreation} dot at creation"` : dotTip(i);
+        return `<span class="dot ${isFilled ? 'filled' : ''} ${dotCls}"${isLocked ? '' : ''} data-val="${val}"${title}></span>`;
+      }).join('');
+      const costDisplay = spent > 0
+        ? `<span class="fb-cost-badge">${spent} pts</span>`
+        : `<span class="fb-cost-free">—</span>`;
+      return `
+      <div class="fb-row numina-row" data-numina-id="${p.id}" data-baseline="0" data-cost="${cost}" data-max="${max}" data-cap="${capAtCreation}">
+        <div class="fb-row-label">
+          <span>${p.name}
+            <span class="info-tip" data-tip="${safeDesc}${systemTip ? '&#10;&#10;' + systemTip : ''}">?</span>
+            <span class="page-ref" style="margin-left:0.4rem">${p.page || ''}</span>
+          </span>
+        </div>
+        <span class="dots" data-max="${max}">${dotsHtml}</span>
+        <div class="fb-row-cost">${costDisplay}</div>
+      </div>`;
+    };
+
+    return M20.NUMINA_CLASSES.map(cls => {
+      const paths = M20.NUMINA.filter(p => p.class === cls);
+      if (!paths.length) return '';
+      return `<div class="numina-class">
+        <div class="numina-class-header">
+          <span class="numina-class-name">${cls}</span>
+        </div>
+        ${paths.map(pathRow).join('')}
+      </div>`;
+    }).join('');
   },
 
   _mortalFreebieBreakdown() {
@@ -10960,6 +11065,39 @@ const Creator = {
       this.renderStep();
     });
 
+    // ── Mortal: Numina dots ────────────────────────────────────────────
+    // Mortal-only; nested into char.numina[pathId]. 7 freebies per dot at
+    // creation, with a configurable cap (True Faith = 1 at creation).
+    $$('.fb-row[data-numina-id]', content).forEach(row => {
+      const id      = row.dataset.numinaId;
+      const costPer = parseFloat(row.dataset.cost) || 0;
+      const max     = parseInt(row.dataset.max) || 5;
+      const cap     = parseInt(row.dataset.cap) || max;
+      const dotsEl  = row.querySelector('.dots');
+      if (!dotsEl) return;
+      dotsEl.addEventListener('click', e => {
+        const dot = e.target.closest('.dot');
+        if (!dot) return;
+        const val = parseInt(dot.dataset.val);
+        if (val > cap) {
+          toast(`Capped at ${cap} dot${cap !== 1 ? 's' : ''} at creation. Raise further with XP after finalizing.`, 'error');
+          return;
+        }
+        if (!char.numina || typeof char.numina !== 'object') char.numina = {};
+        const cur = char.numina[id] || 0;
+        const tentative = cur === val ? Math.max(0, val - 1) : Math.min(max, val);
+        const delta = (tentative - cur) * costPer;
+        if (delta > 0 && !c.canSpendFreebie(delta)) {
+          toast(`Not enough freebie points (need ${delta}, have ${c.freebiesRemaining()}).`, 'error');
+          return;
+        }
+        if (tentative === 0) delete char.numina[id]; else char.numina[id] = tentative;
+        // Full re-render preserves scroll and rebinds all freebie handlers cleanly
+        // (renderStep clones #step-content so listeners don't stack).
+        c.renderStep({ scroll: false });
+      });
+    });
+
     // ── Mortal: Virtue dots (Conscience / Self-Control / Courage) ─────
     // Mortal-only; nested into char.virtues[id]. Same fbRow contract,
     // distinct dataset key so we don't collide with the data-fb-id paths.
@@ -11288,6 +11426,10 @@ const Creator = {
       const hCost = Math.max(0, (c.humanity || 0) - (lb.humanity || 0)) * M20.FREEBIE_COSTS_MORTAL.humanity.cost;
       const wCost = Math.max(0, (c.willpower || 1) - (lb.willpower || 1)) * M20.FREEBIE_COSTS_MORTAL.willpower.cost;
       this.updateSectionCost('fb-cost-corestats', hCost + wCost);
+      const nCost = c.numina && typeof c.numina === 'object'
+        ? Object.values(c.numina).reduce((s, r) => s + (r || 0) * M20.FREEBIE_COSTS_MORTAL.numina.cost, 0)
+        : 0;
+      this.updateSectionCost('fb-cost-numina', nCost);
     }
     this.updateMFDisplay();
     this.updateAreteNotice();
@@ -12148,6 +12290,9 @@ const FreeEdit = {
       if (!this.char.virtues || typeof this.char.virtues !== 'object') {
         this.char.virtues = { conscience: 1, self_control: 1, courage: 1 };
       }
+      if (!this.char.numina || typeof this.char.numina !== 'object' || Array.isArray(this.char.numina)) {
+        this.char.numina = {};
+      }
     }
     this._chronicleId = char.chronicle_id || null;
     App.showPage('free-edit');
@@ -12421,6 +12566,25 @@ const FreeEdit = {
             ${this._dots((c.virtues || {})[vd.id] || 1, 5, 'virtues', vd.id)}
           </div>`).join('')}
       </div>
+    </div>
+
+    <!-- Numina (Mortal) — full editable picker -->
+    <div class="fe-section">
+      <div class="fe-section-title">Numina</div>
+      <p class="fe-section-note" style="margin:0 0 0.6rem;color:var(--text-faint);font-size:0.82rem">Hunters Hunted II psychic and mystical paths. Click dots to raise / lower.</p>
+      ${M20.NUMINA_CLASSES.map(cls => {
+        const paths = M20.NUMINA.filter(p => p.class === cls);
+        return `<div class="fe-numina-class">
+          <div class="fe-group-label">${cls}</div>
+          ${paths.map(p => {
+            const v = ((c.numina && typeof c.numina === 'object') ? c.numina : {})[p.id] || 0;
+            return `<div class="fe-trait-row" title="${escHtml(p.description)}">
+              <span class="fe-trait-label">${p.name} <span class="page-ref" style="font-size:0.65rem;color:var(--text-faint);margin-left:0.25rem">${p.page || ''}</span></span>
+              ${this._dots(v, 5, 'numina', p.id)}
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
     </div>
     ` : `
     <!-- Spheres (Awakened) -->

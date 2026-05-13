@@ -61,6 +61,119 @@ const M20 = {
     { id: 'courage',      name: 'Courage',      description: 'Your willingness to face danger and adversity head-on without fleeing or freezing.' },
   ],
 
+  // ─── Numina (Hunters Hunted II, Ch. 4) ───────────────────────────────────
+  // Mortal-only mystical and psychic powers. Each path 1–5 dots, 7 freebies per
+  // dot at creation. True Faith capped at 1 dot at creation (HH II p. 83).
+  NUMINA_CLASSES: ['Hedge Magic', 'Psychic Numina', 'True Faith'],
+
+  NUMINA: [
+    // ── Hedge Magic ────────────────────────────────────────────────────────
+    { id: 'curses', name: 'Path of Curses', class: 'Hedge Magic', page: 'HH II p. 72',
+      description: 'Direct malevolent intent toward a target — accidents, illness, misfortune.',
+      system: 'Roll Manipulation + Intimidation (diff 7); 1 Willpower; duration varies by successes.',
+      levels: [
+        'Brief inconveniences — +1 difficulty to victim\'s relevant rolls for the duration.',
+        'String of errors — +2 difficulty; lasting minor injury or embarrassment.',
+        'Severe accidents — +3 difficulty; broken bones, lost income, grievous illness.',
+        'Major catastrophes — +3 difficulty AND −1 dice; chronic illnesses.',
+        'Biblical scope — +4 difficulty AND −2 dice; plagues, barrenness, despair. Requires a Humanity roll for Magicians of Humanity 4+.',
+      ] },
+    { id: 'divination', name: 'Path of Divination', class: 'Hedge Magic', page: 'HH II p. 73',
+      description: 'Glean insights into the future via a chosen focus — cards, entrails, omens.',
+      system: 'Roll Perception + Occult (diff 7). +1 difficulty to divine for someone else.',
+      levels: [
+        'Read immediate circumstances — −1 difficulty on initiative for one hour per success.',
+        'Compare possible negative outcomes — ask the ST about a simple decision.',
+        'Sense patterns of chance — short-term info plus glimpses of the next set of choices.',
+        'Divine specific future events — still vague but much more likely.',
+        'Predict specific events with dependable certainty (1 Willpower, diff 8). Sense overall feel of the divination for the subject for an extra Willpower.',
+      ] },
+    { id: 'healing', name: 'Path of Healing', class: 'Hedge Magic', page: 'HH II p. 75',
+      description: 'Mend the body and soothe illness through a fusion of magic and ancient curative technique. Requires the Medicine Knowledge.',
+      system: 'Roll Manipulation + Medicine (diff 7). +1 self-healing, +1 if subject is unwilling, +2 in a stressful environment.',
+      levels: [
+        'Diagnose ailments, injuries, and genetic defects with a touch.',
+        'Cure sprains, severe headaches, flu, minor infections; ignore wound penalties for 10 min per success (1 Willpower).',
+        'Heal broken bones and chronic but non-life-threatening illness; bashing/lethal heal at 2× rate; induce a healing trance (1 Willpower).',
+        'Heal 1 bashing/lethal level per success on touch (1 Willpower). Each lethal level healed gives the Magician a +1 difficulty migraine for an hour.',
+        'Cure cancer, AIDS, strokes, genetic defects, addictions; heal aggravated damage at the cost of equal levels of sympathetic bashing damage (1 Willpower, diff 8).',
+      ] },
+
+    // ── Psychic Numina ─────────────────────────────────────────────────────
+    { id: 'astral_projection', name: 'Astral Projection', class: 'Psychic Numina', page: 'HH II p. 78',
+      description: 'Separate consciousness from the body and explore the astral plane connected by a silver cord.',
+      system: 'Roll Perception + Awareness (diff 8) for travel; 1 Willpower per use.',
+      levels: [
+        'Rudimentary awareness of the astral plane; see astral travelers, communicate with them.',
+        'Leave the body briefly — 1 minute per success; +1 Willpower extends by another minute.',
+        'Manifest astral form in the material world (1 Willpower); blurry ghost visible to mundanes.',
+        'Long travel — 1 hour per success in the astral realm; +1 Willpower extends.',
+        'Mask your presence (including the silver cord) from other astral travelers (1 Willpower, Manipulation + Awareness diff 8).',
+      ] },
+    { id: 'cyberkinesis', name: 'Cyberkinesis', class: 'Psychic Numina', page: 'HH II p. 79',
+      description: 'Read, understand, and control electronic devices without a direct interface.',
+      system: 'Roll Manipulation + Technology (diff 7); cost varies.',
+      levels: [
+        'Project perceptions into a touched device — understand its purpose and operation.',
+        'Force a power surge to disrupt or destroy a touched device (1 Willpower).',
+        'Telepathically read, encrypt, or decrypt electronic communications by touch.',
+        'Access any device within line of sight without physical contact (psychic Wi-Fi).',
+        'Operate any function of a touched or visible device (1 Willpower). 10 min of control per success; lose the device and you take 5 bashing.',
+      ] },
+    { id: 'psychometry', name: 'Psychometry', class: 'Psychic Numina', page: 'HH II p. 80',
+      description: 'Read psychic resonance left on objects and places to glean information about events and people connected to them.',
+      system: 'Roll Perception + Empathy (diff 7); 1 Willpower.',
+      levels: [
+        'Identify the owner of an object or the most significant visitor to a place.',
+        'Learn about everything that occurred near the object or place within the last 24 hours.',
+        'Discover and understand the complete history of the object or place.',
+        'Attune to an object and watch its owner anywhere in the world for 10 min per success.',
+        'Follow the resonance to the owner — direction and distance, anywhere in the physical or astral world; 1 hour per success.',
+      ] },
+    { id: 'pyrokinesis', name: 'Pyrokinesis', class: 'Psychic Numina', page: 'HH II p. 81',
+      description: 'Conjure fire at a target you can see. Once released, the flame burns normally and the Psychic has no control over it.',
+      system: 'Roll Manipulation + Awareness; 1 Willpower. Botches tend to be spectacular.',
+      levels: [
+        'Candle — diff 3 to soak, 1 aggravated health level per turn.',
+        'Palm of Flame — diff 4 to soak, 1 aggravated health level per turn.',
+        'Campfire — diff 5 to soak, 2 aggravated health levels per turn.',
+        'Bonfire — diff 7 to soak, 2 aggravated health levels per turn.',
+        'Inferno — diff 9 to soak, 3 aggravated health levels per turn.',
+      ] },
+    { id: 'telekinesis', name: 'Telekinesis', class: 'Psychic Numina', page: 'HH II p. 82',
+      description: 'Move objects without touch, solely through the power of the mind.',
+      system: 'Roll Wits + Awareness; 1 Willpower. One turn of manipulation per success (5+ = full scene).',
+      levels: [
+        'Lift up to 1 lb (≈ 0.5 kg).',
+        'Lift up to 20 lb (≈ 10 kg).',
+        'Lift up to 200 lb (≈ 100 kg).',
+        'Lift up to 500 lb (≈ 250 kg). Can completely immobilize a target who fails a Willpower contest.',
+        'Lift up to 1,000 lb (≈ 500 kg).',
+      ] },
+    { id: 'telepathy', name: 'Telepathy', class: 'Psychic Numina', page: 'V20 p. 75',
+      description: 'Read the surface thoughts of others; at higher ratings, project thoughts and probe deeper memories. Detailed level mechanics per V20 / Storyteller discretion.',
+      system: 'Roll Wits + Empathy or Intelligence + Subterfuge (Storyteller\'s call); 1 Willpower per scene.',
+      levels: [
+        'Sense the surface emotional state of a person you touch.',
+        'Read surface thoughts from a person nearby.',
+        'Project simple words or images into another mind.',
+        'Read deeper, sustained thoughts; resist with Willpower contest.',
+        'Probe memories and induce thoughts; full mental conversation at range.',
+      ] },
+
+    // ── True Faith ─────────────────────────────────────────────────────────
+    { id: 'true_faith', name: 'True Faith', class: 'True Faith', page: 'HH II p. 83', maxAtCreation: 1,
+      description: 'A divine gift — robust holy connection that protects against the depredations of the evil, the corrupt, and the profane. Each level grants +1 Willpower and acts as a die of divine protection. Capped at 1 dot at creation.',
+      system: 'Spend 1 Willpower; roll True Faith dice vs difficulty 7. Successes subtract from the supernatural power\'s activation roll. Affects only direct, roll-based supernatural effects.',
+      levels: [
+        'Repel supernatural creatures by brandishing a holy symbol or prayer (1 Willpower, True Faith vs creature\'s Willpower).',
+        'Sense the presence of vampires while in peaceful, contemplative surroundings.',
+        'Immune to Chimerstry, Dementation, Dominate, Obfuscate, and other mind-confounding effects.',
+        'Cannot be turned into a ghoul; unaffected by Presence and other emotion-manipulation effects.',
+        'Mere presence may force a vampire to flee — Rötschreck roll (diff 9) or be reduced to a gibbering wreck.',
+      ] },
+  ],
+
   // Backgrounds appropriate to mortal hunters (HH II, p. 37).
   // The three at the end (armory / baseOfOperations / guide) are mortalOnly:true
   // and are not shown to Awakened characters.
