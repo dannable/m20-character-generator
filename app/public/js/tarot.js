@@ -658,6 +658,18 @@ M20.TAROT = [
 // Each position maps to a character-creation aspect. The blend logic
 // below weights the card's affinity tags by position to compose suggestions.
 // ══════════════════════════════════════════════════════════════════════
+// Which traditions and conventions belong to which top-level faction.
+// Used by the concept-blend synthesis to avoid pairing, say, Technocracy
+// with the Euthanatos in the same paragraph.
+M20.FACTION_TRADITIONS = {
+  Traditions:  ['Order of Hermes','Verbena','Celestial Chorus','Cult of Ecstasy','Sons of Ether','Virtual Adepts','Akashic Brotherhood','Dreamspeakers','Euthanatos','Hollow Ones','Ahl-i-Batin'],
+  Technocracy: ['Syndicate','Iteration X','New World Order','Progenitors','Void Engineers'],
+  Disparates:  ['Hollow Ones','Ahl-i-Batin'],
+  Orphans:     ['Hollow Ones'],
+  Nephandi:    [],
+  Marauders:   [],
+};
+
 M20.TAROT_SPREAD = [
   { key: 'seeker',    name: 'The Seeker',    blurb: 'Your core archetype, the self that walks the path.',          aspect: 'Nature & Demeanor' },
   { key: 'awakening', name: 'The Awakening', blurb: 'How you came to magick, and what fire shaped your Avatar.', aspect: 'Essence' },
@@ -966,7 +978,16 @@ const Tarot = {
     const top = (bucket, n = 1) =>
       Object.entries(tallies[bucket]).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
     const fact = top('factions')[0]   || 'an unaffiliated soul';
-    const trad = top('traditions')[0];
+    // Only consider traditions that belong to the chosen faction so the
+    // synthesis cannot pair, e.g., Technocracy with the Euthanatos. If
+    // none of the drawn cards offered a tradition compatible with the
+    // winning faction, leave the tradition line off entirely.
+    const validTrads = M20.FACTION_TRADITIONS[fact] || [];
+    const rankedTrads = Object.entries(tallies.traditions)
+      .sort((a, b) => b[1] - a[1])
+      .map(e => e[0])
+      .filter(t => validTrads.includes(t));
+    const trad = rankedTrads[0];
     const ess  = top('essence')[0]    || 'Pattern';
     const nat  = top('nature', 2);
     const con  = top('concepts', 2);
