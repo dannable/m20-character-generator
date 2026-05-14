@@ -7756,6 +7756,7 @@ const Creator = {
     ${this.stepHeader('Step One: Concept & Identity',
       M20.QUOTES.step1,
       `Choose your <strong>Concept</strong>, <strong>Affiliation</strong>, <strong>Essence</strong>, and <strong>Archetypes</strong>. These define who your mage <em>is</em> before they ever work a single Effect. <span class="page-ref">M20 p. 254–260</span>`)}
+    <div style="display:flex;justify-content:flex-end;margin:-0.4rem 0 0.8rem"><button type="button" class="consult-fates-btn" onclick="Tarot.open()" title="Draw a five-card spread for character inspiration">✦ Consult the Fates</button></div>
 
     <div class="form-grid">
       <div class="form-group">
