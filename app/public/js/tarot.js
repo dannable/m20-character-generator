@@ -670,6 +670,26 @@ M20.FACTION_TRADITIONS = {
   Marauders:   [],
 };
 
+// Factions the "Character Idea" synthesis is allowed to recommend.
+// Marauders and Nephandi are antagonist factions in M20 and are normally
+// run by the Storyteller rather than played, so they are skipped here.
+M20.TAROT_PLAYABLE_FACTIONS = ['Traditions','Technocracy','Disparates'];
+
+// Pre-computed deck-level frequency of each tradition and each faction so
+// the synthesis can normalize popular tags. Without this, a tradition that
+// appears in five cards would win the tally far more often than a tradition
+// that appears in one, no matter what was drawn.
+M20.TAROT_TRADITION_COUNTS = (() => {
+  const counts = {};
+  M20.TAROT.forEach(c => (c.traditions || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+  return counts;
+})();
+M20.TAROT_FACTION_COUNTS = (() => {
+  const counts = {};
+  M20.TAROT.forEach(c => (c.factions || []).forEach(f => { counts[f] = (counts[f] || 0) + 1; }));
+  return counts;
+})();
+
 M20.TAROT_SPREAD = [
   { key: 'seeker',    name: 'The Seeker',    blurb: 'Your core archetype, the self that walks the path.',          aspect: 'Nature & Demeanor' },
   { key: 'awakening', name: 'The Awakening', blurb: 'How you came to magick, and what fire shaped your Avatar.', aspect: 'Essence' },
@@ -977,13 +997,27 @@ const Tarot = {
     });
     const top = (bucket, n = 1) =>
       Object.entries(tallies[bucket]).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
-    const fact = top('factions')[0]   || 'an unaffiliated soul';
-    // Only consider traditions that belong to the chosen faction so the
-    // synthesis cannot pair, e.g., Technocracy with the Euthanatos. If
-    // none of the drawn cards offered a tradition compatible with the
-    // winning faction, leave the tradition line off entirely.
+    // Restrict factions to those a player would actually pick. Marauders
+    // and Nephandi are antagonists in M20, so even if their tags win the
+    // raw tally we route around them and fall back to the next playable
+    // pick, or to an unaffiliated reading if none of the cards offered one.
+    const playable = M20.TAROT_PLAYABLE_FACTIONS || ['Traditions','Technocracy','Disparates'];
+    const rankedFacts = Object.entries(tallies.factions)
+      .sort((a, b) => b[1] - a[1])
+      .map(e => e[0])
+      .filter(f => playable.includes(f));
+    const fact = rankedFacts[0] || 'an unaffiliated soul';
+    // Normalize tradition tallies by how often each tradition appears in
+    // the deck so a tag that shows up on five cards does not automatically
+    // outrank a tag that shows up on one. Then filter to only traditions
+    // that belong to the chosen faction so the synthesis cannot pair, for
+    // example, Technocracy with the Euthanatos. If none of the drawn cards
+    // offered a tradition compatible with the winning faction, leave the
+    // tradition line off entirely.
     const validTrads = M20.FACTION_TRADITIONS[fact] || [];
+    const tradCounts = M20.TAROT_TRADITION_COUNTS || {};
     const rankedTrads = Object.entries(tallies.traditions)
+      .map(([t, score]) => [t, score / Math.max(1, tradCounts[t] || 1)])
       .sort((a, b) => b[1] - a[1])
       .map(e => e[0])
       .filter(t => validTrads.includes(t));

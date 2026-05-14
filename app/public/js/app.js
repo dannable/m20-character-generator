@@ -9016,7 +9016,6 @@ const Creator = {
       ${this.stepHeader('Step I — Concept',
         '"It takes uncommon strength of will to fight monsters alone in the night."',
         'Choose your hunter\'s concept, motivation, and the two masks they wear: Nature (inner self) and Demeanor (outward face).')}
-      <div style="display:flex;justify-content:flex-end;margin:-0.4rem 0 0.8rem"><button type="button" class="consult-fates-btn" onclick="Tarot.open()" title="Draw a five-card spread for character inspiration">✦ Consult the Fates</button></div>
 
       <div class="form-grid">
         <div class="form-group">
