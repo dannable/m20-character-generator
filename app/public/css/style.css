@@ -9106,18 +9106,21 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   text-transform: uppercase;
 }
 
-/* The card itself: 3D flip */
+/* The card itself: 3D flip. The flip is a single rotateY from 0 to 180
+   degrees. The optional pointer-follow tilt adds a small offset to that
+   same axis (plus a touch of rotateX), so the card always keeps its face
+   to the camera once flipped. */
 .tarot-card {
   position: relative;
   width: 100%;
   aspect-ratio: 2 / 3;
   transform-style: preserve-3d;
-  transform: rotateY(0deg) rotateX(var(--tarot-tilt-x, 0deg)) rotateY(var(--tarot-tilt-y, 0deg));
+  transform: rotateY(var(--tarot-tilt-y, 0deg)) rotateX(var(--tarot-tilt-x, 0deg));
   transition: transform 0.7s cubic-bezier(.4,.06,.3,1.2);
   cursor: pointer;
 }
 .tarot-card[data-flipped='true'] {
-  transform: rotateY(180deg) rotateX(var(--tarot-tilt-x, 0deg)) rotateY(calc(180deg + var(--tarot-tilt-y, 0deg)));
+  transform: rotateY(calc(180deg + var(--tarot-tilt-y, 0deg))) rotateX(var(--tarot-tilt-x, 0deg));
 }
 .tarot-face {
   position: absolute;
