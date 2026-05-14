@@ -9047,7 +9047,7 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   top: 0; left: 50%;
   transform: translateX(-50%);
   width: 110px;
-  height: 165px;
+  height: 187px;        /* 110 * 17/10, matches the card aspect ratio */
   pointer-events: none;
 }
 .tarot-deck-card {
@@ -9063,7 +9063,7 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .tarot-deck-card:nth-child(3) { transform: translate(0, 0) rotate(0deg); }
 .tarot-deck-card:nth-child(4) { transform: translate(2px, 1px) rotate(1deg); }
 .tarot-deck-card:nth-child(5) { transform: translate(4px, 2px) rotate(2deg); }
-.tarot-deck-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tarot-deck-card img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* Spread row */
 .tarot-spread {
@@ -9109,11 +9109,14 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 /* The card itself: 3D flip. The flip is a single rotateY from 0 to 180
    degrees. The optional pointer-follow tilt adds a small offset to that
    same axis (plus a touch of rotateX), so the card always keeps its face
-   to the camera once flipped. */
+   to the camera once flipped.
+   aspect-ratio is matched to the actual card PNGs (roughly 10:17) so that
+   object-fit: contain on the faces displays the whole card with no top or
+   bottom cropping. */
 .tarot-card {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 10 / 17;
   transform-style: preserve-3d;
   transform: rotateY(var(--tarot-tilt-y, 0deg)) rotateX(var(--tarot-tilt-x, 0deg));
   transition: transform 0.7s cubic-bezier(.4,.06,.3,1.2);
@@ -9133,7 +9136,7 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   background: #15101f;
 }
 .tarot-face-front { transform: rotateY(180deg); }
-.tarot-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tarot-face img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 .tarot-card-label {
   display: flex;
