@@ -662,7 +662,10 @@ M20.TAROT = [
 // Used by the concept-blend synthesis to avoid pairing, say, Technocracy
 // with the Euthanatos in the same paragraph.
 M20.FACTION_TRADITIONS = {
-  Traditions:  ['Order of Hermes','Verbena','Celestial Chorus','Cult of Ecstasy','Sons of Ether','Virtual Adepts','Akashic Brotherhood','Dreamspeakers','Euthanatos','Hollow Ones','Ahl-i-Batin'],
+  // The Council of Nine Mystic Traditions. Hollow Ones are Disparates,
+  // not Traditions, even though Hollowers often travel in Traditions
+  // circles, so they live only in the Disparates and Orphans lists below.
+  Traditions:  ['Order of Hermes','Verbena','Celestial Chorus','Cult of Ecstasy','Sons of Ether','Virtual Adepts','Akashic Brotherhood','Dreamspeakers','Euthanatos'],
   Technocracy: ['Syndicate','Iteration X','New World Order','Progenitors','Void Engineers'],
   Disparates:  ['Hollow Ones','Ahl-i-Batin'],
   Orphans:     ['Hollow Ones'],
@@ -1007,17 +1010,20 @@ const Tarot = {
       .map(e => e[0])
       .filter(f => playable.includes(f));
     const fact = rankedFacts[0] || 'an unaffiliated soul';
-    // Normalize tradition tallies by how often each tradition appears in
-    // the deck so a tag that shows up on five cards does not automatically
-    // outrank a tag that shows up on one. Then filter to only traditions
+    // Normalize tradition tallies by the square root of how often each
+    // tradition appears in the deck. Dividing by the raw count over-
+    // corrects: a 5-card tradition like Verbena gets a 5x penalty against
+    // a 1-card tradition on the same Seeker slot, so it almost never wins.
+    // sqrt softens that to ~2.2x, which keeps rare traditions reachable
+    // without burying the common ones. Then filter to only traditions
     // that belong to the chosen faction so the synthesis cannot pair, for
-    // example, Technocracy with the Euthanatos. If none of the drawn cards
-    // offered a tradition compatible with the winning faction, leave the
-    // tradition line off entirely.
+    // example, Technocracy with the Euthanatos. If none of the drawn
+    // cards offered a tradition compatible with the winning faction,
+    // leave the tradition line off entirely.
     const validTrads = M20.FACTION_TRADITIONS[fact] || [];
     const tradCounts = M20.TAROT_TRADITION_COUNTS || {};
     const rankedTrads = Object.entries(tallies.traditions)
-      .map(([t, score]) => [t, score / Math.max(1, tradCounts[t] || 1)])
+      .map(([t, score]) => [t, score / Math.sqrt(Math.max(1, tradCounts[t] || 1))])
       .sort((a, b) => b[1] - a[1])
       .map(e => e[0])
       .filter(t => validTrads.includes(t));
