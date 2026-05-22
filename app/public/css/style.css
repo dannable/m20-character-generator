@@ -4145,6 +4145,63 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .admin-zero { color: var(--text-faint); }
 .admin-char-btn { min-width: 2rem; }
 
+/* Single-line scrollable list used inside the modal for an admin viewing
+   another user's characters or chronicles. Each row is one tabular line so
+   long rosters scroll instead of stretching the modal off-screen. */
+.admin-list-summary {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.5rem;
+}
+.admin-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  background: rgba(0,0,0,0.18);
+}
+.admin-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border-dim);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.admin-list-row:last-child { border-bottom: none; }
+.admin-list-row:hover { background: rgba(232, 201, 106, 0.07); }
+.admin-list-row-dim { opacity: 0.6; }
+.admin-list-name {
+  color: var(--text-bright);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-list-meta {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-list-date {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.admin-list-flag {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-left: 0.4rem;
+}
+
 .admin-empty-row {
   text-align: center !important;
   color: var(--text-faint) !important;

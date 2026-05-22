@@ -985,7 +985,7 @@ const App = {
           <thead>
             <tr>
               <th>Username</th><th>Email</th><th>Role</th>
-              <th>Chars</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
+              <th>Chars</th><th>Chrons</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="admin-tbody"></tbody>
@@ -1060,12 +1060,13 @@ const App = {
     }
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="8" class="admin-empty-row">No users match the current filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="admin-empty-row">No users match the current filters.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = filtered.map(u => {
       const isSelf = me && u.id === me.id;
+      const safeName = u.username.replace(/'/g, "\\'");
       return `<tr>
         <td>${u.username}</td>
         <td class="admin-td-email">${u.email}</td>
@@ -1074,7 +1075,12 @@ const App = {
         </td>
         <td style="text-align:center">
           ${u.character_count > 0
-            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserCharacters(${u.id},'${u.username.replace(/'/g, "\\'")}')" title="View characters">${u.character_count}</button>`
+            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserCharacters(${u.id},'${safeName}')" title="View characters">${u.character_count}</button>`
+            : '<span class="admin-zero">0</span>'}
+        </td>
+        <td style="text-align:center">
+          ${u.chronicle_count > 0
+            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserChronicles(${u.id},'${safeName}')" title="View chronicles">${u.chronicle_count}</button>`
             : '<span class="admin-zero">0</span>'}
         </td>
         <td class="admin-td-date">${formatDate(u.last_login)}</td>
@@ -1641,26 +1647,75 @@ const App = {
     $('#modal-overlay').style.display = 'flex';
   },
 
-  async showUserCharacters(userId, username) {
-    // Reuse the modal — hide Confirm, relabel Cancel as Close
-    $('#modal-title').textContent = `${username}'s Characters`;
+  // Open the modal in single-line-list mode used by both showUserCharacters
+  // and showUserChronicles. Hides Confirm, relabels Cancel as Close, and
+  // widens the modal box so each row can fit name + meta + date on one line.
+  _openAdminListModal(title) {
+    $('#modal-title').textContent = title;
     $('#modal-body').innerHTML = '<p style="color:var(--text-faint);font-style:italic;text-align:center;padding:1rem 0">Loading…</p>';
     const confirmBtn = $('#modal-confirm');
     if (confirmBtn) confirmBtn.style.display = 'none';
     const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
     if (cancelBtn) cancelBtn.textContent = 'Close';
+    const box = document.querySelector('.modal-box');
+    if (box) box.style.maxWidth = '720px';
     $('#modal-overlay').style.display = 'flex';
+  },
+
+  async showUserCharacters(userId, username) {
+    this._openAdminListModal(`${username}'s Characters`);
     try {
       const r = await fetch(`/api/admin/users/${userId}/characters`);
       if (!r.ok) throw new Error('Failed to load');
       const { characters } = await r.json();
       if (!characters.length) {
         $('#modal-body').innerHTML = '<p style="color:var(--text-faint);text-align:center;padding:1.5rem 0">No characters yet.</p>';
-      } else {
-        $('#modal-body').innerHTML = `<div class="roster-grid" style="padding:0.25rem 0 0.5rem">${characters.map(c => this.renderCard(c)).join('')}</div>`;
+        return;
       }
+      const rows = characters.map(c => {
+        const aff = c.affiliation === 'Technocracy' ? c.tradition || 'Technocracy' : (c.tradition || c.affiliation || '');
+        const meta = [aff, c.concept].filter(Boolean).join(' · ');
+        return `
+          <div class="admin-list-row" title="Open ${escHtml(c.name)}" onclick="App.closeModal(); App.viewCharacter(${c.id})">
+            <span class="admin-list-name">${escHtml(c.name || '(unnamed)')}</span>
+            <span class="admin-list-meta">${escHtml(meta)}</span>
+            <span class="admin-list-date">${c.updated_at ? formatDate(c.updated_at) : ''}</span>
+          </div>`;
+      }).join('');
+      $('#modal-body').innerHTML = `
+        <div class="admin-list-summary">${characters.length} character${characters.length !== 1 ? 's' : ''}</div>
+        <div class="admin-list">${rows}</div>`;
     } catch {
       $('#modal-body').innerHTML = '<p style="color:var(--crimson);text-align:center">Failed to load characters.</p>';
+    }
+  },
+
+  async showUserChronicles(userId, username) {
+    this._openAdminListModal(`${username}'s Chronicles`);
+    try {
+      const r = await fetch(`/api/admin/users/${userId}/chronicles`);
+      if (!r.ok) throw new Error('Failed to load');
+      const { chronicles } = await r.json();
+      if (!chronicles.length) {
+        $('#modal-body').innerHTML = '<p style="color:var(--text-faint);text-align:center;padding:1.5rem 0">No chronicles yet.</p>';
+        return;
+      }
+      const rows = chronicles.map(c => {
+        const members = `${c.member_count} member${c.member_count !== 1 ? 's' : ''}`;
+        const meta = [c.setting, members].filter(Boolean).join(' · ');
+        const dim = c.is_active ? '' : ' admin-list-row-dim';
+        return `
+          <div class="admin-list-row${dim}" title="Open ${escHtml(c.name)}" onclick="App.closeModal(); Chronicle.showDetail(${c.id})">
+            <span class="admin-list-name">${escHtml(c.name || '(untitled)')}${c.is_active ? '' : ' <span class="admin-list-flag">archived</span>'}</span>
+            <span class="admin-list-meta">${escHtml(meta)}</span>
+            <span class="admin-list-date">${c.updated_at ? formatDate(c.updated_at) : ''}</span>
+          </div>`;
+      }).join('');
+      $('#modal-body').innerHTML = `
+        <div class="admin-list-summary">${chronicles.length} chronicle${chronicles.length !== 1 ? 's' : ''}</div>
+        <div class="admin-list">${rows}</div>`;
+    } catch {
+      $('#modal-body').innerHTML = '<p style="color:var(--crimson);text-align:center">Failed to load chronicles.</p>';
     }
   },
 
@@ -1671,6 +1726,9 @@ const App = {
     if (confirmBtn) { confirmBtn.textContent = 'Confirm'; confirmBtn.className = 'btn-danger'; confirmBtn.onclick = null; confirmBtn.style.display = ''; confirmBtn.disabled = false; }
     const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
     if (cancelBtn) cancelBtn.textContent = 'Cancel';
+    // The admin character/chronicle lists widen the modal, reset to default
+    const box = document.querySelector('.modal-box');
+    if (box) box.style.maxWidth = '';
   },
 };
 
