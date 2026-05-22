@@ -40,14 +40,16 @@ function purgeGhostAccounts() {
 // GET /api/admin/users
 router.get('/users', (req, res) => {
   const purged = purgeGhostAccounts();
+  // Counts are computed with correlated subqueries instead of a multi-join +
+  // GROUP BY because joining users -> characters -> chronicles produces a
+  // Cartesian product that inflates both COUNTs.
   const users = db.prepare(`
     SELECT u.id, u.username, u.email, u.role, u.is_active, u.created_at,
            u.last_login, u.login_count,
-           COUNT(c.id) AS character_count
+           (SELECT COUNT(*) FROM characters c WHERE c.user_id = u.id) AS character_count,
+           (SELECT COUNT(*) FROM chronicles ch WHERE ch.user_id = u.id) AS chronicle_count
     FROM users u
-    LEFT JOIN characters c ON c.user_id = u.id
     WHERE u.role != 'guest'
-    GROUP BY u.id
     ORDER BY u.created_at DESC
   `).all();
   const guest_count = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'guest'`).get().c;
@@ -80,6 +82,24 @@ router.get('/users/:id/characters', (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     const characters = db.prepare(`SELECT ${SUMMARY_COLS} FROM characters WHERE user_id = ? ORDER BY updated_at DESC`).all(userId);
     res.json({ user, characters });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// GET /api/admin/users/:id/chronicles — all chronicles owned (Storyteller) by a user
+router.get('/users/:id/chronicles', (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const user = db.prepare(`SELECT id, username FROM users WHERE id = ?`).get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const chronicles = db.prepare(`
+      SELECT c.id, c.name, c.setting, c.themes, c.join_code, c.is_active,
+             c.created_at, c.updated_at,
+             (SELECT COUNT(*) FROM characters ch WHERE ch.chronicle_id = c.id) AS member_count
+      FROM chronicles c
+      WHERE c.user_id = ?
+      ORDER BY c.is_active DESC, c.updated_at DESC
+    `).all(userId);
+    res.json({ user, chronicles });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
