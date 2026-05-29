@@ -271,7 +271,11 @@ async function buildCharacterPDF(c) {
   ].forEach((g, gi) => {
     let yc = y;
     yc = GH(g.col, yc, CW, g.lbl);
-    g.keys.forEach((k, i) => { yc = TR(g.col, yc, CW, g.names[i], c[k] || 1); });
+    g.keys.forEach((k, i) => {
+      const spec  = (c.specialties || {})[k];
+      const label = spec ? `${g.names[i]} (${spec})` : g.names[i];
+      yc = TR(g.col, yc, CW, label, c[k] || 1);
+    });
     if (gi === 0) y1 = yc;
     else if (gi === 1) y2 = yc;
     else y3 = yc;
