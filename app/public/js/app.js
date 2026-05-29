@@ -5175,10 +5175,24 @@ const Sheet = {
       </div>`;
     }).join('');
 
-    // All abilities (show all, including 0)
-    const allTalents = M20.TALENTS.map(a => this.traitRow(a, (char.talents || {})[a.id], specialties)).join('');
-    const allSkills  = M20.SKILLS.map(a => this.traitRow(a, (char.skills || {})[a.id], specialties)).join('');
-    const allKnow    = M20.KNOWLEDGES.map(a => this.traitRow(a, (char.knowledges || {})[a.id], specialties)).join('');
+    // All abilities — primary + any added secondary/custom abilities
+    const _renderAbilGroup = (key, primary, secondary) => {
+      const dict     = char[key] || {};
+      const knownIds = new Set([...primary, ...secondary].map(a => a.id));
+      return [
+        ...primary.map(a => this.traitRow(a, dict[a.id], specialties)),
+        ...secondary.filter(a => dict[a.id] !== undefined).map(a => this.traitRow(a, dict[a.id], specialties, true)),
+        ...Object.entries(dict)
+          .filter(([id]) => !knownIds.has(id) && dict[id] !== undefined)
+          .map(([id, val]) => {
+            const name = (char.custom_ability_names || {})[id] || id;
+            return this.traitRow({ id, name }, val, specialties, true);
+          }),
+      ].join('');
+    };
+    const allTalents = _renderAbilGroup('talents',    M20.TALENTS,    M20.SECONDARY_TALENTS);
+    const allSkills  = _renderAbilGroup('skills',     M20.SKILLS,     M20.SECONDARY_SKILLS);
+    const allKnow    = _renderAbilGroup('knowledges', M20.KNOWLEDGES, M20.SECONDARY_KNOWLEDGES);
 
     // Backgrounds
     const bgs = Object.entries(char.backgrounds || {})
@@ -5964,11 +5978,12 @@ const Sheet = {
     $('#modal-overlay').style.display = 'flex';
   },
 
-  traitRow(trait, val, specialties = {}) {
-    const v = val == null ? 0 : val;
+  traitRow(trait, val, specialties = {}, isSecondary = false) {
+    const v    = val == null ? 0 : val;
     const spec = specialties[trait.id];
+    const sec  = isSecondary ? `<em class="sheet-sec-label">sec</em>` : '';
     return `<div class="sheet-trait-row">
-      <span class="sheet-trait-name">${trait.name}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+      <span class="sheet-trait-name">${trait.name}${sec}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
       ${dots(v, 5, 'readonly')}
     </div>`;
   },
@@ -12761,6 +12776,35 @@ const FreeEdit = {
       </div>
     </div>
 
+    ${c.character_type === 'mortal' ? '' : `
+    <!-- Resonance -->
+    <div class="fe-section">
+      <div class="fe-section-title">Resonance</div>
+      <div class="fe-res-list" id="fe-resonance-list">${this._feResonanceList()}</div>
+      <button class="btn-secondary btn-sm fe-res-add-btn" id="fe-add-resonance">＋ Add Resonance</button>
+    </div>`}
+
+    <!-- Merits & Flaws -->
+    <div class="fe-section">
+      <div class="fe-section-title">Merits &amp; Flaws</div>
+      <div class="fe-mf-cols">
+        <div class="fe-mf-col">
+          <div class="fe-mf-col-header">Merits</div>
+          <div class="fe-mf-list" id="fe-merits-list">${this._feMFList('merit')}</div>
+          <div class="fe-mf-adder-row" id="fe-merit-adder">
+            ${this._feMFAdder('merit')}
+          </div>
+        </div>
+        <div class="fe-mf-col">
+          <div class="fe-mf-col-header">Flaws</div>
+          <div class="fe-mf-list" id="fe-flaws-list">${this._feMFList('flaw')}</div>
+          <div class="fe-mf-adder-row" id="fe-flaw-adder">
+            ${this._feMFAdder('flaw')}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Description & Notes -->
     <div class="fe-section">
       <div class="fe-section-title">Description & Notes</div>
@@ -12791,6 +12835,183 @@ const FreeEdit = {
     </div>`;
 
     this._attachListeners();
+  },
+
+  // ── Resonance helpers ───────────────────────────────────────────────────────
+  _feResonanceList() {
+    const res = Array.isArray(this.char.resonance) ? this.char.resonance : [];
+    if (!res.length) return `<p class="fe-mf-empty">No resonance yet.</p>`;
+    const flavors = (M20.RESONANCE_FLAVORS || []).map(f => f.id);
+    return res.map((r, idx) => {
+      const rating = r.rating || 1;
+      const flavorOpts = ['<option value="">— Flavor —</option>']
+        .concat(flavors.map(f => `<option value="${f}"${r.flavor === f ? ' selected' : ''}>${f}</option>`))
+        .join('');
+      const dots = Array.from({length: 5}, (_, i) =>
+        `<span class="dot${i < rating ? ' filled' : ''}" data-fe-res-idx="${idx}" data-val="${i+1}"></span>`
+      ).join('');
+      return `<div class="fe-res-row" data-res-idx="${idx}">
+        <input class="fe-input fe-res-name" type="text" data-fe-res-idx="${idx}"
+          value="${escHtml(r.description || '')}" placeholder="Resonance name…" maxlength="60">
+        <select class="fe-res-flavor form-input" data-fe-res-idx="${idx}">${flavorOpts}</select>
+        <span class="dots fe-res-dots" data-fe-res-idx="${idx}">${dots}</span>
+        <button class="fe-mf-remove fe-res-remove" data-fe-res-idx="${idx}" title="Remove">×</button>
+      </div>`;
+    }).join('');
+  },
+
+  _feResonanceRefresh() {
+    const listEl = $('#fe-resonance-list');
+    if (listEl) listEl.innerHTML = this._feResonanceList();
+  },
+
+  // ── Merit / Flaw helpers ────────────────────────────────────────────────────
+  _parseMFCosts(cost) {
+    if (typeof cost === 'number') return [cost];
+    const s = String(cost).trim();
+    const m1 = s.match(/^(\d+)$/);
+    if (m1) return [parseInt(m1[1])];
+    const m2 = s.match(/(\d+)\s+or\s+(\d+)/i);
+    if (m2) return [parseInt(m2[1]), parseInt(m2[2])];
+    const m3 = s.match(/(\d+)\s*(?:to|-)\s*(\d+)/i);
+    if (m3) { const a = +m3[1], b = +m3[2]; return Array.from({length: b - a + 1}, (_, i) => a + i); }
+    return [1];
+  },
+
+  _feMFList(kind) {
+    const c      = this.char;
+    const obj    = kind === 'merit' ? (c.merits || {}) : (c.flaws || {});
+    const defs   = kind === 'merit' ? M20.MERITS : M20.FLAWS;
+    const labels = kind === 'merit' ? (c.merit_labels || {}) : {};
+    const entries = Object.entries(obj);
+    if (!entries.length) return `<p class="fe-mf-empty">None selected.</p>`;
+    return entries.map(([id, val]) => {
+      const def  = defs.find(d => d.id === id);
+      const name = def ? def.name : id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      if (Array.isArray(val)) {
+        return val.map((cost, idx) => {
+          const lbl = labels[`${id}:${idx}`] ? ` (${escHtml(labels[`${id}:${idx}`])})` : '';
+          return `<div class="fe-mf-row" data-kind="${kind}" data-id="${escHtml(id)}" data-idx="${idx}">
+            <span class="fe-mf-name">${escHtml(name)}${lbl}</span>
+            <span class="fe-mf-cost">${cost}pt</span>
+            <button class="fe-mf-remove" data-kind="${kind}" data-id="${id}" data-idx="${idx}" title="Remove">×</button>
+          </div>`;
+        }).join('');
+      }
+      const cost = typeof val === 'number' ? val : 1;
+      return `<div class="fe-mf-row" data-kind="${kind}" data-id="${escHtml(id)}">
+        <span class="fe-mf-name">${escHtml(name)}</span>
+        <span class="fe-mf-cost">${cost}pt</span>
+        <button class="fe-mf-remove" data-kind="${kind}" data-id="${id}" title="Remove">×</button>
+      </div>`;
+    }).join('');
+  },
+
+  _feMFAdder(kind) {
+    const c    = this.char;
+    const defs = kind === 'merit' ? M20.MERITS : M20.FLAWS;
+    const active = kind === 'merit' ? (c.merits || {}) : (c.flaws || {});
+    const cats = ['Physical', 'Social', 'Mental', 'Supernatural'];
+    const groups = cats.map(cat => {
+      const items = defs.filter(d => d.category === cat && (d.repeatable || !active[d.id]));
+      if (!items.length) return '';
+      const opts = items.map(d =>
+        `<option value="${escHtml(d.id)}" data-cost="${escHtml(String(d.cost))}">${escHtml(d.name)} (${d.cost}pt)</option>`
+      ).join('');
+      return `<optgroup label="${cat}">${opts}</optgroup>`;
+    }).join('');
+    return `
+      <select class="fe-mf-adder-select form-input" id="fe-${kind}-picker">
+        <option value="">＋ Add ${kind === 'merit' ? 'Merit' : 'Flaw'}…</option>
+        ${groups}
+      </select>
+      <div class="fe-mf-cost-panel" id="fe-${kind}-cost-panel" style="display:none">
+        <select class="fe-mf-cost-select form-input" id="fe-${kind}-cost-val"></select>
+        <button class="btn-secondary btn-sm fe-mf-add-btn" id="fe-${kind}-add-btn">Add</button>
+      </div>`;
+  },
+
+  _feMFRefreshList(kind) {
+    const listEl = $(`#fe-${kind}s-list`);
+    if (listEl) listEl.innerHTML = this._feMFList(kind);
+    const adderEl = $(`#fe-${kind}-adder`);
+    if (adderEl) adderEl.innerHTML = this._feMFAdder(kind);
+    this._attachMFAdderListeners(kind);
+  },
+
+  _feMFRemove(kind, id, idx = null) {
+    const c   = this.char;
+    const obj = kind === 'merit' ? (c.merits ||= {}) : (c.flaws ||= {});
+    if (idx !== null && Array.isArray(obj[id])) {
+      obj[id].splice(idx, 1);
+      if (!obj[id].length) delete obj[id];
+      if (kind === 'merit' && c.merit_labels) {
+        const oldLabels = { ...c.merit_labels };
+        c.merit_labels = {};
+        let ni = 0;
+        Object.entries(oldLabels).forEach(([k, v]) => {
+          const [lid, lidx] = k.split(':');
+          if (lid === id) {
+            const oi = parseInt(lidx);
+            if (oi !== idx) c.merit_labels[`${id}:${ni++}`] = v;
+          } else {
+            c.merit_labels[k] = v;
+          }
+        });
+      }
+    } else {
+      delete obj[id];
+    }
+    this._feMFRefreshList(kind);
+  },
+
+  _feMFAdd(kind, id, cost) {
+    const c   = this.char;
+    const obj = kind === 'merit' ? (c.merits ||= {}) : (c.flaws ||= {});
+    const defs = kind === 'merit' ? M20.MERITS : M20.FLAWS;
+    const def  = defs.find(d => d.id === id);
+    if (!def) return;
+    if (def.repeatable) {
+      if (!Array.isArray(obj[id])) obj[id] = [];
+      obj[id].push(cost);
+    } else {
+      obj[id] = cost;
+    }
+    const picker = $(`#fe-${kind}-picker`);
+    if (picker) picker.value = '';
+    const panel = $(`#fe-${kind}-cost-panel`);
+    if (panel) panel.style.display = 'none';
+    this._feMFRefreshList(kind);
+  },
+
+  _attachMFAdderListeners(kind) {
+    const picker = $(`#fe-${kind}-picker`);
+    if (!picker) return;
+    picker.addEventListener('change', () => {
+      const id   = picker.value;
+      const panel = $(`#fe-${kind}-cost-panel`);
+      if (!id) { if (panel) panel.style.display = 'none'; return; }
+      const defs  = kind === 'merit' ? M20.MERITS : M20.FLAWS;
+      const def   = defs.find(d => d.id === id);
+      const costs = this._parseMFCosts(def?.cost || 1);
+      if (costs.length === 1) {
+        this._feMFAdd(kind, id, costs[0]);
+      } else {
+        const costSel = $(`#fe-${kind}-cost-val`);
+        if (costSel) costSel.innerHTML = costs.map(v => `<option value="${v}">${v} pt${v !== 1 ? 's' : ''}</option>`).join('');
+        if (panel) panel.style.display = 'flex';
+        const addBtn = $(`#fe-${kind}-add-btn`);
+        if (addBtn) {
+          if (addBtn._addHandler) addBtn.removeEventListener('click', addBtn._addHandler);
+          const handler = () => {
+            const cost = parseInt($(`#fe-${kind}-cost-val`)?.value || costs[0]);
+            this._feMFAdd(kind, id, cost);
+          };
+          addBtn._addHandler = handler;
+          addBtn.addEventListener('click', handler);
+        }
+      }
+    });
   },
 
   // ── Event listeners ────────────────────────────────────────────────────────
@@ -12861,6 +13082,62 @@ const FreeEdit = {
     // Bottom buttons
     $('#fe-cancel-btn-bottom')?.addEventListener('click', () => this._cancel());
     $('#fe-save-btn-bottom')?.addEventListener('click', () => this._save());
+
+    // Merits & Flaws — remove (delegated) + adder listeners
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('.fe-mf-remove');
+      if (!btn || btn.classList.contains('fe-res-remove')) return;
+      e.stopPropagation();
+      const idx = btn.dataset.idx !== undefined && btn.dataset.idx !== '' ? parseInt(btn.dataset.idx) : null;
+      this._feMFRemove(btn.dataset.kind, btn.dataset.id, idx);
+    });
+    this._attachMFAdderListeners('merit');
+    this._attachMFAdderListeners('flaw');
+
+    // Resonance — name input, flavor select, dot rating, remove, add
+    const resListEl = $('#fe-resonance-list');
+    if (resListEl) {
+      resListEl.addEventListener('input', e => {
+        const nameInp = e.target.closest('.fe-res-name');
+        if (nameInp) {
+          const idx = parseInt(nameInp.dataset.feResIdx);
+          if (c.resonance?.[idx]) c.resonance[idx].description = nameInp.value;
+        }
+      });
+      resListEl.addEventListener('change', e => {
+        const flavorSel = e.target.closest('.fe-res-flavor');
+        if (flavorSel) {
+          const idx = parseInt(flavorSel.dataset.feResIdx);
+          if (c.resonance?.[idx]) c.resonance[idx].flavor = flavorSel.value;
+        }
+      });
+      resListEl.addEventListener('click', e => {
+        const dot = e.target.closest('.fe-res-dots .dot');
+        if (dot) {
+          const idx = parseInt(dot.dataset.feResIdx);
+          const val = parseInt(dot.dataset.val);
+          if (!c.resonance?.[idx]) return;
+          const cur = c.resonance[idx].rating || 1;
+          c.resonance[idx].rating = cur === val ? Math.max(1, val - 1) : val;
+          const dotsEl = dot.closest('.fe-res-dots');
+          dotsEl.querySelectorAll('.dot').forEach(d =>
+            d.classList.toggle('filled', parseInt(d.dataset.val) <= c.resonance[idx].rating)
+          );
+          return;
+        }
+        const rm = e.target.closest('.fe-res-remove');
+        if (rm) {
+          const idx = parseInt(rm.dataset.feResIdx);
+          c.resonance.splice(idx, 1);
+          this._feResonanceRefresh();
+        }
+      });
+    }
+    $('#fe-add-resonance')?.addEventListener('click', () => {
+      if (!Array.isArray(c.resonance)) c.resonance = [];
+      c.resonance.push({ description: '', flavor: '', rating: 1 });
+      this._feResonanceRefresh();
+    });
 
     // Chronicle join
     el.querySelector('.fe-join-chronicle-btn')?.addEventListener('click', async () => {

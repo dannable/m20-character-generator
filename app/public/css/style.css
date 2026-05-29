@@ -2169,6 +2169,14 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   color: var(--gold-dim);
   margin-left: 0.3rem;
 }
+.sheet-trait-name em.sheet-sec-label {
+  font-size: 0.6rem;
+  color: var(--text-faint);
+  font-style: normal;
+  margin-left: 0.3rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .sheet-focus-row {
   display: flex;
   flex-direction: column;
@@ -7949,6 +7957,101 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   font-size: 0.78rem;
   color: var(--text-dim);
   margin-bottom: 0.35rem;
+}
+
+/* ── FreeEdit Merits & Flaws ─────────────────────────────────── */
+.fe-mf-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+@media (max-width: 640px) { .fe-mf-cols { grid-template-columns: 1fr; } }
+.fe-mf-col-header {
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+.fe-mf-list { margin-bottom: 0.75rem; }
+.fe-mf-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.84rem;
+}
+.fe-mf-row:last-child { border-bottom: none; }
+.fe-mf-name { flex: 1; color: var(--text-mid); }
+.fe-mf-cost {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.fe-mf-remove {
+  background: none;
+  border: 1px solid rgba(192,64,64,0.35);
+  border-radius: 4px;
+  color: var(--crimson);
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.1rem 0.35rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s;
+}
+.fe-mf-remove:hover { background: rgba(192,64,64,0.1); border-color: rgba(192,64,64,0.6); }
+.fe-mf-empty {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  font-style: italic;
+  padding: 0.25rem 0;
+}
+.fe-mf-adder-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.fe-mf-adder-select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+.fe-mf-cost-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+}
+.fe-mf-cost-select { width: auto; font-size: 0.82rem; }
+.fe-mf-add-btn { white-space: nowrap; }
+
+/* ── FreeEdit Resonance ──────────────────────────────────────── */
+.fe-res-list { margin-bottom: 0.75rem; }
+.fe-res-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.fe-res-row:last-child { border-bottom: none; }
+.fe-res-name { flex: 1; min-width: 0; }
+.fe-res-flavor {
+  width: auto;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+.fe-res-dots { flex-shrink: 0; }
+.fe-res-dots .dot { cursor: pointer; transition: border-color 0.12s, transform 0.12s; }
+.fe-res-dots .dot:hover { border-color: var(--gold-bright); transform: scale(1.15); }
+.fe-res-add-btn { white-space: nowrap; }
+@media (max-width: 560px) {
+  .fe-res-row { flex-wrap: wrap; }
+  .fe-res-name { flex: 1 1 100%; }
 }
 
 .fe-actions {
