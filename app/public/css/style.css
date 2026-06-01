@@ -1049,10 +1049,9 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
 .attr-block-grid .attr-row-main,
 .attr-block-grid .attr-info { min-width: 0; }
 .attr-block-grid .attr-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
+  /* No overflow:hidden — it clips the info-tip (?) tooltip ::after */
 }
 .attr-block-grid .secondary-ability-adder { width: 100%; box-sizing: border-box; }
 .attr-block-grid .secondary-ability-adder select { width: 100%; min-width: 0; }
@@ -3152,6 +3151,16 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 }
 
 .info-tip:hover::after { display: block; }
+
+/* In the narrow 3-column attribute/ability grids, open the tooltip below the
+   badge (anchored to the right edge) so it isn't squeezed by the column width. */
+.attr-block-grid .info-tip::after,
+.mortal-attr-grid .info-tip::after {
+  left: auto;
+  right: 0;
+  top: calc(100% + 6px);
+  transform: none;
+}
 
 /* ─── Dividers ───────────────────────────────────────────────── */
 .ornate-divider {
@@ -8617,10 +8626,9 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .mortal-attr-grid .attr-row-main { min-width: 0; }
 .mortal-attr-grid .attr-info { min-width: 0; }
 .mortal-attr-grid .attr-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: normal;
   word-break: break-word;
+  /* No overflow:hidden — it clips the info-tip (?) tooltip ::after */
 }
 /* Adder controls fit inside their column rather than stretching it. */
 .mortal-attr-grid .secondary-ability-adder { width: 100%; box-sizing: border-box; }
