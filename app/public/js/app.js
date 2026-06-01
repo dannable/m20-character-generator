@@ -239,9 +239,8 @@ function xpCost(traitGroup, currentVal, isAffinitySphere = false) {
     case 'ability':    return currentVal === 0 ? 3 : currentVal * 2;
     case 'background': return currentVal === 0 ? 3 : currentVal * 2;
     case 'sphere':
-      return isAffinitySphere
-        ? (currentVal === 0 ? 7 : currentVal * 7)
-        : (currentVal === 0 ? 8 : currentVal * 8);
+      if (currentVal === 0) return 10;             // new Sphere: flat 10 (M20 p. 336)
+      return isAffinitySphere ? currentVal * 7 : currentVal * 8;
     case 'arete':      return currentVal * 8;
     case 'willpower':  return currentVal * 1;
     case 'resonance':  return currentVal * 2;
