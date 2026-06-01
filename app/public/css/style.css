@@ -3127,6 +3127,7 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   cursor: help;
   position: relative;
   flex-shrink: 0;
+  z-index: 1; /* establish stacking context so ::after renders above siblings */
 }
 
 .info-tip::after {
@@ -3142,11 +3143,12 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   font-size: 0.75rem;
   color: var(--text-mid);
   white-space: normal;
-  width: 200px;
-  z-index: 10;
+  width: 220px;
+  z-index: 9999;
   display: none;
   line-height: 1.4;
   font-family: var(--font-body);
+  pointer-events: none;
 }
 
 .info-tip:hover::after { display: block; }

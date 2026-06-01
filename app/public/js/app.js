@@ -8030,7 +8030,7 @@ const Creator = {
           <div class="attr-row-main">
             <div class="attr-info">
               <div class="attr-name">${a.name}
-                <span class="info-tip" data-tip="${a.description}">?</span>
+                <span class="info-tip" data-tip="${escHtml(a.description)}">?</span>
               </div>
               <div class="attr-desc">${levelDesc}</div>
             </div>
@@ -8106,7 +8106,7 @@ const Creator = {
                 ${isCustom ? '<span class="secondary-badge">Custom</span>' : ''}
                 ${isChronicle ? '<span class="secondary-badge chronicle-badge">Chronicle</span>' : ''}
                 ${isSuggestedAbility ? `<span class="suggested-badge" title="Suggested from ${matchedPracticeS2.name}">✦</span>` : ''}
-                <span class="info-tip" data-tip="${a.description}">?</span>
+                <span class="info-tip" data-tip="${escHtml(a.description)}">?</span>
               </div>
               <div class="attr-desc">${levelDesc}</div>
             </div>
@@ -8232,7 +8232,7 @@ const Creator = {
           <div class="attr-name">${dispName}
             ${isChronBg ? '<span class="secondary-badge chronicle-badge">Chronicle</span>' : ''}
             ${bg.doubleCost ? '<span style="font-size:0.6rem;color:var(--crimson);margin-left:0.3rem">[2\u00d7 cost]</span>' : ''}
-            <span class="info-tip" data-tip="${bg.description}${bg.note ? ' (' + bg.note + ')' : ''}">?</span>
+            <span class="info-tip" data-tip="${escHtml(bg.description + (bg.note ? ' (' + bg.note + ')' : ''))}">?</span>
           </div>
           <div class="attr-desc">${levelDesc}</div>
           ${bg.page ? `<div class="page-ref">p. ${bg.page}</div>` : ''}
