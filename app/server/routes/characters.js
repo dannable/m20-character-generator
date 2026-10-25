@@ -58,6 +58,53 @@ const EDITABLE_FIELDS = new Set([
   'character_type','virtues','humanity','numina',
 ]);
 
+// ── Columns a plain POST / PUT may write ──────────────────────────────────────
+// In-play sheet state and cosmetic fields: always applied directly for the owner,
+// even on chronicle-linked characters (health, Willpower spent, gear, bio …).
+const SHEET_STATE_FIELDS = new Set([
+  'health_track','health_dead','willpower_spent','quintessence','paradox','resonance',
+  'rotes','description','notes','age','gender','hair','eyes','height','weight','ethnicity',
+  'gear','weapons','allow_bg_xp',
+]);
+// Everything a direct write may touch. Deliberately excludes xp_earned / xp_log
+// (XP routes only), user_id / chronicle_id / timestamps (server-managed) and
+// any column not listed here.
+const WRITABLE_FIELDS = new Set([...EDITABLE_FIELDS, ...SHEET_STATE_FIELDS, 'is_draft', 'creation_baselines']);
+
+function pickFields(data, allowed) {
+  const out = {};
+  for (const k of Object.keys(data)) if (allowed.has(k)) out[k] = data[k];
+  if ('is_draft' in out) out.is_draft = out.is_draft ? 1 : 0;
+  return out;
+}
+
+function isChronicleST(req, chronicleId) {
+  if (!chronicleId) return false;
+  const chron = db.prepare('SELECT user_id FROM chronicles WHERE id = ?').get(chronicleId);
+  return !!chron && chron.user_id === req.session.userId;
+}
+
+// Canonical string form of a column value so stored and proposed values can be
+// compared regardless of JSON key order or number/string typing.
+function stableStringify(v) {
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  if (v && typeof v === 'object') {
+    return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v);
+}
+function canonValue(v) {
+  if (v === undefined || v === null) return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'string') {
+    if (v.trim() !== '' && !isNaN(v)) return String(Number(v));
+    try { const p = JSON.parse(v); if (p && typeof p === 'object') return stableStringify(p); } catch {}
+    return v;
+  }
+  if (typeof v === 'object') return stableStringify(v);
+  return String(v);
+}
+
 // ── computeDiff: produce a human-readable diff for a pending edit ─────────────
 function computeDiff(originalRow, proposed) {
   const orig = parseCharacter(originalRow);
@@ -279,7 +326,7 @@ router.post('/', (req, res) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Character name is required' });
     const { join_code, chronicle_id: _cid, _join_code: _jc, ...bodyRest } = req.body;
-    const data = serializeCharacter(bodyRest);
+    const data = pickFields(serializeCharacter(bodyRest), WRITABLE_FIELDS);
     data.user_id = req.session.userId;
     const cols = Object.keys(data).join(', ');
     const placeholders = Object.keys(data).map(k => `@${k}`).join(', ');
@@ -322,12 +369,57 @@ router.put('/:id', (req, res) => {
     }
 
     const data = serializeCharacter(rest);
-    const sets = Object.keys(data).map(k => `${k} = @${k}`).join(', ');
-    if (sets) {
-      db.prepare(`UPDATE characters SET ${sets} WHERE id = @_id`).run({ ...data, _id: req.params.id });
+    const applyDirect = (vals) => {
+      const keys = Object.keys(vals);
+      if (!keys.length) return;
+      const sets = keys.map(k => `${k} = @${k}`).join(', ');
+      db.prepare(`UPDATE characters SET ${sets} WHERE id = @_id`).run({ ...vals, _id: existing.id });
+    };
+
+    // Owners of unlinked characters, drafts still in the creation wizard, the
+    // chronicle's Storyteller and admins write directly (whitelisted columns only).
+    const direct = isAdmin || !existing.chronicle_id || !!existing.is_draft || isChronicleST(req, existing.chronicle_id);
+    if (direct) {
+      applyDirect(pickFields(data, WRITABLE_FIELDS));
+      const updated = db.prepare('SELECT * FROM characters WHERE id = ?').get(existing.id);
+      return res.json(parseCharacter(updated));
     }
-    const updated = db.prepare('SELECT * FROM characters WHERE id = ?').get(req.params.id);
-    res.json(parseCharacter(updated));
+
+    // Finalized chronicle-linked character owned by a player: in-play sheet state
+    // is applied directly, every other trait/identity change goes to pending_edits
+    // for Storyteller approval (same path as POST /:id/edit-request).
+    applyDirect(pickFields(data, SHEET_STATE_FIELDS));
+
+    const changedKeys = Object.keys(data).filter(k =>
+      EDITABLE_FIELDS.has(k) && !SHEET_STATE_FIELDS.has(k) && canonValue(existing[k]) !== canonValue(data[k]));
+
+    let queued = null;
+    if (changedKeys.length) {
+      const existingPending = db.prepare(
+        `SELECT id FROM pending_edits WHERE character_id = ? AND status = 'pending'`
+      ).get(existing.id);
+      if (existingPending) {
+        return res.status(409).json({ error: 'A pending edit already exists for this character. Wait for Storyteller review.' });
+      }
+      const proposed = { ...parseCharacter(existing) };
+      changedKeys.forEach(k => { proposed[k] = rest[k]; });
+      const diff = computeDiff(existing, proposed);
+      const snapshot = {};
+      changedKeys.forEach(k => { snapshot[k] = data[k]; });
+      const result = db.prepare(
+        `INSERT INTO pending_edits (character_id, chronicle_id, user_id, char_snapshot, diff_summary, reason)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(existing.id, existing.chronicle_id, req.session.userId, JSON.stringify(snapshot), JSON.stringify(diff),
+            String(rest.reason || '').slice(0, 1000));
+      queued = result.lastInsertRowid;
+    }
+
+    const updated = parseCharacter(db.prepare('SELECT * FROM characters WHERE id = ?').get(existing.id));
+    updated.pending_edit = db.prepare(
+      `SELECT id, submitted_at, status FROM pending_edits WHERE character_id = ? AND status = 'pending' ORDER BY submitted_at DESC LIMIT 1`
+    ).get(existing.id) || null;
+    if (queued) updated.pending_edit_queued = true;
+    res.json(updated);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 

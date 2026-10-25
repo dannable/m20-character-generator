@@ -2,14 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Mage: The Ascension 20th Anniversary — Character Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/png" href="/mage20.png" />
-  <link rel="stylesheet" href="/css/style.css?v=70" />
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <link rel="icon" type="image/webp" sizes="128x128" href="/img/mage20-2x.webp" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/img/mage20-64.png" />
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0d0d14" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Chantry" />
+  <link rel="stylesheet" href="/css/style.css?v=75" />
+  <!-- Quill (Storyteller notes editor) is injected by loadQuill() in app.js the first time a note form opens -->
   <script>
     // Apply saved theme before first paint to prevent flash
     (function() {
@@ -26,7 +34,10 @@
 <header id="app-header">
   <div class="header-inner">
     <div class="header-title" onclick="App.showDashboard()" style="cursor:pointer" title="Home">
-      <img src="/chantry-logo.png" alt="Chantry — An M20 Resource" class="header-logo" />
+      <picture>
+        <source type="image/webp" srcset="/img/chantry-logo-1x.webp 1x, /img/chantry-logo-2x.webp 2x" />
+        <img src="/chantry-logo.png" alt="Chantry — An M20 Resource" class="header-logo" width="266" height="64" fetchpriority="high" />
+      </picture>
     </div>
     <nav class="header-nav">
       <div id="user-info" class="user-info" style="display:none;">
@@ -47,6 +58,8 @@
       <div class="nav-hamburger-wrap">
         <button class="nav-btn nav-btn-icon" id="btn-hamburger" onclick="App.toggleHamburger(event)" title="More">☰</button>
         <div class="nav-hamburger-menu" id="nav-hamburger-menu">
+          <!-- At ≤600px app.js moves #user-info, #nav-dashboard, #nav-grimoire and #nav-admin in here -->
+          <div class="hamburger-primary" id="nav-hamburger-primary"></div>
           <button class="nav-btn hamburger-item" id="nav-about" onclick="App.showAbout(); App.closeHamburger()">
             <span class="nav-icon">✦</span> About
           </button>
@@ -70,6 +83,7 @@
 <div id="guest-banner" style="display:none;">
   <span class="guest-banner-icon">⚠</span>
   <span class="guest-banner-text">You're browsing as a <strong>guest</strong>. Your characters will be <strong>permanently deleted</strong> when you sign out or close this tab.</span>
+  <button class="guest-banner-more" onclick="App.toggleGuestBanner()" aria-expanded="false">more</button>
   <button class="guest-banner-register" onclick="App.logout(); Auth.showTab('register')">Create a free account →</button>
 </div>
 
@@ -204,7 +218,7 @@
   <!-- ─── ADMIN PAGE ────────────────────────────────────────────── -->
   <section id="page-admin" class="page">
     <div class="roster-header">
-      <h2 class="section-title">User Management</h2>
+      <h2 class="section-title">Administration</h2>
       <p class="section-flavor">Manage the Awakened who walk these halls.</p>
     </div>
     <div id="admin-content" style="padding: 0 1rem 2rem;">
@@ -336,7 +350,10 @@
 
       <div class="about-darkpack">
         <a href="https://www.paradoxinteractive.com/games/world-of-darkness/community/dark-pack-agreement" target="_blank" rel="noopener noreferrer" class="about-darkpack-link">
-          <img src="/darkpack_logo2.png" alt="Dark Pack" class="about-darkpack-logo" />
+          <picture>
+            <source type="image/webp" srcset="/img/darkpack_logo2-1x.webp 1x, /img/darkpack_logo2-2x.webp 2x" />
+            <img src="/darkpack_logo2.png" alt="Dark Pack" class="about-darkpack-logo" width="180" height="180" loading="lazy" />
+          </picture>
         </a>
         <div class="about-darkpack-text">
           <p>This project is an unofficial fan creation made under the
@@ -411,14 +428,16 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ WIZARD EASTER EGG -->
-<img id="wizard-darrell" src="/darrell_cartoon.png" alt="" aria-hidden="true">
+<picture>
+  <source type="image/webp" srcset="/img/darrell_cartoon-1x.webp 1x, /img/darrell_cartoon-2x.webp 2x" />
+  <img id="wizard-darrell" src="/darrell_cartoon.png" alt="" aria-hidden="true" width="200" height="421" loading="lazy">
+</picture>
 <div id="wizard-balloon" aria-hidden="true"><span class="wizard-balloon-text"></span></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script src="/js/data.js?v=43"></script>
-<script src="/js/tarot.js?v=4"></script>
-<script src="/js/app.js?v=67"></script>
+<script src="/js/tarot.js?v=5"></script>
+<script src="/js/app.js?v=74"></script>
 <script>
 (function() {
   var wizard      = document.getElementById('wizard-darrell');
@@ -487,7 +506,9 @@
     hideBalloon();
   }
 
-  document.addEventListener('mousemove', function(e) {
+  // Darrell is hidden below 768px (style.css); don't track the pointer there.
+  var wizardEnabled = !window.matchMedia || window.matchMedia('(min-width: 768px)').matches;
+  if (wizardEnabled) document.addEventListener('mousemove', function(e) {
     var fromBottom = window.innerHeight - e.clientY;
     if (e.clientX < TRIGGER_X && fromBottom < TRIGGER_Y) {
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }

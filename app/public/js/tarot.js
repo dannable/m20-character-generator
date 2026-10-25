@@ -718,7 +718,20 @@ const Tarot = {
   },
 
   close() {
+    this._closeZoom();
     document.getElementById('tarot-overlay')?.remove();
+  },
+
+  // ── Card art ────────────────────────────────────────────────────────
+  // tools/make_tarot_derivatives.py writes thumb/ (400 px tall, ~60 KB) and
+  // webp/ (800 px tall, <= 300 KB) next to the PNGs. The deck and 1x screens
+  // get the thumbnail, 2x screens the webp; the multi-megabyte PNG is fetched
+  // only when a revealed card is tapped to zoom. If the derivatives are
+  // missing (fresh checkout) the onerror fallback loads the PNG.
+  _src(file, kind) { return `/tarot/${kind}/${file.replace(/\.png$/i, '.webp')}`; },
+  _imgTag(file, alt, extra = '') {
+    return `<img src="${this._src(file, 'thumb')}" srcset="${this._src(file, 'thumb')} 1x, ${this._src(file, 'webp')} 2x"`
+      + ` alt="${alt}" draggable="false" onerror="this.onerror=null;this.removeAttribute('srcset');this.src='/tarot/${file}'"${extra}>`;
   },
 
   // ── Draw 5 unique cards in random order ─────────────────────────────
@@ -750,7 +763,7 @@ const Tarot = {
         </header>
         <div class="tarot-spread-area">
           <div class="tarot-deck" aria-hidden="true">
-            ${Array.from({ length: 5 }, () => `<div class="tarot-deck-card"><img src="/tarot/cardback.png" alt=""></div>`).join('')}
+            ${Array.from({ length: 5 }, () => `<div class="tarot-deck-card"><img src="${this._src('cardback.png', 'thumb')}" alt="" onerror="this.onerror=null;this.src='/tarot/cardback.png'"></div>`).join('')}
           </div>
           <div class="tarot-spread" id="tarot-spread">
             ${this._drawn.map((card, i) => this._renderSlot(card, i)).join('')}
@@ -771,8 +784,52 @@ const Tarot = {
       btn.setAttribute('aria-pressed', this._muted);
     });
     overlay.addEventListener('click', e => { if (e.target === overlay) this.close(); });
+    // Tap a revealed card to see it at full resolution
+    overlay.addEventListener('click', e => {
+      const card = e.target.closest('.tarot-card[data-flipped="true"]');
+      if (card) this._zoom(card.closest('.tarot-slot')?.dataset.card);
+    });
     // Pointer-follow tilt on each face card (added once it's revealed)
     overlay.addEventListener('pointermove', e => this._pointerTilt(e));
+  },
+
+  // ── Tap-to-zoom: the original PNG, shown over the spread ────────────
+  _zoomKey: null,
+  _zoom(cardId) {
+    const card = M20.TAROT.find(c => c.id === cardId);
+    if (!card) return;
+    this._closeZoom();
+    const zoom = document.createElement('div');
+    zoom.id = 'tarot-zoom';
+    zoom.setAttribute('role', 'dialog');
+    zoom.setAttribute('aria-label', card.name);
+    zoom.innerHTML = `
+      <figure class="tarot-zoom-figure">
+        <img class="tarot-zoom-img" src="${this._src(card.file, 'webp')}" alt="${card.name}" draggable="false">
+        <figcaption class="tarot-zoom-caption"><strong>${card.name}</strong><span>${card.meaning}</span></figcaption>
+      </figure>
+      <button class="btn-ghost tarot-zoom-close" type="button" aria-label="Close">✕</button>
+    `;
+    // Show the 800px webp (already cached from the spread) at once, then swap in
+    // the full PNG when it arrives
+    const img = zoom.querySelector('.tarot-zoom-img');
+    const full = new Image();
+    full.onload = () => { if (zoom.isConnected) img.src = full.src; };
+    full.src = `/tarot/${card.file}`;
+    zoom.addEventListener('click', e => {
+      if (e.target === zoom || e.target.closest('.tarot-zoom-close')) this._closeZoom();
+    });
+    this._zoomKey = e => { if (e.key === 'Escape') this._closeZoom(); };
+    document.addEventListener('keydown', this._zoomKey);
+    document.body.appendChild(zoom);
+  },
+
+  _closeZoom() {
+    document.getElementById('tarot-zoom')?.remove();
+    if (this._zoomKey) {
+      document.removeEventListener('keydown', this._zoomKey);
+      this._zoomKey = null;
+    }
   },
 
   _renderSlot(card, idx) {
@@ -781,9 +838,9 @@ const Tarot = {
       <div class="tarot-slot" data-slot="${idx}" data-card="${card.id}">
         <div class="tarot-pos-label"><span class="tarot-pos-name">${pos.name}</span><span class="tarot-pos-aspect">${pos.aspect}</span></div>
         <div class="tarot-card" data-flipped="false">
-          <div class="tarot-face tarot-face-back"><img src="/tarot/cardback.png" alt="" draggable="false"></div>
+          <div class="tarot-face tarot-face-back">${this._imgTag('cardback.png', '')}</div>
           <div class="tarot-face tarot-face-front">
-            <img src="/tarot/${card.file}" alt="${card.name}" draggable="false">
+            ${this._imgTag(card.file, card.name)}
           </div>
         </div>
         <div class="tarot-card-label">

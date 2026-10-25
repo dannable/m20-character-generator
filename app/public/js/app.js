@@ -7,6 +7,34 @@
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
+// Quill (the Storyteller notes editor) is fetched the first time a note form opens
+// instead of on every page view. Resolves with the Quill constructor; the <script>
+// and <link> are injected once and a failed load can be retried.
+let _quillLoading = null;
+function loadQuill() {
+  if (window.Quill) return Promise.resolve(window.Quill);
+  if (_quillLoading) return _quillLoading;
+  const base = 'https://cdn.quilljs.com/1.3.7/';
+  _quillLoading = new Promise((resolve, reject) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = base + 'quill.snow.css';
+    const cssReady = new Promise(r => { css.onload = r; css.onerror = r; });
+    document.head.appendChild(css);
+    const script = document.createElement('script');
+    script.src = base + 'quill.min.js';
+    script.onload = () => cssReady.then(() => resolve(window.Quill));
+    script.onerror = () => {
+      _quillLoading = null;
+      script.remove();
+      css.remove();
+      reject(new Error('Quill failed to load'));
+    };
+    document.head.appendChild(script);
+  });
+  return _quillLoading;
+}
+
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
@@ -81,6 +109,11 @@ function formatDateTime(str) {
 
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Escape a string for a single-quoted JS literal inside an HTML attribute (e.g. onclick="fn('…')")
+function jsStr(s) {
+  return escHtml(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n'));
 }
 
 // Returns the faction-appropriate display name for a background
@@ -306,6 +339,24 @@ let _wondersLoadPromise = null;
 
 function getWondersData() { return _wondersData || []; }
 
+// Built-in wonder stat fields (background_cost / arete / quintessence / gnosis) are
+// normalised by tools/clean_wonders.py to int | {min,max} | {text} | null; custom
+// wonders still carry strings. These two helpers accept every shape.
+function wonderStatText(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'object') {
+    if (v.text != null) return String(v.text);
+    if (v.min != null) return (v.max != null && v.max !== v.min) ? `${v.min}–${v.max}` : String(v.min);
+    return '';
+  }
+  return String(v);
+}
+function wonderStatNum(v) {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'object') return v.min != null ? Number(v.min) : NaN;
+  return parseInt(v, 10);
+}
+
 function ensureWondersLoaded() {
   if (_wondersData !== null) return Promise.resolve(_wondersData);
   if (!_wondersLoadPromise) {
@@ -497,6 +548,52 @@ const App = {
 
   closeHamburger() {
     $('#nav-hamburger-menu')?.classList.remove('open');
+  },
+
+  /* Guest banner at ≤600px is one truncated line; "more" expands it. */
+  toggleGuestBanner() {
+    const banner = $('#guest-banner');
+    if (!banner) return;
+    const open = banner.classList.toggle('expanded');
+    const btn = $('.guest-banner-more', banner);
+    if (btn) {
+      btn.textContent = open ? 'less' : 'more';
+      btn.setAttribute('aria-expanded', String(open));
+    }
+  },
+
+  /* At ≤600px the user line and the Home / Admin / Grimoire buttons live at the
+     top of the hamburger menu; on wider screens they sit in the header. The
+     elements keep their ids, so setUser/clearUser's show/hide is unchanged. */
+  _navMq: null,
+  layoutHeaderNav() {
+    const nav  = $('.header-nav');
+    const slot = $('#nav-hamburger-primary');
+    const themeBtn = $('#btn-theme');
+    if (!nav || !slot || !this._navMq) return;
+    const small = this._navMq.matches;
+    ['user-info', 'nav-dashboard', 'nav-admin', 'nav-grimoire'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (small) {
+        if (el.parentNode !== slot) slot.appendChild(el);
+        if (el.tagName === 'BUTTON') el.classList.add('hamburger-item');
+      } else {
+        if (el.parentNode === slot) nav.insertBefore(el, themeBtn);
+        el.classList.remove('hamburger-item');
+      }
+    });
+  },
+  initHeaderNav() {
+    this._navMq = window.matchMedia('(max-width: 600px)');
+    const onChange = () => this.layoutHeaderNav();
+    if (this._navMq.addEventListener) this._navMq.addEventListener('change', onChange);
+    else this._navMq.addListener(onChange);
+    // a moved nav button closes the menu like the built-in items do
+    $('#nav-hamburger-primary')?.addEventListener('click', e => {
+      if (e.target.closest('button')) this.closeHamburger();
+    });
+    this.layoutHeaderNav();
   },
 
   toggleTheme() {
@@ -783,6 +880,14 @@ const App = {
       const { users, purged, guest_count } = await usersRes.json();
       this._adminUsers = users;
       this._adminGuestCount = guest_count ?? 0;
+      const a = stats.activity;
+      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      const card = (num, label, sub = '') => `
+          <div class="admin-stat-card">
+            <div class="admin-stat-num">${num}</div>
+            <div class="admin-stat-label">${label}</div>
+            ${sub ? `<div class="admin-stat-sub">${sub}</div>` : ''}
+          </div>`;
 
       content.innerHTML = `
         ${purged > 0 ? `<div class="admin-purge-notice">♻ Auto-purged ${purged} ghost account${purged > 1 ? 's' : ''} (≤1 login, 0 characters, &gt;30 days old).</div>` : ''}
@@ -792,35 +897,30 @@ const App = {
           <button class="btn-secondary" onclick="App.showAdminUsers()">⚙ User Management →</button>
         </div>
 
-        <!-- Stat cards -->
-        <div class="admin-stat-cards">
-          <div class="admin-stat-card">
-            <div class="admin-stat-num">${stats.totals.users}</div>
-            <div class="admin-stat-label">Total Users</div>
-          </div>
-          <div class="admin-stat-card">
-            <div class="admin-stat-num">${stats.totals.characters}</div>
-            <div class="admin-stat-label">Total Characters</div>
-          </div>
-          <div class="admin-stat-card">
-            <div class="admin-stat-num">${stats.totals.chronicles}</div>
-            <div class="admin-stat-label">Total Chronicles</div>
-          </div>
+        <!-- Stat cards: activity first, totals second -->
+        <div class="admin-stat-cards admin-stat-cards-6">
+          ${card(a.active_today, 'Active today', a.guests_today ? `+ ${plural(a.guests_today, 'guest')}` : 'signed-in users')}
+          ${card(a.active_7d, 'Active · 7 days', `${a.avg_7d} per day`)}
+          ${card(a.active_30d, 'Active · 30 days', `${a.avg_30d} per day`)}
+          ${card(stats.totals.users, 'Total users', `+${a.new_users_30d} in 30 days`)}
+          ${card(stats.totals.characters, 'Characters', `+${a.new_characters_30d} in 30 days`)}
+          ${card(stats.totals.chronicles, 'Chronicles', `${a.active_chronicles} active`)}
         </div>
 
-        <!-- Trend chart -->
+        <!-- Daily activity chart -->
         <div class="admin-chart-wrap">
           <div class="admin-chart-title">
-            Activity — Last 8 Weeks
+            Daily active users — last 30 days
             <span class="admin-chart-legend">
-              <span class="legend-dot legend-users"></span>Users
-              <span class="legend-dot legend-chars"></span>Characters
-              <span class="legend-dot legend-chrons"></span>Chronicles
+              <span class="legend-dot legend-users"></span>Signed-in users
+              <span class="legend-dot legend-guests"></span>Guests
+              <span class="legend-dot legend-chars"></span>New sign-ups
             </span>
           </div>
           <div class="admin-chart-svg-wrap">
-            ${this._drawAdminChart(stats.trends)}
+            ${this._drawActivityChart(a)}
           </div>
+          ${a.tracking_note ? `<div class="admin-chart-note">${escHtml(a.tracking_note)}</div>` : ''}
         </div>
 
         <!-- Recent activity columns -->
@@ -860,72 +960,91 @@ const App = {
     }
   },
 
-  _drawAdminChart(trends) {
-    const W = 560, H = 180;
-    const PAD = { top: 12, right: 16, bottom: 38, left: 36 };
+  // Bar chart of unique signed-in users per day (guests stacked on top, dimmer),
+  // with new sign-ups as a dotted line. Hovering a day shows exact numbers.
+  _drawActivityChart(a) {
+    const days = a.days || [];
+    const n = days.length;
+    if (!n) return '<p class="admin-recent-empty">No activity data yet.</p>';
+    const W = 600, H = 190;
+    const PAD = { top: 14, right: 12, bottom: 30, left: 30 };
     const pw = W - PAD.left - PAD.right;
-    const ph = H - PAD.top  - PAD.bottom;
-    const n  = trends.labels.length; // 8
+    const ph = H - PAD.top - PAD.bottom;
+    const maxVal = Math.max(1, ...days.map(d => d.users + d.guests), ...days.map(d => d.new_users));
+    const yMax = maxVal <= 5 ? 5 : maxVal <= 10 ? 10 : Math.ceil(maxVal / 5) * 5;
+    const slot = pw / n;
+    const barW = Math.max(3, slot * 0.62);
+    const x0 = i => PAD.left + i * slot + (slot - barW) / 2;
+    const xc = i => PAD.left + i * slot + slot / 2;
+    const yPos = v => PAD.top + ph - (v / yMax) * ph;
 
-    const allVals = [...trends.users, ...trends.characters, ...trends.chronicles];
-    const maxVal  = Math.max(...allVals, 1);
-    // Round up to a nice number for the Y axis
-    const yMax = Math.ceil(maxVal / 5) * 5 || 5;
-    const yTicks = 4;
-
-    const xPos = i => PAD.left + (i / (n - 1)) * pw;
-    const yPos = v => PAD.top  + ph - (v / yMax) * ph;
-
-    // Grid lines + Y labels
-    let gridLines = '';
-    for (let t = 0; t <= yTicks; t++) {
-      const v  = Math.round((yMax / yTicks) * t);
-      const y  = yPos(v);
-      const isZero = t === 0;
-      gridLines += `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}"
-        stroke="${isZero ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.06)'}" stroke-width="${isZero ? 1.5 : 1}" />`;
-      gridLines += `<text x="${PAD.left - 5}" y="${y + 4}" text-anchor="end"
-        fill="rgba(200,188,168,0.5)" font-size="9">${v}</text>`;
+    let grid = '';
+    const ticks = yMax <= 5 ? yMax : 5;
+    for (let t = 0; t <= ticks; t++) {
+      const v = Math.round((yMax / ticks) * t);
+      const y = yPos(v);
+      grid += `<line x1="${PAD.left}" y1="${y}" x2="${W - PAD.right}" y2="${y}"
+        stroke="${t === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}" stroke-width="${t === 0 ? 1.5 : 1}" />
+        <text x="${PAD.left - 5}" y="${y + 3.5}" text-anchor="end" fill="rgba(200,188,168,0.5)" font-size="9">${v}</text>`;
     }
 
-    // X axis labels
-    let xLabels = '';
-    trends.labels.forEach((label, i) => {
-      const x = xPos(i);
-      xLabels += `<text x="${x}" y="${H - PAD.bottom + 14}" text-anchor="middle"
-        fill="rgba(200,188,168,0.55)" font-size="9">${label}</text>`;
+    let bars = '';
+    days.forEach((d, i) => {
+      const tip = `${d.label}: ${d.users} user${d.users === 1 ? '' : 's'}` +
+        (d.guests ? `, ${d.guests} guest${d.guests === 1 ? '' : 's'}` : '') +
+        (d.new_users ? `, ${d.new_users} new sign-up${d.new_users === 1 ? '' : 's'}` : '') +
+        (d.new_characters ? `, ${d.new_characters} new character${d.new_characters === 1 ? '' : 's'}` : '') +
+        (d.tracked ? '' : ' (visits not tracked yet)');
+      const uTop = yPos(d.users), gTop = yPos(d.users + d.guests), base = yPos(0);
+      bars += `<g class="admin-bar-group">
+        <title>${escHtml(tip)}</title>
+        <rect x="${x0(i)}" y="${PAD.top}" width="${barW}" height="${ph}" fill="transparent" />
+        ${d.tracked
+          ? `<rect x="${x0(i)}" y="${uTop}" width="${barW}" height="${Math.max(0, base - uTop)}" fill="#e8c96a" rx="1.5" />
+             ${d.guests ? `<rect x="${x0(i)}" y="${gTop}" width="${barW}" height="${Math.max(0, uTop - gTop)}" fill="#8a8aa0" rx="1.5" opacity="0.8" />` : ''}`
+          : `<rect x="${x0(i)}" y="${PAD.top}" width="${barW}" height="${ph}" fill="rgba(255,255,255,0.025)" />`}
+      </g>`;
     });
 
-    // Polyline builder
-    const polyline = (data, color, opacity = 1) => {
-      const pts = data.map((v, i) => `${xPos(i)},${yPos(v)}`).join(' ');
-      const dots = data.map((v, i) =>
-        `<circle cx="${xPos(i)}" cy="${yPos(v)}" r="3" fill="${color}" opacity="${opacity}" />`
-      ).join('');
-      return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"
-        stroke-linejoin="round" stroke-linecap="round" opacity="${opacity}" />${dots}`;
-    };
+    const signupPts = days.map((d, i) => `${xc(i)},${yPos(d.new_users)}`).join(' ');
+    const signupDots = days.map((d, i) => d.new_users
+      ? `<circle cx="${xc(i)}" cy="${yPos(d.new_users)}" r="2.6" fill="#a07ee0" />` : '').join('');
 
-    // Area fill under users line
-    const areaFill = data => {
-      const pts = data.map((v, i) => `${xPos(i)},${yPos(v)}`).join(' ');
-      const bottom = yPos(0);
-      return `<polyline points="${PAD.left},${bottom} ${pts} ${xPos(n-1)},${bottom}"
-        fill="rgba(232,201,106,0.07)" stroke="none" />`;
-    };
+    let xLabels = '';
+    days.forEach((d, i) => {
+      const last = i === n - 1;
+      if (i % 7 === (n - 1) % 7 || last) {
+        xLabels += `<text x="${xc(i)}" y="${H - PAD.bottom + 14}" text-anchor="middle"
+          fill="rgba(200,188,168,0.55)" font-size="9">${last ? 'Today' : d.label}</text>`;
+      }
+    });
 
-    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" class="admin-activity-chart"
       style="width:100%;height:auto;display:block;overflow:visible">
-      ${gridLines}
-      ${areaFill(trends.users)}
-      ${polyline(trends.chronicles, '#5a9a6a')}
-      ${polyline(trends.characters, '#a07ee0')}
-      ${polyline(trends.users,      '#e8c96a')}
+      ${grid}
+      ${bars}
+      <polyline points="${signupPts}" fill="none" stroke="#a07ee0" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8" />
+      ${signupDots}
       ${xLabels}
     </svg>`;
   },
 
+  // ── User management ─────────────────────────────────────────────────────────
+  // Sort keys for the user table: [accessor, default direction]
+  _adminSortKeys: {
+    username:   [u => u.username.toLowerCase(), 'asc'],
+    role:       [u => ({ admin: 0, awakened: 1, user: 2 })[u.role] ?? 3, 'asc'],
+    chars:      [u => u.active_character_count ?? u.character_count ?? 0, 'desc'],
+    chrons:     [u => u.active_chronicle_count ?? u.chronicle_count ?? 0, 'desc'],
+    last_login: [u => u.last_login ? new Date(normalizeTs(u.last_login)).getTime() : -1, 'desc'],
+    logins:     [u => u.login_count ?? 0, 'desc'],
+    created:    [u => new Date(normalizeTs(u.created_at)).getTime(), 'desc'],
+    status:     [u => u.is_active ? 0 : 1, 'asc'],
+  },
+
   async showAdminUsers() {
+    if (this.currentUser?.role !== 'admin') return;
+    this.showPage('admin');
     const content = $('#admin-content');
     if (!content) return;
 
@@ -942,21 +1061,24 @@ const App = {
     }
 
     const gc = this._adminGuestCount ?? 0;
+    const s = this._adminSearchState || { search: '', status: '', chars: '', role: '', sort: 'last_login', dir: 'desc' };
+    this._adminSearchState = s;
+    const th = (key, label, extraClass = '') =>
+      `<th class="admin-th-sort ${extraClass}" data-sort="${key}">${label}<span class="admin-sort-arrow"></span></th>`;
+
     content.innerHTML = `
       <div class="admin-dash-header">
-        <button class="btn-ghost" onclick="App.showAdmin()">← Back to Overview</button>
-        <h2 class="admin-dash-title" style="margin:0">User Management</h2>
+        <button class="btn-ghost" onclick="App.showAdmin()">← Overview</button>
+        <h2 class="admin-dash-title" style="margin:0">Users <span class="admin-result-count" id="admin-count"></span></h2>
       </div>
       <div class="admin-guest-bar" id="admin-guest-bar"${gc === 0 ? ' style="display:none"' : ''}>
         <span class="admin-guest-label">👤 <strong>${gc}</strong> guest session${gc !== 1 ? 's' : ''} currently active</span>
         <button class="btn-danger btn-sm" onclick="App.purgeGuests()">Purge All Guests</button>
       </div>
       <div class="admin-controls">
-        <div class="admin-search-row">
+        <div class="admin-filter-row">
           <input type="search" id="admin-search" class="admin-search"
             placeholder="Search username or email…" autocomplete="off" spellcheck="false" />
-        </div>
-        <div class="admin-filter-row">
           <div class="admin-filters">
             <select id="admin-filter-status" class="admin-filter-select">
               <option value="">All Status</option>
@@ -966,6 +1088,7 @@ const App = {
             <select id="admin-filter-chars" class="admin-filter-select">
               <option value="">All Characters</option>
               <option value="has">Has Characters</option>
+              <option value="active">Has Active Characters</option>
               <option value="none">No Characters</option>
             </select>
             <select id="admin-filter-role" class="admin-filter-select">
@@ -974,17 +1097,30 @@ const App = {
               <option value="awakened">Awakened</option>
               <option value="user">User</option>
             </select>
+            <select id="admin-sort" class="admin-filter-select" title="Sort by">
+              <option value="last_login">Sort: Last login</option>
+              <option value="created">Sort: Newest</option>
+              <option value="username">Sort: Username</option>
+              <option value="chars">Sort: Active characters</option>
+              <option value="chrons">Sort: Active chronicles</option>
+              <option value="logins">Sort: Logins</option>
+            </select>
             <button class="btn-ghost btn-sm" id="admin-clear-filters" style="display:none">✕ Clear</button>
           </div>
-          <div class="admin-result-count" id="admin-count"></div>
         </div>
       </div>
       <div class="admin-table-wrap">
-        <table class="admin-table">
+        <table class="admin-table admin-table-compact">
           <thead>
             <tr>
-              <th>Username</th><th>Email</th><th>Role</th>
-              <th>Chars</th><th>Chrons</th><th>Last Login</th><th>Logins</th><th>Status</th><th>Actions</th>
+              ${th('username', 'User')}
+              ${th('role', 'Role')}
+              ${th('chars', 'Chars', 'admin-th-num')}
+              ${th('chrons', 'Chrons', 'admin-th-num')}
+              ${th('last_login', 'Last login')}
+              ${th('logins', 'Logins', 'admin-th-num')}
+              ${th('status', 'Status')}
+              <th></th>
             </tr>
           </thead>
           <tbody id="admin-tbody"></tbody>
@@ -992,13 +1128,11 @@ const App = {
       </div>`;
 
     // Restore filter state
-    if (this._adminSearchState) {
-      const s = this._adminSearchState;
-      if ($('#admin-search'))        $('#admin-search').value = s.search;
-      if ($('#admin-filter-status')) $('#admin-filter-status').value = s.status;
-      if ($('#admin-filter-chars'))  $('#admin-filter-chars').value = s.chars;
-      if ($('#admin-filter-role'))   $('#admin-filter-role').value = s.role;
-    }
+    if ($('#admin-search'))        $('#admin-search').value = s.search;
+    if ($('#admin-filter-status')) $('#admin-filter-status').value = s.status;
+    if ($('#admin-filter-chars'))  $('#admin-filter-chars').value = s.chars;
+    if ($('#admin-filter-role'))   $('#admin-filter-role').value = s.role;
+    if ($('#admin-sort'))          $('#admin-sort').value = s.sort;
 
     this._renderAdminTable();
 
@@ -1006,12 +1140,29 @@ const App = {
     ['admin-filter-status', 'admin-filter-chars', 'admin-filter-role'].forEach(id => {
       $(`#${id}`)?.addEventListener('change', () => this._renderAdminTable());
     });
+    $('#admin-sort')?.addEventListener('change', e => {
+      const key = e.target.value;
+      this._adminSearchState.sort = key;
+      this._adminSearchState.dir  = this._adminSortKeys[key]?.[1] || 'asc';
+      this._renderAdminTable();
+    });
+    content.querySelectorAll('.admin-th-sort').forEach(el => {
+      el.addEventListener('click', () => {
+        const key = el.dataset.sort;
+        const st = this._adminSearchState;
+        if (st.sort === key) st.dir = st.dir === 'asc' ? 'desc' : 'asc';
+        else { st.sort = key; st.dir = this._adminSortKeys[key]?.[1] || 'asc'; }
+        if ($('#admin-sort') && [...$('#admin-sort').options].some(o => o.value === key)) $('#admin-sort').value = key;
+        this._renderAdminTable();
+      });
+    });
     $('#admin-clear-filters')?.addEventListener('click', () => {
       $('#admin-search').value = '';
       $('#admin-filter-status').value = '';
       $('#admin-filter-chars').value = '';
       $('#admin-filter-role').value = '';
-      this._adminSearchState = null;
+      this._adminSearchState = { search: '', status: '', chars: '', role: '', sort: 'last_login', dir: 'desc' };
+      if ($('#admin-sort')) $('#admin-sort').value = 'last_login';
       this._renderAdminTable();
     });
   },
@@ -1022,18 +1173,17 @@ const App = {
     const clearBtn = $('#admin-clear-filters');
     if (!tbody) return;
 
-    const search       = ($('#admin-search')?.value || '').toLowerCase().trim();
-    const filterStatus = $('#admin-filter-status')?.value || '';
-    const filterChars  = $('#admin-filter-chars')?.value  || '';
-    const filterRole   = $('#admin-filter-role')?.value   || '';
-
-    // Persist so filter state survives a full reload triggered by an action
-    this._adminSearchState = { search, status: filterStatus, chars: filterChars, role: filterRole };
+    const st = this._adminSearchState || (this._adminSearchState = { sort: 'last_login', dir: 'desc' });
+    st.search = ($('#admin-search')?.value || '').toLowerCase().trim();
+    st.status = $('#admin-filter-status')?.value || '';
+    st.chars  = $('#admin-filter-chars')?.value  || '';
+    st.role   = $('#admin-filter-role')?.value   || '';
+    const { search, status: filterStatus, chars: filterChars, role: filterRole } = st;
 
     const hasFilters = !!(search || filterStatus || filterChars || filterRole);
     if (clearBtn) clearBtn.style.display = hasFilters ? '' : 'none';
 
-    const formatDate = iso => {
+    const formatDay = iso => {
       if (!iso) return '<span style="color:var(--text-faint)">Never</span>';
       const d = new Date(normalizeTs(iso));
       const tz = { timeZone: userTz() };
@@ -1048,67 +1198,103 @@ const App = {
       if (filterStatus === 'active'   && !u.is_active)         return false;
       if (filterStatus === 'disabled' &&  u.is_active)         return false;
       if (filterChars  === 'has'      && !u.character_count)   return false;
+      if (filterChars  === 'active'   && !(u.active_character_count ?? u.character_count)) return false;
       if (filterChars  === 'none'     &&  u.character_count > 0) return false;
       if (filterRole && u.role !== filterRole) return false;
       return true;
     });
 
+    const [accessor] = this._adminSortKeys[st.sort] || this._adminSortKeys.last_login;
+    const dir = st.dir === 'asc' ? 1 : -1;
+    filtered.sort((a, b) => {
+      const va = accessor(a), vb = accessor(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return  1 * dir;
+      return a.username.localeCompare(b.username);
+    });
+
+    // Header arrows
+    document.querySelectorAll('.admin-th-sort').forEach(el => {
+      const active = el.dataset.sort === st.sort;
+      el.classList.toggle('active', active);
+      el.querySelector('.admin-sort-arrow').textContent = active ? (st.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    });
+
     if (countEl) {
       const t = all.length, f = filtered.length;
-      countEl.textContent = f === t ? `${t} user${t !== 1 ? 's' : ''}` : `${f} of ${t}`;
+      countEl.textContent = f === t ? `${t}` : `${f} of ${t}`;
     }
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="9" class="admin-empty-row">No users match the current filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="admin-empty-row">No users match the current filters.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = filtered.map(u => {
       const isSelf = me && u.id === me.id;
-      const safeName = u.username.replace(/'/g, "\\'");
-      return `<tr>
-        <td>${u.username}</td>
-        <td class="admin-td-email">${u.email}</td>
+      const safeName = jsStr(u.username);
+      const activeChars = u.active_character_count ?? u.character_count ?? 0;
+      const drafts = (u.character_count ?? 0) - activeChars;
+      const activeChrons = u.active_chronicle_count ?? u.chronicle_count ?? 0;
+      const archivedChrons = (u.chronicle_count ?? 0) - activeChrons;
+      const roleClass = u.role === 'admin' ? 'admin-badge' : u.role === 'awakened' ? 'admin-badge-awakened' : 'admin-role-user';
+      return `<tr class="${u.is_active ? '' : 'admin-row-disabled'}">
         <td>
-          <span class="${u.role === 'admin' ? 'admin-badge' : u.role === 'awakened' ? 'admin-badge-awakened' : 'admin-role-user'}">${u.role}</span>
-        </td>
-        <td style="text-align:center">
-          ${u.character_count > 0
-            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserCharacters(${u.id},'${safeName}')" title="View characters">${u.character_count}</button>`
-            : '<span class="admin-zero">0</span>'}
-        </td>
-        <td style="text-align:center">
-          ${u.chronicle_count > 0
-            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserChronicles(${u.id},'${safeName}')" title="View chronicles">${u.chronicle_count}</button>`
-            : '<span class="admin-zero">0</span>'}
-        </td>
-        <td class="admin-td-date">${formatDate(u.last_login)}</td>
-        <td style="text-align:center" class="admin-td-date">${u.login_count ?? 0}</td>
-        <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
-        <td>
-          <div class="admin-actions">
-            <button class="btn-ghost btn-sm" onclick="App.editUser(${u.id}, '${u.username.replace(/'/g, "\\'")}', '${u.email.replace(/'/g, "\\'")}')">
-              Edit
-            </button>
-            <button class="btn-ghost btn-sm" onclick="App.toggleUser(${u.id}, ${u.is_active})"
-              ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>
-              ${u.is_active ? 'Disable' : 'Enable'}
-            </button>
-            <button class="btn-ghost btn-sm" onclick="App.changeRole(${u.id}, '${u.role}', '${u.username}')"
-              ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>
-              Role
-            </button>
-            <button class="btn-secondary btn-sm" onclick="App.resetPassword(${u.id}, '${u.username}')">
-              Reset PW
-            </button>
-            <button class="btn-danger btn-sm" onclick="App.deleteUser(${u.id}, '${u.username}')"
-              ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>
-              Delete
-            </button>
+          <div class="admin-user-cell">
+            <span class="admin-user-name">${escHtml(u.username)}${isSelf ? ' <span class="admin-you">you</span>' : ''}</span>
+            <span class="admin-user-email">${escHtml(u.email)}</span>
           </div>
+        </td>
+        <td><span class="${roleClass}">${escHtml(u.role)}</span></td>
+        <td class="admin-td-num">
+          ${u.character_count > 0
+            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserCharacters(${u.id},'${safeName}')"
+                 title="${activeChars} active, ${drafts} draft${drafts === 1 ? '' : 's'} — view characters">${activeChars}${drafts ? `<span class="admin-dim">+${drafts}</span>` : ''}</button>`
+            : '<span class="admin-zero">0</span>'}
+        </td>
+        <td class="admin-td-num">
+          ${u.chronicle_count > 0
+            ? `<button class="btn-ghost btn-sm admin-char-btn" onclick="App.showUserChronicles(${u.id},'${safeName}')"
+                 title="${activeChrons} active, ${archivedChrons} archived — view chronicles">${activeChrons}${archivedChrons ? `<span class="admin-dim">+${archivedChrons}</span>` : ''}</button>`
+            : '<span class="admin-zero">0</span>'}
+        </td>
+        <td class="admin-td-date">${formatDay(u.last_login)}</td>
+        <td class="admin-td-num admin-td-date">${u.login_count ?? 0}</td>
+        <td class="${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? 'Active' : 'Disabled'}</td>
+        <td class="admin-td-actions">
+          <button class="btn-ghost btn-sm admin-manage-btn" onclick="App.manageUser(${u.id})" title="Manage ${escHtml(u.username)}">Manage ▾</button>
         </td>
       </tr>`;
     }).join('');
+  },
+
+  // All per-user actions in one modal (replaces five buttons per table row).
+  manageUser(id) {
+    const u = (this._adminUsers || []).find(x => x.id === id);
+    if (!u) return;
+    const me = this.currentUser;
+    const isSelf = me && u.id === me.id;
+    const safeName = jsStr(u.username), safeEmail = jsStr(u.email), safeRole = jsStr(u.role);
+    $('#modal-title').textContent = `Manage — ${u.username}`;
+    $('#modal-body').innerHTML = `
+      <div class="admin-manage-meta">
+        <span>${escHtml(u.email)}</span>
+        <span>${escHtml(u.role)} · ${u.is_active ? 'active' : 'disabled'} · ${u.login_count ?? 0} login${u.login_count === 1 ? '' : 's'}</span>
+        <span>${u.character_count ?? 0} character${u.character_count === 1 ? '' : 's'} (${u.active_character_count ?? u.character_count ?? 0} active) · ${u.chronicle_count ?? 0} chronicle${u.chronicle_count === 1 ? '' : 's'}</span>
+      </div>
+      <div class="admin-manage-actions">
+        <button class="btn-ghost" onclick="App.editUser(${u.id}, '${safeName}', '${safeEmail}')">✎ Edit username / email</button>
+        <button class="btn-ghost" onclick="App.changeRole(${u.id}, '${safeRole}', '${safeName}')" ${isSelf ? 'disabled title="Cannot change your own role"' : ''}>⚑ Change role</button>
+        <button class="btn-ghost" onclick="App.toggleUser(${u.id}, ${u.is_active})" ${isSelf ? 'disabled title="Cannot disable your own account"' : ''}>${u.is_active ? '⏸ Disable account' : '▶ Enable account'}</button>
+        <button class="btn-secondary" onclick="App.resetPassword(${u.id}, '${safeName}')">🔑 Reset password</button>
+        <button class="btn-danger" onclick="App.deleteUser(${u.id}, '${safeName}')" ${isSelf ? 'disabled title="Cannot delete your own account"' : ''}>✕ Delete user</button>
+      </div>`;
+    // Only one way out: the footer's Cancel button, relabelled; closeModal() restores both.
+    const btn = $('#modal-confirm');
+    btn.style.display = 'none';
+    const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
+    if (cancelBtn) cancelBtn.textContent = 'Close';
+    $('#modal-overlay').style.display = 'flex';
   },
 
   async toggleUser(id, isActive) {
@@ -1473,16 +1659,16 @@ const App = {
   },
 
   renderCard(c, showOwner = false, hideDanger = false) {
-    const tradition = c.tradition || c.affiliation || '—';
-    const concept   = c.concept || '—';
+    const tradition = escHtml(c.tradition || c.affiliation || '—');
+    const concept   = escHtml(c.concept || '—');
     const chronDate = c.chronicle_next_session
       ? new Date(c.chronicle_next_session + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : null;
     const chronicleBadge = c.linked_chronicle_name ? `
-      <div class="card-chronicle-badge" title="${c.linked_chronicle_name}${c.chronicle_storyteller ? ' · ST: ' + c.chronicle_storyteller : ''}${chronDate ? ' · Next: ' + chronDate : ''}">
+      <div class="card-chronicle-badge" title="${escHtml(c.linked_chronicle_name)}${c.chronicle_storyteller ? ' · ST: ' + escHtml(c.chronicle_storyteller) : ''}${chronDate ? ' · Next: ' + chronDate : ''}">
         <span class="card-chronicle-badge-icon">⚝</span>
         <div class="card-chronicle-badge-info">
-          <span class="card-chronicle-badge-name">${c.linked_chronicle_name}</span>
+          <span class="card-chronicle-badge-name">${escHtml(c.linked_chronicle_name)}</span>
           ${chronDate ? `<span class="card-chronicle-badge-date">${chronDate}</span>` : ''}
         </div>
       </div>` : '';
@@ -1493,8 +1679,8 @@ const App = {
           <div class="card-tradition">${tradition}</div>
           ${chronicleBadge}
         </div>
-        <div class="card-name">${c.name}${c.is_draft ? ' <span class="card-draft-badge">draft</span>' : ''}</div>
-        ${showOwner && c.owner_username ? `<div class="card-owner">✦ ${c.owner_username}</div>` : ''}
+        <div class="card-name">${escHtml(c.name)}${c.is_draft ? ' <span class="card-draft-badge">draft</span>' : ''}</div>
+        ${showOwner && c.owner_username ? `<div class="card-owner">✦ ${escHtml(c.owner_username)}</div>` : ''}
         <div class="card-concept">${concept}</div>
         <div class="card-stats">
           <div class="card-stat">
@@ -1722,6 +1908,7 @@ const App = {
     $('#modal-overlay').style.display = 'none';
     // Reset confirm button and cancel button to neutral state for next use
     const confirmBtn = $('#modal-confirm');
+    if (confirmBtn) confirmBtn.style.display = '';
     if (confirmBtn) { confirmBtn.textContent = 'Confirm'; confirmBtn.className = 'btn-danger'; confirmBtn.onclick = null; confirmBtn.style.display = ''; confirmBtn.disabled = false; }
     const cancelBtn = document.querySelector('.modal-footer .btn-ghost');
     if (cancelBtn) cancelBtn.textContent = 'Cancel';
@@ -2805,16 +2992,18 @@ const Grimoire = {
     const _match = w => !q ||
       (w.name || '').toLowerCase().includes(q) ||
       (w.description || '').toLowerCase().includes(q) ||
-      (w.source_book || '').toLowerCase().includes(q);
+      (w.source_book || '').toLowerCase().includes(q) ||
+      (w.type || '').toLowerCase().includes(q);
 
     const _wonderItemHTML = (w, opts = {}) => {
       const isCustom = !!opts.custom;
-      const cost = isCustom ? String(w.level || 1) : (w.background_cost ?? '?');
+      const cost = isCustom ? String(w.level || 1) : (wonderStatText(w.background_cost) || '?');
       const custBadge = isCustom ? `<span class="mf-custom-badge">CUSTOM</span>` : '';
       const meta = [];
       if (w.source_book && !isCustom) meta.push(`${escHtml(w.source_book)}${w.source_page ? ' p.' + w.source_page : ''}`);
-      if (w.arete)        meta.push(`Arete ${escHtml(String(w.arete))}`);
-      if (w.quintessence) meta.push(`Q ${escHtml(String(w.quintessence))}`);
+      if (w.type && w.type !== 'Unknown') meta.push(escHtml(w.type));
+      if (wonderStatText(w.arete))        meta.push(`Arete ${escHtml(wonderStatText(w.arete))}`);
+      if (wonderStatText(w.quintessence)) meta.push(`Q ${escHtml(wonderStatText(w.quintessence))}`);
       const metaStr = meta.join(' · ');
       const actions = isCustom && opts.editable
         ? `<div class="gmf-item-actions">
@@ -2833,7 +3022,7 @@ const Grimoire = {
           </span>
         </summary>
         <div class="bg-item-body">
-          ${w.description ? `<div class="bg-item-desc">${escHtml(w.description).replace(/\n/g, '<br>')}</div>` : ''}
+          ${w.description ? `<div class="bg-item-desc">${escHtml(w.description).replace(/\n/g, '<br>')}${w.truncated ? '…' : ''}</div>` : ''}
         </div>
       </details>`;
     };
@@ -3013,7 +3202,17 @@ const Grimoire = {
     const { chapter, chapters, faction, factions, book, books, castableOnly, charSpheres } = this.state;
     const esc = s => (s || '').replace(/"/g, '&quot;');
 
+    const activeCount = [this.state.search, chapter, faction, book].filter(Boolean).length
+      + (castableOnly ? 1 : 0) + Object.keys(this.state.sphereFilters || {}).length;
+    const drawerOpen = !!this.state.filtersOpen;
     el.innerHTML = `
+      <button type="button" class="grimoire-filter-toggle${activeCount ? ' has-active' : ''}" id="grimoire-filter-toggle"
+        aria-expanded="${drawerOpen}" aria-controls="grimoire-filter-drawer">
+        <span>Filters</span>
+        <span class="grimoire-filter-count" id="grimoire-filter-count">${activeCount ? `${activeCount} active` : ''}</span>
+        <span class="grimoire-filter-caret">▾</span>
+      </button>
+      <div class="grimoire-filter-drawer${drawerOpen ? ' open' : ''}" id="grimoire-filter-drawer">
       <div class="grimoire-filter-bar">
         <input type="search" class="grimoire-search-input" id="grimoire-search"
           placeholder="Search rotes by name…" value="${esc(this.state.search)}" autocomplete="off" />
@@ -3041,7 +3240,14 @@ const Grimoire = {
         <div class="grimoire-sphere-grid" id="grimoire-sphere-grid">
           ${this._sphereGridHTML()}
         </div>
+      </div>
       </div>`;
+
+    $('#grimoire-filter-toggle')?.addEventListener('click', () => {
+      this.state.filtersOpen = !this.state.filtersOpen;
+      $('#grimoire-filter-drawer')?.classList.toggle('open', this.state.filtersOpen);
+      $('#grimoire-filter-toggle')?.setAttribute('aria-expanded', String(this.state.filtersOpen));
+    });
 
     const debouncedFetch = debounce(() => { this.state.page = 1; this.fetchRotes(); }, 300);
 
@@ -3198,7 +3404,19 @@ const Grimoire = {
     });
   },
 
+  // Phone filter drawer: keep the "N active" badge current after any filter change
+  _updateFilterCount() {
+    const btn = $('#grimoire-filter-toggle'), el = $('#grimoire-filter-count');
+    if (!btn || !el) return;
+    const st = this.state;
+    const n = [st.search, st.chapter, st.faction, st.book].filter(Boolean).length
+      + (st.castableOnly ? 1 : 0) + Object.keys(st.sphereFilters || {}).length;
+    el.textContent = n ? `${n} active` : '';
+    btn.classList.toggle('has-active', n > 0);
+  },
+
   async fetchRotes() {
+    this._updateFilterCount();
     if (this.state.loading) return;
     this.state.loading = true;
     const resultsEl = $('#grimoire-results');
@@ -3336,13 +3554,18 @@ const Grimoire = {
         if (rote) {
           const colCount = (showCastability ? 5 : 4) + 1; // +1 for the injected extra col
           const desc = rote.description?.trim() || '';
+          // Seed descriptions were extracted truncated (see tools/clean_rotes.py); show an
+          // ellipsis and point at the source rather than end on a broken sentence.
+          const cont = (desc && rote.truncated)
+            ? `<span class="rote-truncated-note">… (continues in ${escHtml(rote.source || rote.source_book || 'the source book')})</span>`
+            : '';
           const pageInfo = rote.page ? `<span class="rote-detail-page">p.${rote.page}</span>` : '';
           const detailRow = document.createElement('tr');
           detailRow.className = 'grimoire-detail-row';
           detailRow.innerHTML = `<td colspan="${colCount + 1}" class="grimoire-detail-cell">
             <div class="grimoire-detail-inner">
               ${pageInfo}
-              ${desc ? `<p class="grimoire-detail-desc">${escHtml(desc)}</p>` : '<p class="grimoire-detail-desc rote-no-desc">No description available.</p>'}
+              ${desc ? `<p class="grimoire-detail-desc">${escHtml(desc).replace(/\n/g, '<br>')}${cont}</p>` : '<p class="grimoire-detail-desc rote-no-desc">No description available.</p>'}
             </div>
           </td>`;
           row.insertAdjacentElement('afterend', detailRow);
@@ -4039,18 +4262,35 @@ const Chronicle = {
   },
 
   // ── Open note form (create or edit) ──────────────────────────────────────
-  _openNoteForm(c, note = null) {
+  async _openNoteForm(c, note = null) {
     const container = $('#note-form-container');
     if (!container) return;
     this._quill = null;
     container.innerHTML = this._noteFormHTML(note, c.members);
     container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    this._quill = new Quill('#note-editor-container', {
+    let QuillCtor;
+    try {
+      QuillCtor = await loadQuill();
+    } catch {
+      toast('Could not load the note editor. Check your connection and try again.', 'error');
+      container.innerHTML = '';
+      return;
+    }
+    // The form may have been cancelled or replaced while the editor was downloading
+    if (!$('#note-editor-container')) return;
+
+    // Phones get a compact toolbar: the full set wraps to three rows at 390px
+    const phone = window.matchMedia && window.matchMedia('(max-width: 600px)').matches;
+    this._quill = new QuillCtor('#note-editor-container', {
       theme: 'snow',
       placeholder: 'Write your note here…',
       modules: {
-        toolbar: [
+        toolbar: phone ? [
+          ['bold', 'italic', 'underline'],
+          [{ header: 2 }, { list: 'bullet' }],
+          ['clean'],
+        ] : [
           ['bold', 'italic', 'underline', 'strike'],
           [{ header: [1, 2, 3, false] }],
           [{ list: 'ordered' }, { list: 'bullet' }],
@@ -5167,8 +5407,8 @@ const Sheet = {
       // Both shared and owner views show name/flavor as static text.
       // Owner additionally gets clickable dots and a delete button.
       return `<div class="sheet-resonance-item" ${ro ? '' : `data-res-idx="${idx}"`}>
-        <span class="sheet-resonance-name">${res.description || '—'}</span>
-        ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${res.flavor}</span>` : ''}
+        <span class="sheet-resonance-name">${escHtml(res.description || '—')}</span>
+        ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${escHtml(res.flavor)}</span>` : ''}
         <div class="sheet-resonance-dots">${dotSpans}</div>
         ${!ro ? `<button class="sheet-res-remove" data-res-idx="${idx}" title="Remove resonance">✕</button>` : ''}
       </div>`;
@@ -5205,8 +5445,8 @@ const Sheet = {
     const wonderRows = (char.wonders || []).filter(w => !!w.name).map(w => {
       const label = `Wonder: ${w.name}`;
       const entry = _wCat.find(wd => wd.name === w.name);
-      const cost  = w.background_cost ?? (entry ? entry.background_cost : null);
-      const badge = cost != null ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto;padding-right:0.25rem">${cost} pts</span>` : '';
+      const cost  = wonderStatText(w.background_cost ?? (entry ? entry.background_cost : null));
+      const badge = cost ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto;padding-right:0.25rem">${cost} pts</span>` : '';
       return `<div class="sheet-trait-row"><span class="sheet-trait-name">${escHtml(label)}</span>${badge}</div>`;
     }).join('');
     const bgsAll = (bgs + wonderRows) || '<p style="color:var(--text-faint);font-size:0.82rem">No backgrounds selected</p>';
@@ -5290,18 +5530,18 @@ const Sheet = {
       ${stPendingEditsHTML}
       ${stXpHTML}
       <div class="sheet-header">
-        <div class="sheet-char-name">${char.name}</div>
+        <div class="sheet-char-name">${escHtml(char.name)}</div>
         <div class="sheet-field">
           <span class="sheet-field-label">Player</span>
-          <span class="sheet-field-value">${char.player || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.player || '—')}</span>
         </div>
         <div class="sheet-field">
           <span class="sheet-field-label">Chronicle</span>
-          <span class="sheet-field-value">${char.linked_chronicle_name || char.chronicle || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.linked_chronicle_name || char.chronicle || '—')}</span>
         </div>
         <div class="sheet-field">
           <span class="sheet-field-label">Concept</span>
-          <span class="sheet-field-value">${char.concept || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.concept || '—')}</span>
         </div>
         ${char.character_type === 'mortal' ? `
         <div class="sheet-field">
@@ -5311,16 +5551,16 @@ const Sheet = {
         ` : `
         <div class="sheet-field">
           <span class="sheet-field-label">Affiliation</span>
-          <span class="sheet-field-value">${char.tradition || char.affiliation || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.tradition || char.affiliation || '—')}</span>
           ${affiliationGroup ? `<span class="sheet-field-sub">${affiliationGroup}</span>` : ''}
         </div>
         <div class="sheet-field">
           <span class="sheet-field-label">Essence</span>
-          <span class="sheet-field-value">${char.essence || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.essence || '—')}</span>
         </div>`}
         <div class="sheet-field">
           <span class="sheet-field-label">Nature / Demeanor</span>
-          <span class="sheet-field-value">${char.nature || '—'} / ${char.demeanor || '—'}</span>
+          <span class="sheet-field-value">${escHtml(char.nature || '—')} / ${escHtml(char.demeanor || '—')}</span>
         </div>
       </div>
 
@@ -5509,7 +5749,7 @@ const Sheet = {
         ${char.notes ? `
         <div class="sheet-section">
           <div class="sheet-section-title">Notes</div>
-          <p style="font-size:0.88rem;color:var(--text-mid);line-height:1.6">${char.notes}</p>
+          <p style="font-size:0.88rem;color:var(--text-mid);line-height:1.6">${escHtml(char.notes).replace(/\n/g, '<br>')}</p>
         </div>` : ''}
         ${stNotes.length ? this._stNotesHTML(stNotes) : ''}
       </div>` : ''}
@@ -5574,8 +5814,8 @@ const Sheet = {
     const rowHTML = (w, idx) => {
       const cells = COLS.map(c => {
         const val = escHtml(w[c.key] || '');
-        if (ro) return `<td>${val || '—'}</td>`;
-        return `<td><input type="text" class="sheet-combat-input"
+        if (ro) return `<td data-label="${c.label}">${val || '—'}</td>`;
+        return `<td data-label="${c.label}"><input type="text" class="sheet-combat-input"
           data-row="${idx}" data-key="${c.key}" value="${val}" maxlength="60" /></td>`;
       }).join('');
       const actCell = ro ? '' : `<td class="sheet-combat-act-col">
@@ -5689,10 +5929,10 @@ const Sheet = {
       : rotes.map(r => `
           <div class="sheet-rote-row" data-rote-id="${r.id}">
             <div class="sheet-rote-main">
-              <span class="sheet-rote-name">${r.name}</span>
+              <span class="sheet-rote-name">${escHtml(r.name)}</span>
               ${!ro ? `<button class="rote-remove-btn" data-rote-id="${r.id}" title="Remove rote">✕</button>` : ''}
             </div>
-            ${r.spheres_raw ? `<div class="sheet-rote-spheres">${r.spheres_raw}</div>` : ''}
+            ${r.spheres_raw ? `<div class="sheet-rote-spheres">${escHtml(r.spheres_raw)}</div>` : ''}
           </div>`).join('');
 
     // Build chapter options for the picker — will be populated lazily
@@ -5768,10 +6008,10 @@ const Sheet = {
       el.innerHTML = rotes.map(r => `
         <div class="sheet-rote-row" data-rote-id="${r.id}">
           <div class="sheet-rote-main">
-            <span class="sheet-rote-name">${r.name}</span>
+            <span class="sheet-rote-name">${escHtml(r.name)}</span>
             ${!ro ? `<button class="rote-remove-btn" data-rote-id="${r.id}" title="Remove rote">✕</button>` : ''}
           </div>
-          ${r.spheres_raw ? `<div class="sheet-rote-spheres">${r.spheres_raw}</div>` : ''}
+          ${r.spheres_raw ? `<div class="sheet-rote-spheres">${escHtml(r.spheres_raw)}</div>` : ''}
         </div>`).join('');
     }
     // Re-attach remove button listeners
@@ -6373,8 +6613,8 @@ const Sheet = {
           `<span class="dot ${i < r ? 'filled' : ''} sheet-res-dot" data-res-idx="${idx}" data-val="${i+1}"></span>`
         ).join('');
         return `<div class="sheet-resonance-item" data-res-idx="${idx}">
-          <span class="sheet-resonance-name">${res.description || '—'}</span>
-          ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${res.flavor}</span>` : ''}
+          <span class="sheet-resonance-name">${escHtml(res.description || '—')}</span>
+          ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${escHtml(res.flavor)}</span>` : ''}
           <div class="sheet-resonance-dots">${dotSpans}</div>
           <button class="sheet-res-remove" data-res-idx="${idx}" title="Remove resonance">✕</button>
         </div>`;
@@ -6633,7 +6873,7 @@ const Sheet = {
         return;
       }
       listEl.innerHTML = filtered.map(w => {
-        const cost = w.background_cost ?? '?';
+        const cost = wonderStatText(w.background_cost) || '?';
         const src  = w._custom ? (w._customSource || 'Custom') : (w.source_book || '');
         const custBadge = w._custom ? `<span class="mf-custom-badge wonder-result-custom-badge">CUSTOM</span>` : '';
         return `<div class="wonder-result-item${w._custom ? ' wonder-result-custom' : ''}" data-wonder-name="${escHtml(w.name)}">
@@ -6660,9 +6900,9 @@ const Sheet = {
       if (entry.description) descParts.push(entry.description);
       const metaBits = [];
       if (!entry._custom && entry.source_book) metaBits.push(`${entry.source_book}${entry.source_page ? ' p.' + entry.source_page : ''}`);
-      if (entry.background_cost) metaBits.push(`Cost ${entry.background_cost} pts`);
-      if (entry.arete)           metaBits.push(`Arete ${entry.arete}`);
-      if (entry.quintessence)    metaBits.push(`Quintessence ${entry.quintessence}`);
+      if (wonderStatText(entry.background_cost)) metaBits.push(`Cost ${wonderStatText(entry.background_cost)} pts`);
+      if (wonderStatText(entry.arete))           metaBits.push(`Arete ${wonderStatText(entry.arete)}`);
+      if (wonderStatText(entry.quintessence))    metaBits.push(`Quintessence ${wonderStatText(entry.quintessence)}`);
       if (metaBits.length) descParts.unshift(metaBits.join(' · '));
       if (!Array.isArray(this.char.gear)) this.char.gear = [];
       this.char.gear.push({ name, description: descParts.join('\n\n') });
@@ -7235,6 +7475,13 @@ const Creator = {
       el.classList.toggle('step-incomplete', issues.length > 0 && !active);
       el.title = issues.length > 0 && !active ? issues.join('\n') : '';
     });
+    // Phone stepper (≤900px) scrolls horizontally: centre the active step.
+    const ol = document.getElementById('step-list');
+    const cur = ol?.querySelector('.step-item.active');
+    if (ol && cur && ol.scrollWidth > ol.clientWidth + 1) {
+      const left = cur.getBoundingClientRect().left - ol.getBoundingClientRect().left + ol.scrollLeft;
+      ol.scrollLeft = Math.max(0, left - (ol.clientWidth - cur.offsetWidth) / 2);
+    }
   },
 
   // ── Resonance freebie cost ─────────────────────────────────────
@@ -7694,13 +7941,14 @@ const Creator = {
         </div>
         <div class="fin-footer">
           <button class="btn-ghost fin-cancel-btn">Go Back</button>
-          <button class="btn-primary fin-confirm-btn">Confirm &amp; Finalize</button>
+          <button class="btn-primary fin-confirm-btn" ${remaining < 0 ? 'disabled title="Resolve the freebie point overspend before finalizing"' : ''}>Confirm &amp; Finalize</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
     const close = () => overlay.remove();
     overlay.querySelector('.fin-cancel-btn').addEventListener('click', close);
     overlay.querySelector('.fin-confirm-btn').addEventListener('click', () => {
+      if (remaining < 0) { toast('You are over budget on freebie points — remove some purchases first.', 'error'); return; }
       close();
       this.saveCharacter();
     });
@@ -7741,7 +7989,7 @@ const Creator = {
         : this.char;
       if (this.editId) {
         char = await API.update(this.editId, payload);
-        toast('Character updated.');
+        toast(char.pending_edit_queued ? 'Changes submitted — awaiting Storyteller approval.' : 'Character updated.');
       } else {
         char = await API.create(payload);
         toast('Character created. The Awakening is complete.');
@@ -7776,6 +8024,7 @@ const Creator = {
         <div class="essence-name">${e.name}</div>
         <div class="essence-desc">${e.description}</div>
         <div class="page-ref" style="margin-top:0.5rem">p. ${e.page}</div>
+        <button type="button" class="trad-expand" aria-expanded="false" aria-label="Show description for ${escHtml(e.name)}">▾</button>
       </div>`).join('');
 
     if (!c.customArchetypes) c.customArchetypes = [];
@@ -7791,34 +8040,34 @@ const Creator = {
       const isNature   = c.nature   === a.name;
       const isDemeanor = c.demeanor === a.name;
       const deleteBtn  = a.isCustom
-        ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">\u00d7</button>`
+        ? `<button class="archetype-delete-btn" data-archetype="${escHtml(a.name)}" title="Remove custom archetype">\u00d7</button>`
         : '';
       if (archView === 'list') {
         const classes = ['archetype-list-row', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
         const tipParts = [a.description, a.willpower ? `Willpower: ${a.willpower}` : ''].filter(Boolean);
         const tipAttr  = tipParts.length ? ` data-tip="${tipParts.join(' \u00b7 ').replace(/"/g, '&quot;')}"` : '';
         return `
-          <div class="${classes}" data-archetype="${a.name}">
+          <div class="${classes}" data-archetype="${escHtml(a.name)}">
             <div class="archetype-nd-row" style="margin-bottom:0;flex-shrink:0">
-              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
-              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${escHtml(a.name)}" data-role="nature" title="Set as Nature">N</button>
+              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${escHtml(a.name)}" data-role="demeanor" title="Set as Demeanor">D</button>
               ${deleteBtn}
             </div>
-            <span class="archetype-list-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</span>
+            <span class="archetype-list-name">${escHtml(a.name)}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</span>
             ${tipParts.length ? `<span class="info-tip"${tipAttr}>?</span>` : ''}
           </div>`;
       }
       const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
       return `
-        <div class="${classes}" data-archetype="${a.name}">
+        <div class="${classes}" data-archetype="${escHtml(a.name)}">
           <div class="archetype-nd-row">
-            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
-            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${escHtml(a.name)}" data-role="nature" title="Set as Nature">N</button>
+            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${escHtml(a.name)}" data-role="demeanor" title="Set as Demeanor">D</button>
             ${deleteBtn}
           </div>
-          <div class="archetype-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</div>
+          <div class="archetype-name">${escHtml(a.name)}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</div>
           ${a.willpower ? `<div class="archetype-wp">${a.willpower}</div>` : ''}
-          ${a.description ? `<div class="archetype-desc">${a.description}</div>` : ''}
+          ${a.description ? `<div class="archetype-desc">${escHtml(a.description)}</div>` : ''}
         </div>`;
     }).join('');
     const conceptOptions = ['', ...M20.CONCEPTS].map(con =>
@@ -7828,27 +8077,26 @@ const Creator = {
     ${this.stepHeader('Step One: Concept & Identity',
       M20.QUOTES.step1,
       `Choose your <strong>Concept</strong>, <strong>Affiliation</strong>, <strong>Essence</strong>, and <strong>Archetypes</strong>. These define who your mage <em>is</em> before they ever work a single Effect. <span class="page-ref">M20 p. 254–260</span>`)}
-    <div style="display:flex;justify-content:flex-end;margin:-0.4rem 0 0.8rem"><button type="button" class="consult-fates-btn" onclick="Tarot.open()" title="Draw a five-card spread for character inspiration">✦ Consult the Fates</button></div>
 
     <div class="form-grid">
       <div class="form-group">
         <label>Character Name <span class="ref">p. 254</span></label>
-        <input type="text" id="f-name" value="${c.name}" placeholder="The name your mage is known by" />
+        <input type="text" id="f-name" value="${escHtml(c.name)}" placeholder="The name your mage is known by" />
       </div>
       <div class="form-group">
         <label>Player Name</label>
-        <input type="text" id="f-player" value="${c.player}" placeholder="Your name" />
+        <input type="text" id="f-player" value="${escHtml(c.player)}" placeholder="Your name" />
       </div>
       <div class="form-group">
         <label>Chronicle</label>
         ${c.chronicle_id
-          ? `<input type="text" id="f-chronicle" value="${c.linked_chronicle_name || c.chronicle || ''}" readonly class="form-input-readonly" />`
-          : `<input type="text" id="f-chronicle" value="${c.chronicle}" placeholder="Story name" />`
+          ? `<input type="text" id="f-chronicle" value="${escHtml(c.linked_chronicle_name || c.chronicle || '')}" readonly class="form-input-readonly" />`
+          : `<input type="text" id="f-chronicle" value="${escHtml(c.chronicle)}" placeholder="Story name" />`
         }
         ${App.currentUser?.role === 'guest' ? '' : c.chronicle_id
           ? `<div class="chronicle-linked-notice">
                <span class="chronicle-linked-tick">✓</span>
-               Linked to <strong>${c.linked_chronicle_name || c.chronicle || 'a Chronicle'}</strong>
+               Linked to <strong>${escHtml(c.linked_chronicle_name || c.chronicle || 'a Chronicle')}</strong>
                <button type="button" class="btn-ghost btn-sm" id="btn-unlink-chronicle">Unlink</button>
              </div>`
           : `<div class="join-code-row">
@@ -7858,7 +8106,7 @@ const Creator = {
                </label>
                <div class="join-code-input-wrap">
                  <input type="text" id="f-join-code" maxlength="5"
-                   value="${c._join_code || ''}"
+                   value="${escHtml(c._join_code || '')}"
                    placeholder="XXXXX"
                    autocomplete="off"
                    spellcheck="false"
@@ -7874,7 +8122,7 @@ const Creator = {
           <span class="info-tip" data-tip="A brief phrase that captures who your character is at their core — e.g. 'Disillusioned Corporate Spy' or 'Wandering Herbalist.'">?</span>
         </label>
         <select id="f-concept-select">${conceptOptions}</select>
-        <input type="text" id="f-concept" value="${c.concept}" placeholder="Or type your own concept..." style="margin-top:0.35rem" />
+        <input type="text" id="f-concept" value="${escHtml(c.concept)}" placeholder="Or type your own concept..." style="margin-top:0.35rem" />
       </div>
     </div>
 
@@ -7953,6 +8201,7 @@ const Creator = {
         <div class="trad-desc">${t.description}</div>
         ${t.page ? `<div class="page-ref" style="margin-top:0.35rem">p. ${t.page}</div>` : ''}
         ${restricted ? `<div class="trad-restricted-notice">Not allowed in this Chronicle</div>` : ''}
+        <button type="button" class="trad-expand" aria-expanded="false" aria-label="Show description for ${escHtml(t.shortName || t.name)}">▾</button>
       </div>`;
     }).join('');
 
@@ -7971,7 +8220,10 @@ const Creator = {
     }
 
     return `
-    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.75rem">Choose your mage's affiliation — the Traditions, the Technocratic Union, or the Disparate Crafts. <span class="page-ref">p. 254</span></p>
+    <div class="affil-intro" style="margin-bottom:0.75rem">
+      <p style="font-size:0.85rem;color:var(--text-dim);margin:0;flex:1 1 220px">Choose your mage's affiliation — the Traditions, the Technocratic Union, or the Disparate Crafts. <span class="page-ref">p. 254</span></p>
+      <button type="button" class="consult-fates-btn" onclick="Tarot.open()" title="Draw a five-card spread for character inspiration">✦ Consult the Fates</button>
+    </div>
     ${restrictionNotice}
     <div class="affiliation-tabs">${tabHtml}</div>
     <div id="tradition-panel-Traditions" class="tradition-grid" style="${c.affiliation !== 'Traditions' ? 'display:none' : ''}">
@@ -8437,7 +8689,7 @@ const Creator = {
         <option value="custom">Custom (write your own)</option>
       </select>
       ${matchedPractice ? `<div class="practice-paradigm-note" id="paradigm-practice-note">✦ Suggested paradigms for <em>${matchedPractice.name}</em> appear at the top of the list above.</div>` : `<div class="practice-paradigm-note" id="paradigm-practice-note" style="display:none"></div>`}
-      <textarea id="f-paradigm" rows="4" placeholder="Describe your mage's core belief about the nature of reality and magic…">${c.paradigm}</textarea>
+      <textarea id="f-paradigm" rows="4" placeholder="Describe your mage's core belief about the nature of reality and magic…">${escHtml(c.paradigm)}</textarea>
     </div>
 
     <div class="form-group" style="margin-bottom:1.5rem">
@@ -8937,11 +9189,11 @@ const Creator = {
       <div class="summary-section-title">Character Description & Notes</div>
       <div class="form-group" style="margin-bottom:1rem">
         <label>Physical Description & Background</label>
-        <textarea id="f-description" rows="4" placeholder="Describe your mage's appearance, history, and personality...">${c.description}</textarea>
+        <textarea id="f-description" rows="4" placeholder="Describe your mage's appearance, history, and personality...">${escHtml(c.description)}</textarea>
       </div>
       <div class="form-group">
         <label>Storyteller Notes / Additional Details</label>
-        <textarea id="f-notes" rows="3" placeholder="Goals, connections, hooks, special notes...">${c.notes}</textarea>
+        <textarea id="f-notes" rows="3" placeholder="Goals, connections, hooks, special notes...">${escHtml(c.notes)}</textarea>
       </div>
     </div>
 
@@ -8986,6 +9238,22 @@ const Creator = {
   },
 
   /* ─── Priority Selector Helper ─────────────────────────────── */
+  // Swap two categories in c[field] (attr_priority / ability_priority) and
+  // re-render. One path for drag-and-drop, tap-to-swap and the <select>
+  // fallback, so the allocation pools and freebie totals are recomputed the
+  // same way whichever control was used.
+  _swapPriority(field, catA, catB, opts = {}) {
+    const arr = this.char[field];
+    if (!Array.isArray(arr)) return false;
+    const a = arr.indexOf(catA);
+    const b = arr.indexOf(catB);
+    if (a === -1 || b === -1 || a === b) return false;
+    [arr[a], arr[b]] = [arr[b], arr[a]];
+    this.renderStep(opts);
+    this.updateFreebieDisplay();
+    return true;
+  },
+
   renderPrioritySorter(categories, current, field, labels) {
     const tierLabels = ['Primary', 'Secondary', 'Tertiary'];
     const tierPts    = [labels.primary, labels.secondary, labels.tertiary];
@@ -8993,17 +9261,29 @@ const Creator = {
 
     const rows = tierLabels.map((tier, idx) => {
       const cat = current[idx];
+      // Tap model (all pointers): tap a chip to arm it, then tap another chip or
+      // a tier label to swap. Coarse pointers also get a <select> per category
+      // (shown by CSS) because a two-tap gesture is easy to miss.
+      const selectHtml = `<select class="priority-select" data-cat="${cat}" data-field="${field}" aria-label="${cat} priority">
+            ${tierLabels.map((t, i) => `<option value="${i}" ${i === idx ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>`;
       return `
       <div class="priority-row">
-        <div class="priority-tier-label ${tierCls[idx]}">
+        <div class="priority-tier-label ${tierCls[idx]}" data-tier="${idx}" data-field="${field}">
           <span class="priority-tier-name">${tier}</span>
           <span class="priority-tier-pts">${tierPts[idx]} pts</span>
         </div>
         <div class="priority-dropzone" data-tier="${idx}" data-field="${field}">
-          <div class="priority-chip" draggable="true" data-cat="${cat}" data-field="${field}">
+          <div class="priority-chip" draggable="true" tabindex="0" role="button"
+               aria-label="${cat}: ${tier}. Activate, then choose another tier to swap."
+               data-cat="${cat}" data-field="${field}">
             <span class="priority-chip-handle" aria-hidden="true">⠿</span>
-            <span class="priority-chip-name">${cat}</span>
+            <span class="priority-chip-text">
+              <span class="priority-chip-name">${cat}</span>
+              <span class="priority-chip-hint" aria-hidden="true">now tap a tier</span>
+            </span>
           </div>
+          ${selectHtml}
         </div>
       </div>`;
     }).join('');
@@ -9053,34 +9333,34 @@ const Creator = {
       const isNature   = c.nature   === a.name;
       const isDemeanor = c.demeanor === a.name;
       const deleteBtn  = a.isCustom
-        ? `<button class="archetype-delete-btn" data-archetype="${a.name}" title="Remove custom archetype">×</button>`
+        ? `<button class="archetype-delete-btn" data-archetype="${escHtml(a.name)}" title="Remove custom archetype">×</button>`
         : '';
       if (archView === 'list') {
         const classes = ['archetype-list-row', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
         const tipParts = [a.description, a.willpower ? `Willpower: ${a.willpower}` : ''].filter(Boolean);
         const tipAttr  = tipParts.length ? ` data-tip="${tipParts.join(' · ').replace(/"/g, '&quot;')}"` : '';
         return `
-          <div class="${classes}" data-archetype="${a.name}">
+          <div class="${classes}" data-archetype="${escHtml(a.name)}">
             <div class="archetype-nd-row" style="margin-bottom:0;flex-shrink:0">
-              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
-              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+              <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${escHtml(a.name)}" data-role="nature" title="Set as Nature">N</button>
+              <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${escHtml(a.name)}" data-role="demeanor" title="Set as Demeanor">D</button>
               ${deleteBtn}
             </div>
-            <span class="archetype-list-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</span>
+            <span class="archetype-list-name">${escHtml(a.name)}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</span>
             ${tipParts.length ? `<span class="info-tip"${tipAttr}>?</span>` : ''}
           </div>`;
       }
       const classes = ['archetype-card', isNature ? 'nd-nature' : '', isDemeanor ? 'nd-demeanor' : ''].filter(Boolean).join(' ');
       return `
-        <div class="${classes}" data-archetype="${a.name}">
+        <div class="${classes}" data-archetype="${escHtml(a.name)}">
           <div class="archetype-nd-row">
-            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${a.name}" data-role="nature" title="Set as Nature">N</button>
-            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${a.name}" data-role="demeanor" title="Set as Demeanor">D</button>
+            <button class="archetype-nd-btn nd-n${isNature ? ' nd-active-n' : ''}" data-archetype="${escHtml(a.name)}" data-role="nature" title="Set as Nature">N</button>
+            <button class="archetype-nd-btn nd-d${isDemeanor ? ' nd-active-d' : ''}" data-archetype="${escHtml(a.name)}" data-role="demeanor" title="Set as Demeanor">D</button>
             ${deleteBtn}
           </div>
-          <div class="archetype-name">${a.name}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</div>
+          <div class="archetype-name">${escHtml(a.name)}${a.isCustom ? ' <span class="custom-badge">Custom</span>' : ''}${a.page ? ` <span class="page-ref archetype-page-ref">${a.page}</span>` : ''}</div>
           ${a.willpower ? `<div class="archetype-wp">${a.willpower}</div>` : ''}
-          ${a.description ? `<div class="archetype-desc">${a.description}</div>` : ''}
+          ${a.description ? `<div class="archetype-desc">${escHtml(a.description)}</div>` : ''}
         </div>`;
     }).join('');
 
@@ -10422,6 +10702,24 @@ const Creator = {
       });
     });
 
+    // Phone accordion: the ▾ button shows/hides a card's description without
+    // selecting it (display: none on desktop, where the card is always open).
+    $$('.trad-expand', content).forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = btn.closest('.tradition-card, .essence-card').classList.toggle('expanded');
+        btn.setAttribute('aria-expanded', String(open));
+      });
+    });
+    // Archetype cards are collapsed on phones; a tap on the card body (not an
+    // N/D or delete button) opens the description. No-op on wider screens.
+    $$('.archetype-card', content).forEach(card => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('button') || !matchMedia('(max-width: 600px)').matches) return;
+        card.classList.toggle('expanded');
+      });
+    });
+
     // Tradition cards — clicking a card commits both the tradition and the
     // affiliation (so browsing other tabs never deselects a prior choice).
     $$('.tradition-card', content).forEach(card => {
@@ -10488,13 +10786,48 @@ const Creator = {
         $$('.priority-dropzone', sorter).forEach(el => el.classList.remove('drag-over'));
         const dropCat = zone.querySelector('.priority-chip')?.dataset.cat;
         if (!dropCat || dropCat === dragCat) return;
-        // Swap the two categories in the priority array
-        const arr = c[field];
-        const fromIdx = arr.indexOf(dragCat);
-        const toIdx   = arr.indexOf(dropCat);
-        if (fromIdx === -1 || toIdx === -1) return;
-        [arr[fromIdx], arr[toIdx]] = [arr[toIdx], arr[fromIdx]];
-        this.renderStep();
+        this._swapPriority(field, dragCat, dropCat);
+      });
+
+      // Tap model: arm a chip, then tap another chip or a tier label to swap.
+      // Works for mouse and keyboard too; it never interferes with a drag
+      // because dragstart fires before any click would.
+      const catAt = tier => c[field][tier];
+      const setArmed = chip => {
+        $$('.priority-chip', sorter).forEach(el => el.classList.toggle('armed', el === chip));
+        sorter.classList.toggle('has-armed', !!chip);
+        $$('.priority-tier-label', sorter).forEach(lbl => {
+          lbl.classList.toggle('tap-target', !!chip && catAt(+lbl.dataset.tier) !== chip.dataset.cat);
+        });
+      };
+      sorter.addEventListener('click', e => {
+        if (e.target.closest('.priority-select')) return;       // the <select> handles itself
+        const armed = sorter.querySelector('.priority-chip.armed');
+        const chip  = e.target.closest('.priority-chip');
+        const label = e.target.closest('.priority-tier-label');
+        if (chip) {
+          if (!armed || armed === chip) { setArmed(armed === chip ? null : chip); return; }
+          this._swapPriority(field, armed.dataset.cat, chip.dataset.cat, { scroll: false });
+          return;
+        }
+        if (label && armed) {
+          const target = catAt(+label.dataset.tier);
+          if (target === armed.dataset.cat) { setArmed(null); return; }
+          this._swapPriority(field, armed.dataset.cat, target, { scroll: false });
+        }
+      });
+      sorter.addEventListener('keydown', e => {
+        const chip = e.target.closest('.priority-chip');
+        if (!chip) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); }
+        if (e.key === 'Escape') setArmed(null);
+      });
+      // <select> fallback (coarse pointers): pick a tier for this category.
+      $$('.priority-select', sorter).forEach(sel => {
+        sel.addEventListener('change', () => {
+          const target = catAt(+sel.value);
+          if (!this._swapPriority(field, sel.dataset.cat, target, { scroll: false })) sel.value = String(c[field].indexOf(sel.dataset.cat));
+        });
       });
     });
 
@@ -10749,8 +11082,8 @@ const Creator = {
         }
       });
 
-      // Show rank detail on hover
-      card.addEventListener('mouseenter', () => {
+      // Show rank detail on hover (mouse) or tap (touch)
+      TapToggle.onHoverOrTap(card, () => {
         const detail = $('#sphere-rank-detail', content);
         if (!detail || !sphere) return;
         const rv = c.spheres[sphereId] || 0;
@@ -11007,7 +11340,7 @@ const Creator = {
           const areteBonus = this._lockedBaselines?.areteBonus || 0;
           const areteMin = Math.max(c.maxSphere(), 1 + areteBonus);
           if (val < areteMin) {
-            App.showToast('Arete must be at least ' + areteMin + ' \u2014 your highest Sphere is ' + c.maxSphere(), 'error');
+            toast('Arete must be at least ' + areteMin + ' \u2014 your highest Sphere is ' + c.maxSphere(), 'error');
             return;
           }
           char[stat] = cur === val ? Math.max(areteMin, val - 1) : Math.min(max, val);
@@ -11149,16 +11482,20 @@ const Creator = {
         const val = parseInt(dot.dataset.val);
         const cur = char.spheres[id] || 0;
         const sphereNewVal = cur === val ? Math.max(0,val-1) : Math.min(max,val);
+        const prevArete = char.arete || 1;
         char.spheres[id] = sphereNewVal;
+        // Auto-raise Arete if the new sphere rating exceeds it — done BEFORE the cost
+        // check so the +4/dot Arete cost is included in the overspend guard
+        const newMin = c.maxSphere();
+        const areteRaised = prevArete < newMin;
+        if (areteRaised) char.arete = newMin;
         if (c.calcFreebies().total > c.freebiesPool()) {
           char.spheres[id] = cur;
-          toast(`Not enough freebie points (${c.freebiesRemaining()} remaining).`, 'error');
+          char.arete = prevArete;
+          toast(`Not enough freebie points (${c.freebiesRemaining()} remaining)${areteRaised ? ' — this Sphere would also require raising Arete' : ''}.`, 'error');
           return;
         }
-        // Auto-raise Arete if the new sphere rating exceeds it
-        const newMin = c.maxSphere();
-        if ((char.arete || 1) < newMin) {
-          char.arete = newMin;
+        if (areteRaised) {
           const areteRow = content.querySelector('.fb-row[data-stat="arete"]');
           if (areteRow) c.refreshFreebieRow(areteRow, char.arete);
           c.updateAreteLabel();
@@ -11852,10 +12189,10 @@ const Creator = {
   _syncWonderBackground() {
     const wData = getMergedWonders();
     const total = (this.char.wonders || []).reduce((s, w) => {
-      let cost = parseInt(w.background_cost);
+      let cost = wonderStatNum(w.background_cost);
       if (isNaN(cost) && w.name && wData.length) {
         const entry = wData.find(wd => wd.name === w.name);
-        cost = entry ? (parseInt(entry.background_cost) || 0) : 0;
+        cost = entry ? (wonderStatNum(entry.background_cost) || 0) : 0;
       }
       return s + (isNaN(cost) ? 0 : cost);
     }, 0);
@@ -11932,10 +12269,10 @@ const Creator = {
     listEl.innerHTML = filtered.map(wd => {
       const count  = purchased.filter(n => n === wd.name).length;
       const src    = this._wonderBookShort(wd.source_book || '');
-      const cost   = wd.background_cost || '?';
+      const cost   = wonderStatText(wd.background_cost) || '?';
       const extras = [
-        wd.arete        ? `Arete ${wd.arete}` : '',
-        wd.quintessence ? `Q${wd.quintessence}` : '',
+        wonderStatText(wd.arete)        ? `Arete ${wonderStatText(wd.arete)}` : '',
+        wonderStatText(wd.quintessence) ? `Q${wonderStatText(wd.quintessence)}` : '',
       ].filter(Boolean).join(' · ');
       const checkMark = count > 0 ? (count > 1 ? ` ✓×${count}` : ' ✓') : '';
       const custBadge = wd._custom ? `<span class="mf-custom-badge wonder-result-custom-badge">CUSTOM</span>` : '';
@@ -11961,10 +12298,10 @@ const Creator = {
 
     // Total background_cost of all purchased wonders
     const totalCost = wonders.reduce((s, w) => {
-      let c = parseInt(w.background_cost);
+      let c = wonderStatNum(w.background_cost);
       if (isNaN(c) && w.name && wData.length) {
         const entry = wData.find(wd => wd.name === w.name);
-        c = entry ? (parseInt(entry.background_cost) || 0) : 0;
+        c = entry ? (wonderStatNum(entry.background_cost) || 0) : 0;
       }
       return s + (isNaN(c) ? 0 : c);
     }, 0);
@@ -11973,7 +12310,7 @@ const Creator = {
     const purchasedHTML = wonders.length
       ? wonders.map((w, i) => {
           const entry = w.name ? wData.find(wd => wd.name === w.name) : null;
-          const cost  = w.background_cost ?? (entry ? entry.background_cost : '?');
+          const cost  = wonderStatText(w.background_cost ?? (entry ? entry.background_cost : null)) || '?';
           const src   = entry ? this._wonderBookShort(entry.source_book || '') : '';
           const page  = entry ? (entry.source_page || '?') : '?';
           const nameLabel = w.name ? escHtml(w.name) : '<em style="color:var(--text-faint)">No wonder selected</em>';
@@ -12130,7 +12467,7 @@ const Creator = {
         // Look up cost from catalogue (built-in + custom + chronicle custom)
         const wData = getMergedWonders();
         const entry = wData.find(wd => wd.name === name);
-        const cost  = entry ? (parseInt(entry.background_cost) || 0) : 0;
+        const cost  = entry ? (wonderStatNum(entry.background_cost) || 0) : 0;
 
         this.char.wonders = [...(this.char.wonders || []), { name, background_cost: cost }];
         this._syncWonderBackground();
@@ -12391,7 +12728,7 @@ const Creator = {
           + ' mf-cat-' + cat.toLowerCase()
           + '" data-id="' + item.id + '" data-kind="' + kind + '" data-desc="' + safeDesc + '">'
           + '<div class="mf-card-top">'
-          + '<span class="mf-card-name">' + item.name + (customBadge ? ' ' + customBadge : '') + ' ' + infoTip + (pageRef ? ' ' + pageRef : '') + '</span>'
+          + '<span class="mf-card-name">' + escHtml(item.name) + (customBadge ? ' ' + customBadge : '') + ' ' + infoTip + (pageRef ? ' ' + pageRef : '') + '</span>'
           + '<span class="mf-card-cost">' + costDisplay + '</span>'
           + '</div>'
           + instancesHtml + addBtnHtml
@@ -12619,8 +12956,8 @@ const FreeEdit = {
     const feWonderRows = (c.wonders || []).filter(w => !!w.name).map((w) => {
       const label = `Wonder: ${escHtml(w.name)}`;
       const entry = _feWData.find(wd => wd.name === w.name);
-      const cost  = w.background_cost ?? (entry ? entry.background_cost : null);
-      const badge = cost != null ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto">${cost} pts</span>` : '';
+      const cost  = wonderStatText(w.background_cost ?? (entry ? entry.background_cost : null));
+      const badge = cost ? `<span style="font-size:0.75rem;color:var(--text-faint);margin-left:auto">${cost} pts</span>` : '';
       return `<div class="fe-trait-row"><span class="fe-trait-label">${label}</span>${badge}</div>`;
     }).join('');
 
@@ -14300,6 +14637,43 @@ const Advancement = {
   },
 };
 
+/* ─── Tap-to-open for hover-only affordances ─────────────────────
+   Touch screens have no :hover. One capture-phase listener toggles .open on
+   .info-tip badges and the sidebar freebie counter (style.css shows the
+   tooltip for .open as well as :hover); an outside tap or Escape closes them.
+   onHoverOrTap() wires an element that used to react to mouseenter only (the
+   sphere cards) so it also reacts to click. */
+const TapToggle = {
+  SELECTOR: '.info-tip, .sidebar-points',
+  closeAll(except) {
+    $$('.info-tip.open, .sidebar-points.open').forEach(el => {
+      if (el !== except) el.classList.remove('open');
+    });
+  },
+  init() {
+    // capture phase so a tap on a "?" badge never also fires its label/row/card
+    document.addEventListener('click', e => {
+      const hit = e.target && e.target.closest ? e.target.closest(TapToggle.SELECTOR) : null;
+      if (!hit) { TapToggle.closeAll(); return; }
+      if (hit.classList.contains('info-tip')) {
+        e.preventDefault();
+        e.stopPropagation();
+        App.closeHamburger();
+      }
+      TapToggle.closeAll(hit);
+      hit.classList.toggle('open');
+    }, true);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') TapToggle.closeAll();
+    });
+  },
+  /** Run fn on mouseenter (desktop) and on click (touch). */
+  onHoverOrTap(el, fn) {
+    el.addEventListener('mouseenter', fn);
+    el.addEventListener('click', fn);
+  },
+};
+
 /* ─── Bootstrap ──────────────────────────────────────────────── */
 document.addEventListener('click', e => {
   if (!e.target.closest('.nav-hamburger-wrap')) App.closeHamburger();
@@ -14330,6 +14704,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   };
   _updateNavH();
   window.addEventListener('resize', _updateNavH);
+
+  // Phone chrome: primary nav into the hamburger at ≤600px; tap-to-open tooltips
+  App.initHeaderNav();
+  TapToggle.init();
 
   // ── Register persistent UI listeners first, before any async routing ─────────
   // (Must happen unconditionally so they're available even when the user later

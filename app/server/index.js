@@ -35,6 +35,27 @@ app.use(session({
   },
 }));
 
+// ── Daily visit tracking ──────────────────────────────────────────────────────
+// Records each signed-in user once per UTC day (table daily_visits, see db.js).
+// The in-memory set means a single INSERT per user per day rather than a write
+// on every API call; it is rebuilt harmlessly after a restart.
+const recordVisit = db.prepare(`INSERT OR IGNORE INTO daily_visits (day, user_id, role) VALUES (?, ?, ?)`);
+const seenToday   = new Set();
+let   seenDay     = '';
+app.use((req, res, next) => {
+  const uid = req.session && req.session.userId;
+  if (uid && req.path.startsWith('/api/')) {
+    const day = new Date().toISOString().slice(0, 10);
+    if (day !== seenDay) { seenDay = day; seenToday.clear(); }
+    if (!seenToday.has(uid)) {
+      seenToday.add(uid);
+      try { recordVisit.run(day, uid, req.session.role || 'user'); }
+      catch (e) { console.error('visit tracking:', e.message); }
+    }
+  }
+  next();
+});
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Authentication required' });
@@ -42,6 +63,10 @@ function requireAuth(req, res, next) {
 }
 
 // ── Static files ──────────────────────────────────────────────────────────────
+// dist/ holds minified copies written by scripts/build-dist.js at image build
+// time; each is served only while its source in public/ is unchanged (README,
+// "Minified assets"). Absent in local development.
+app.use(require('./dist-static')(path.join(__dirname, '..', 'public'), path.join(__dirname, '..', 'dist')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────

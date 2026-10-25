@@ -19,6 +19,12 @@ const forgotLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,
 // Reset: 10 per 15 min per IP (tokens are one-time-use, so low real risk)
 const resetLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 10,
   message: 'Too many reset attempts — please wait before trying again.' });
+// Signup: 5 new accounts per hour per IP (prevents scripted account creation)
+const signupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,
+  message: 'Too many accounts created from this address — please wait before trying again.' });
+// Guest: 20 guest sessions per hour per IP (each one creates a user row)
+const guestLimiter  = rateLimit({ windowMs: 60 * 60 * 1000, max: 20,
+  message: 'Too many guest sessions — please wait before trying again.' });
 
 // Lazy — instantiated on first use so the server starts even without the env var
 let _resend = null;
@@ -62,7 +68,7 @@ router.post('/login', loginLimiter, (req, res) => {
 });
 
 // POST /api/auth/signup
-router.post('/signup', (req, res) => {
+router.post('/signup', signupLimiter, (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'All fields are required' });
   if (username.trim().length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters' });
@@ -87,7 +93,7 @@ router.post('/signup', (req, res) => {
 });
 
 // POST /api/auth/guest — create a temporary guest session
-router.post('/guest', (req, res) => {
+router.post('/guest', guestLimiter, (req, res) => {
   try {
     const suffix = crypto.randomBytes(6).toString('hex');
     const username = `guest_${suffix}`;

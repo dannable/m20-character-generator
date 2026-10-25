@@ -180,6 +180,7 @@ body {
   font-size: 1rem;
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100dvh;
   background-image:
     radial-gradient(ellipse at 20% 0%, rgba(90,58,138,0.08) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 100%, rgba(138,110,47,0.06) 0%, transparent 50%);
@@ -2241,7 +2242,7 @@ select option { background: var(--bg-deep); color: var(--text-bright); }
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
   min-width: 320px;
-  max-width: 480px;
+  max-width: min(480px, 100% - 24px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.8);
 }
 
@@ -4109,6 +4110,7 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .admin-table-wrap {
   overflow-y: auto;
   max-height: calc(100vh - 290px);
+  max-height: calc(100dvh - 290px);
   min-height: 200px;
   border: 1px solid var(--border-dim);
   border-radius: var(--radius-sm);
@@ -4333,6 +4335,73 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
 .legend-chars  { background: #a07ee0; }
 .legend-chrons { background: #5a9a6a; }
 .admin-chart-svg-wrap { width: 100%; }
+.admin-chart-note {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  margin-top: 0.4rem;
+}
+.legend-guests { background: #8a8aa0; }
+.admin-activity-chart .admin-bar-group:hover rect { filter: brightness(1.25); }
+
+/* Six stat cards: activity first, totals second; wraps to 3 / 2 columns */
+.admin-stat-cards-6 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.admin-stat-sub {
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  margin-top: 0.3rem;
+}
+
+/* Compact user table: one row per user at ~48px, username + email stacked,
+   sortable headers, a single Manage button instead of five actions */
+.admin-table-compact td { padding: 0.45rem 0.7rem; }
+.admin-table-compact th { padding: 0.5rem 0.7rem; white-space: nowrap; }
+.admin-th-sort { cursor: pointer; user-select: none; }
+.admin-th-sort:hover { color: var(--gold-bright); }
+.admin-th-sort.active { color: var(--gold-bright); }
+.admin-sort-arrow { font-size: 0.6rem; }
+.admin-th-num, .admin-td-num { text-align: center; }
+.admin-user-cell { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.admin-user-name { color: var(--text-bright, var(--text-mid)); }
+.admin-user-email { font-size: 0.75rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.admin-you {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-left: 0.3rem;
+}
+.admin-dim { color: var(--text-faint); font-size: 0.72rem; margin-left: 0.15rem; }
+.admin-row-disabled td { opacity: 0.6; }
+.admin-td-actions { text-align: right; white-space: nowrap; }
+.admin-manage-btn { white-space: nowrap; }
+.admin-filter-row { gap: 0.5rem; flex-wrap: wrap; }
+.admin-filter-row .admin-search { flex: 1 1 220px; }
+.admin-dash-title .admin-result-count { font-size: 0.85rem; margin-left: 0.4rem; }
+
+/* Manage-user modal */
+.admin-manage-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-bottom: 0.9rem;
+}
+.admin-manage-actions { display: grid; gap: 0.5rem; }
+.admin-manage-actions button { width: 100%; text-align: left; }
+
+@media (max-width: 600px) {
+  .admin-filter-row .admin-search { flex: 1 1 100%; }
+  .admin-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; width: 100%; }
+  .admin-filters .admin-filter-select { width: 100%; min-width: 0; }
+  .admin-filters #admin-clear-filters { grid-column: 1 / -1; }
+  .admin-stat-cards-6 { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .admin-stat-card { padding: 0.8rem 0.6rem; }
+  .admin-stat-num { font-size: 1.7rem; }
+}
 .admin-recent-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4423,7 +4492,6 @@ details[open] > .fb-details-summary::before { transform: rotate(90deg); }
   .essence-grid { grid-template-columns: 1fr; }
   .tradition-grid { grid-template-columns: 1fr; }
   .sphere-grid { grid-template-columns: 1fr; }
-  .header-inner { flex-direction: column; gap: 0.75rem; }
   .title-main { font-size: 1.1rem; }
 }
 
@@ -5354,6 +5422,7 @@ html[data-theme="light"] .g-mode-btn:hover { border-color: var(--gold-dim); }
   white-space: pre-wrap;
 }
 .grimoire-detail-desc.rote-no-desc { font-style: italic; color: var(--text-faint); }
+.rote-truncated-note { font-style: italic; color: var(--text-faint); margin-left: 0.25rem; font-size: 0.85em; }
 .rote-detail-page {
   font-size: 0.72rem;
   color: var(--text-faint);
@@ -6742,6 +6811,7 @@ html[data-theme="light"] .g-mode-btn:hover { border-color: var(--gold-dim); }
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 5rem);
+  max-height: calc(100dvh - 5rem);
   overflow: hidden;
 }
 .adv-panel-title {
@@ -9308,6 +9378,58 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .tarot-face-front { transform: rotateY(180deg); }
 .tarot-face img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
+/* Tap-to-zoom: a revealed card at full resolution (js/tarot.js _zoom) */
+#tarot-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(8, 6, 14, 0.93);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  cursor: zoom-out;
+}
+.tarot-zoom-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 100%;
+  max-height: 100%;
+}
+.tarot-zoom-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 7rem);
+  max-height: calc(100dvh - 7rem);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px var(--gold-dim);
+  cursor: default;
+}
+.tarot-zoom-caption {
+  color: var(--text-mid);
+  font-size: 0.9rem;
+  text-align: center;
+  max-width: 36rem;
+  line-height: 1.4;
+}
+.tarot-zoom-caption strong {
+  display: block;
+  font-family: var(--font-heading);
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+}
+.tarot-zoom-close {
+  position: absolute;
+  top: max(0.6rem, env(safe-area-inset-top));
+  right: 0.6rem;
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .tarot-card-label {
   display: flex;
   flex-direction: column;
@@ -9394,3 +9516,738 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   transform: translateY(-1px);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Mobile Phase 1 — global chrome and foundation
+   (MOBILE-PLAN-2026-10-18.md §4, Phase 1). Every rule here is scoped to
+   ≤600px, ≤767px or coarse pointers so the desktop layout is unchanged.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tap-to-open for hover-only affordances. app.js (TapToggle) toggles .open on
+   tap; :hover keeps working for mouse users. */
+.info-tip.open::after { display: block; }
+.sidebar-points.open { border-color: var(--gold-mid); }
+.sidebar-points.open .freebie-tooltip { display: block; }
+
+/* Slot at the top of the hamburger menu. app.js moves #user-info and the
+   Home / Grimoire / Admin buttons in here at ≤600px; empty on desktop. */
+.hamburger-primary { display: none; }
+.hamburger-primary:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-dim);
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+.hamburger-primary .user-info { padding: 0.35rem 0.6rem 0.5rem; }
+
+/* Guest banner disclosure — only rendered on phones */
+.guest-banner-more { display: none; }
+
+/* Wizard Darrell is a pointer easter egg; no room for him on phones */
+@media (max-width: 767px) {
+  #wizard-darrell, #wizard-balloon { display: none !important; }
+}
+
+@media (max-width: 600px) {
+  html { font-size: 18px; }
+  :root { --nav-h: 60px; }
+
+  /* Header: 40px logo, nav on one row, ≤60px tall */
+  .header-inner { flex-direction: row; flex-wrap: nowrap; gap: 0.5rem; padding: 0.35rem 0.75rem; }
+  .header-title { gap: 0.5rem; min-width: 0; }
+  .header-logo { height: 40px; }
+  .header-nav { flex-wrap: nowrap; gap: 0.3rem; flex-shrink: 0; }
+  .nav-hamburger-menu { min-width: 210px; max-width: calc(100vw - 1.5rem); }
+
+  /* Padding tier: 80px of a 390px screen went to padding */
+  #step-content { padding: 14px; }
+  .grimoire-container { padding: 14px; }
+  .chronicle-content-wrap { padding: 14px; }
+  .adv-page { padding: 14px 14px 3rem; }
+
+  /* Modals fill the width on small phones (gutter from max-width above) */
+  .modal-box { width: 100%; min-width: 0; }
+
+  /* Finishing Touches rows: label above, dots + cost below, dots may wrap.
+     (The 200px label column plus ten touch-size dots was 680px wide.) */
+  .fb-row { grid-template-columns: 1fr auto; gap: 0.3rem 0.8rem; }
+  .fb-row > .fb-row-label { grid-column: 1 / -1; }
+  .fb-row .dots { flex-wrap: wrap; }
+
+  /* Tooltips: a fixed sheet just under the header, so a 220px bubble anchored
+     to a 16px badge can never run off the side of the screen */
+  .info-tip.open { z-index: 9999; }
+  .info-tip::after,
+  .attr-block-grid .info-tip::after,
+  .mortal-attr-grid .info-tip::after,
+  .archetype-list-row .info-tip::after,
+  .mf-info-tip::after {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(var(--nav-h) + 8px);
+    bottom: auto;
+    width: auto;
+    transform: none;
+    font-size: 0.85rem;
+    padding: 0.7rem 0.9rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .freebie-tooltip { white-space: normal; }
+
+  /* Guest banner: one line with a "more" disclosure */
+  #guest-banner { flex-wrap: nowrap; gap: 0.5rem; padding: 0.4rem 0.75rem; font-size: 0.78rem; }
+  .guest-banner-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .guest-banner-more {
+    display: inline-block;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--gold-mid);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0.3rem 0.2rem;
+  }
+  .guest-banner-register { display: none; }
+  #guest-banner.expanded { flex-wrap: wrap; }
+  #guest-banner.expanded .guest-banner-text { white-space: normal; overflow: visible; text-overflow: clip; flex-basis: 100%; }
+  #guest-banner.expanded .guest-banner-register { display: inline-block; }
+}
+
+/* Touch tier: Apple/Google ask for 44/48px targets; the dots were 13-14px */
+@media (pointer: coarse) {
+  .dots, .g-sphere-dots { gap: 8px; }
+  .dot, .g-dot { width: 24px; height: 24px; position: relative; }
+  /* 40px-tall hit area; only ±4px sideways so neighbouring dots don't overlap */
+  .dot::before, .g-dot::before { content: ''; position: absolute; inset: -8px -4px; }
+  .dots.readonly .dot::before { content: none; }
+  .btn-sm { min-height: 40px; }
+  .nav-btn { min-height: 40px; }
+  .nav-btn.nav-btn-icon, .modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .info-tip { cursor: pointer; }
+  .info-tip::before { content: ''; position: absolute; inset: -12px; }
+  .sidebar-points { cursor: pointer; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile Phase 2 — the creator
+   (MOBILE-PLAN-2026-10-18.md §4, Phase 2). Scoped to ≤900px, ≤600px or
+   coarse pointers; the desktop layout above is unchanged.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Priority chooser: tap model (every pointer) ─────────────────
+   Tap a chip to arm it, then tap another chip or a tier label to swap.
+   Drag-and-drop above keeps working for mouse users. */
+.priority-chip:focus-visible { outline: 2px solid var(--gold-mid); outline-offset: 2px; }
+.priority-chip.armed {
+  border-color: var(--gold-mid);
+  background: var(--gold-faint);
+  box-shadow: 0 0 0 2px rgba(200,168,76,0.25);
+}
+.priority-sorter.has-armed .priority-chip:not(.armed),
+.priority-sorter.has-armed .priority-tier-label.tap-target {
+  border-color: var(--purple-mid);
+  border-style: dashed;
+  cursor: pointer;
+}
+.priority-sorter.has-armed .priority-tier-label.tap-target { cursor: pointer; }
+.priority-chip-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.priority-chip-hint {
+  display: none;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.priority-sorter.has-armed .priority-chip.armed .priority-chip-hint { display: inline; color: var(--gold-mid); }
+/* Per-category <select> fallback: hidden unless the pointer is coarse */
+.priority-select { display: none; }
+
+@media (pointer: coarse) {
+  .priority-chip { cursor: pointer; min-height: 44px; }
+  .priority-chip-handle { display: none; }          /* a grab handle promises a drag */
+  .priority-chip { min-width: 0; }
+  .priority-dropzone { min-width: 0; }
+  .priority-select {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    max-width: 46%;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.78rem;
+    background: var(--bg-deep);
+    color: var(--text-bright);
+    border: 1px solid var(--border-bright);
+    border-radius: var(--radius-sm);
+  }
+  .priority-tier-label { min-height: 44px; }
+}
+
+/* Step 1: the affiliation intro row holds "Consult the Fates" (all widths) */
+.affil-intro { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+/* ── Stepper: the sidebar becomes a sticky horizontal bar ──────── */
+@media (max-width: 900px) {
+  :root { --stepper-h: 56px; }
+  /* 1fr tracks default to min-width:auto and grow with the widest child */
+  .creator-layout { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+  .creator-content, #step-content { min-width: 0; }
+
+  .creator-sidebar {
+    position: sticky;
+    top: var(--nav-h);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: var(--stepper-h);
+    padding: 0 0.5rem;
+    border-radius: var(--radius-md);
+  }
+  .sidebar-title, .sidebar-ref { display: none; }
+  .step-list {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.25rem;
+    margin: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .step-list::-webkit-scrollbar { display: none; }
+  .step-item {
+    flex: 0 0 auto;
+    margin: 0;
+    gap: 0.4rem;
+    padding: 0.3rem 0.45rem;
+    min-height: 40px;
+  }
+  .step-item.active { border-left: none; border-bottom: 2px solid var(--purple-mid); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+  .step-item .step-label { display: none; white-space: nowrap; }
+  .step-item.active .step-label { display: inline; }
+  .step-item.step-incomplete:not(.active)::after { margin-left: 0; }
+  .step-num { width: 26px; height: 26px; font-size: 0.7rem; }
+
+  /* Freebie counter inline at the right end; breakdown drops below on tap */
+  .sidebar-points {
+    flex: 0 0 auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0.2rem 0.55rem;
+    line-height: 1;
+  }
+  .sidebar-points .pts-label { font-size: 0.5rem; letter-spacing: 0.08em; margin: 0 0 0.15rem; white-space: nowrap; }
+  .sidebar-points .pts-value { font-size: 1.15rem; margin: 0; }
+  .sidebar-points .pts-remaining { display: none; }
+  .freebie-tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 230px;
+    max-width: calc(100vw - 2rem);
+    margin: 0;
+    padding: 0.6rem 0.8rem;
+    background: var(--bg-card);
+    border: 1px solid var(--gold-faint);
+    border-top: 1px solid var(--gold-faint);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    z-index: 60;
+    line-height: 1.4;
+  }
+
+  /* Sticky block headers now have to clear the stepper as well */
+  .attr-block-header { top: calc(var(--nav-h) + var(--stepper-h) + 0.75rem); }
+}
+
+/* ── Phones (≤600px): fixed bottom nav ───────────────────────────── */
+@media (max-width: 600px) {
+  :root { --creator-nav-h: 64px; }
+
+  /* Bottom nav: a real fixed bar; #step-content pads for it so it never
+     covers the last control. */
+  .creator-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-bright);
+    border-radius: 0;
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.45);
+  }
+  .creator-nav-right { display: contents; }
+  .creator-nav button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 0.35rem 0.3rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  #step-content { padding-bottom: calc(14px + var(--creator-nav-h) + env(safe-area-inset-bottom, 0px)); }
+  .creator-content { border-radius: var(--radius-lg); }
+}
+
+/* ── Phones (≤600px): priority rows ─────────────────────────────── */
+@media (max-width: 600px) {
+  /* Priority rows: a 160px tier column leaves no room for chip + select */
+  .priority-row { grid-template-columns: 88px minmax(0, 1fr); gap: 0.4rem; }
+  .priority-tier-label { padding: 0.4rem 0.3rem; }
+  .priority-tier-name { font-size: 0.6rem; letter-spacing: 0.06em; }
+  .priority-chip { padding: 0.45rem 0.6rem; gap: 0.4rem; }
+  .priority-chip-name { font-size: 0.85rem; }
+}
+
+/* ── Phones (≤600px): Step 1 Concept ─────────────────────────────── */
+@media (max-width: 600px) {
+  /* Step 1: affiliation tabs scroll as a chip row, edge to edge */
+  .affil-intro .consult-fates-btn { min-height: 40px; }
+  .affiliation-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px 0.75rem;
+    padding: 0 14px 2px;
+  }
+  .affiliation-tabs::-webkit-scrollbar { display: none; }
+  .affil-tab { flex: 0 0 auto; white-space: nowrap; min-height: 40px; padding: 0.5rem 0.8rem; }
+
+  /* Step 1: tradition / convention / craft cards as an accordion */
+  .tradition-grid { gap: 0.4rem; }
+  .tradition-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 40px;
+    grid-auto-rows: auto;
+    align-items: center;
+    column-gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  }
+  .tradition-card .trad-name { grid-column: 1; margin: 0; font-size: 0.9rem; }
+  .tradition-card .trad-spheres { grid-column: 1; margin: 0.15rem 0 0; }
+  .tradition-card .trad-desc,
+  .tradition-card .page-ref,
+  .tradition-card .trad-restricted-notice { display: none; grid-column: 1 / -1; }
+  .tradition-card .trad-desc { margin-top: 0.5rem; }
+  .tradition-card.expanded .trad-desc,
+  .tradition-card.expanded .page-ref,
+  .tradition-card.expanded .trad-restricted-notice { display: block; }
+  .trad-expand {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .tradition-card.expanded .trad-expand { transform: rotate(180deg); color: var(--gold-mid); }
+
+  /* Step 1: essence cards collapse the same way (name visible, text on expand) */
+  .essence-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 40px;
+    align-items: center;
+    column-gap: 0.5rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  }
+  .essence-card .essence-name { grid-column: 1; margin: 0; }
+  .essence-card .essence-desc,
+  .essence-card .page-ref { display: none; grid-column: 1 / -1; }
+  .essence-card .essence-desc { margin-top: 0.5rem; }
+  .essence-card.expanded .essence-desc,
+  .essence-card.expanded .page-ref { display: block; }
+  .essence-card .trad-expand { grid-row: 1; }
+  .essence-card.expanded .essence-desc + .page-ref { margin-top: 0.35rem !important; }
+
+  /* Step 1: archetype cards two per row, collapsed to N/D + name; tap the
+     card to read its description (the N/D buttons keep their own handler) */
+  .archetype-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem; }
+  .archetype-card { padding: 0.4rem 0.5rem; min-height: 44px; }
+  .archetype-card .archetype-wp,
+  .archetype-card .archetype-desc { display: none; }
+  .archetype-card.expanded { grid-column: 1 / -1; }
+  .archetype-card.expanded .archetype-wp,
+  .archetype-card.expanded .archetype-desc { display: block; }
+  .archetype-nd-btn { width: 1.6rem; height: 1.6rem; }
+  .archetype-nd-row { gap: 0.4rem; }
+  .archetype-name { font-size: 0.78rem; }
+  .archetype-card:not(.expanded) .archetype-page-ref { display: none; }
+  /* 34 archetypes are a picker, not a page: bound the grid and scroll inside */
+  #archetype-grid {
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 0.3rem;
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-md);
+    background: var(--bg-deep);
+  }
+
+}
+
+/* ── Phones (≤600px): Step 7 Finishing Touches ───────────────────── */
+@media (max-width: 600px) {
+  /* Step 7: the pip row becomes a numeric counter; rows never exceed the viewport */
+  .fb-bank { padding: 0.8rem 1rem; }
+  .fb-bank-bar { display: none; }
+  .fb-bank-inner { justify-content: space-between; }
+  .fb-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .fb-row-cost { min-width: 0; }
+  .fb-core-grid { padding: 0; }
+}
+
+/* The accordion disclosure only exists on phones */
+@media (min-width: 601px) {
+  .trad-expand { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile Phase 3 — sheet, grimoire, chronicle, admin
+   (MOBILE-PLAN-2026-10-18.md §4, Phase 3). Scoped to ≤600px or to
+   containers that only change when they overflow; desktop unchanged.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Admin table: horizontal scroll wrapper with a sticky first column.
+   Desktop-first screen; the wrapper only scrolls when the table is wider
+   than the page, and the sticky column is invisible until then. ── */
+.admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.admin-table th:first-child,
+.admin-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-card);
+}
+.admin-table th:first-child { z-index: 3; background: var(--bg-raised); }
+.admin-table tr:hover td:first-child { background: var(--bg-raised); }
+@media (max-width: 900px) {
+  .admin-table { min-width: 640px; }
+  .admin-table td:first-child { box-shadow: 4px 0 8px -4px rgba(0,0,0,0.6); }
+}
+
+/* ── Grimoire: the filter drawer toggle only exists on phones ── */
+.grimoire-filter-toggle { display: none; }
+
+/* ── Phones (≤600px): creator trait rows ─────────────────────────
+   Phase 2 nit: with 24px touch dots the name column was 100px and
+   "Manipulation" broke mid-word. Shrink the gaps, keep words whole and
+   let the ? badge wrap under the name instead. */
+@media (max-width: 600px) {
+  .attr-block-grid .attr-block { padding: 0.85rem 0.6rem; }
+  .attr-row-main { gap: 0.5rem; }
+  .attr-row-main > .dots { gap: 6px; }
+  .attr-block-grid .attr-name {
+    word-break: normal;
+    overflow-wrap: normal;
+    flex-wrap: wrap;
+    row-gap: 0.1rem;
+  }
+  .attr-block-grid .attr-row .attr-name { font-size: 0.78rem; }
+}
+
+/* ── Phones (≤600px): character sheet (Sheet view and public /s/<token>) ── */
+@media (max-width: 600px) {
+  .sheet-toolbar { flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  .sheet-toolbar-right { flex-wrap: wrap; }
+
+  .sheet-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+    padding: 1.1rem 1rem 1.4rem;
+  }
+  .sheet-char-name { font-size: 1.5rem; overflow-wrap: anywhere; margin-bottom: 0.25rem; }
+  .sheet-field { min-width: 0; }
+  .sheet-field-value { overflow-wrap: anywhere; }
+
+  /* Every three- and two-column band stacks */
+  .sheet-body,
+  .sheet-cols-3,
+  .sheet-rotes-body,
+  .sheet-advantages,
+  .sheet-footer { grid-template-columns: minmax(0, 1fr); }
+  .sheet-body { padding: 1rem; gap: 1rem; }
+  .sheet-footer { padding: 1rem; gap: 1rem; }
+  .sheet-group {
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-group:last-child { border-bottom: none; }
+  .sheet-rotes-col { grid-column: 1 / -1; min-width: 0; }
+  .sheet-trait-row { gap: 0.5rem; }
+  .sheet-trait-name { min-width: 0; overflow-wrap: anywhere; }
+
+  /* Core statistics: Arete / Willpower / Quintessence+Paradox side by side,
+     wrapping to a second row on the narrowest phones */
+  .core-stats-group {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .core-stats-group .sheet-group-title { flex: 0 0 100%; }
+  .core-stats-group .core-stat-box {
+    width: auto;
+    flex: 1 1 130px;
+    min-width: 0;
+    padding: 0.6rem 0.4rem;
+  }
+  .core-stats-group .core-stat-dots { flex-wrap: wrap !important; }
+  /* Arete and Willpower share the first row; the Q/P wheel takes the next.
+     The ten-column Willpower track is 172px, so it gets the larger share. */
+  .core-stats-group .core-stat-box { flex-basis: 110px; }
+  .core-stats-group .core-stat-box:has(.wp-track-grid) { flex: 1.5 1 156px; }
+  .core-stats-group .qp-wheel-box { flex: 1 1 100%; }
+  .wp-track-grid { gap: 3px 2px; }
+  .wp-track-grid .dot, .wp-track-grid .wp-spent-box { width: 12px; height: 12px; }
+  .wheel-svg { max-width: 100%; height: auto; }
+  .wp-track-grid { max-width: 100%; }
+
+  /* Combat: one card per weapon instead of a six-column table */
+  .sheet-combat-table,
+  .sheet-combat-table tbody,
+  .sheet-combat-table tbody tr,
+  .sheet-combat-table tbody td { display: block; }
+  .sheet-combat-table thead { display: none; }
+  .sheet-combat-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 0.7rem;
+    position: relative;
+    padding: 0.6rem 0.7rem;
+    margin-bottom: 0.5rem;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-md);
+  }
+  .sheet-combat-table tbody tr:last-child { margin-bottom: 0; }
+  .sheet-combat-table tbody td { padding: 0; border-bottom: none; min-width: 0; }
+  .sheet-combat-table tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    margin-bottom: 0.1rem;
+  }
+  .sheet-combat-table tbody td[data-label="Weapon/Attack"] {
+    grid-column: 1 / -1;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    color: var(--text-bright);
+    padding-right: 2rem;
+  }
+  .sheet-combat-table tbody td.sheet-combat-act-col {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    width: auto;
+  }
+  .sheet-combat-remove { min-width: 36px; min-height: 36px; }
+  .sheet-combat-empty-row td { grid-column: 1 / -1; padding: 0.3rem !important; }
+  .sheet-combat-input { border-color: var(--border-dim); background: var(--bg-raised); min-height: 36px; }
+}
+
+/* ── Phones (≤600px): the Grimoire ───────────────────────────────── */
+@media (max-width: 600px) {
+  /* Tab strip scrolls sideways, edge to edge */
+  .grimoire-tab-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -14px 1rem;
+    padding: 0 14px;
+  }
+  .grimoire-tab-bar::-webkit-scrollbar { display: none; }
+  .grimoire-tab { flex: 0 0 auto; white-space: nowrap; min-height: 40px; padding: 0.45rem 0.8rem 0.5rem; }
+
+  /* Filters live in a drawer behind one full-width toggle */
+  .grimoire-filter-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 44px;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-sm);
+    color: var(--text-mid);
+    font-family: var(--font-heading);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .grimoire-filter-toggle.has-active { border-color: var(--gold-faint); color: var(--gold-mid); }
+  .grimoire-filter-count {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-faint);
+    margin-left: auto;
+  }
+  .grimoire-filter-caret { transition: transform 0.2s; font-size: 0.8rem; }
+  .grimoire-filter-drawer.open ~ .grimoire-stats { margin-top: 0.4rem; }
+  .grimoire-filter-drawer { display: none; }
+  .grimoire-filter-drawer.open { display: block; }
+  .grimoire-filter-toggle[aria-expanded="true"] .grimoire-filter-caret { transform: rotate(180deg); }
+  .grimoire-filter-bar { flex-direction: column; align-items: stretch; gap: 0.5rem; padding: 0.6rem 0.7rem; }
+  .grimoire-search-input,
+  .grimoire-select { flex: 0 0 auto; width: 100%; min-width: 0; min-height: 40px; font-size: 16px; }
+  .grimoire-castable-label { min-height: 40px; }
+  .grimoire-clear-btn { margin-left: 0; min-height: 40px; }
+  .grimoire-sphere-panel { padding: 0.6rem 0.7rem 0.75rem; }
+  /* 135px name + five touch dots + mode buttons was 347px in a 322px panel */
+  .g-sphere-row, .g-subgrid--tech .g-sphere-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .g-sphere-name { min-width: 0; }
+
+  /* Rotes: one card per rote. The <table> markup is unchanged (desktop
+     keeps the six columns); here its parts become flex boxes. */
+  .grimoire-table,
+  .grimoire-table tbody,
+  .grimoire-table tr,
+  .grimoire-table td { display: block; }
+  .grimoire-table thead { display: none; }
+  .grimoire-table tr.grimoire-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.5rem;
+    min-height: 44px;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.45rem;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+  .grimoire-table td { padding: 0; border-bottom: none; background: none !important; }
+  .grimoire-table td.grimoire-castable-icon { order: 0; width: auto; flex: 0 0 auto; }
+  .grimoire-table td.grimoire-castable-icon:empty { display: none; }
+  .grimoire-table td.grimoire-name { order: 1; flex: 1 1 0; min-width: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+  .grimoire-table td.grimoire-spheres { order: 2; flex: 0 0 100%; font-size: 0.82rem; }
+  .grimoire-table td.grimoire-chapter,
+  .grimoire-table td.grimoire-faction,
+  .grimoire-table td.grimoire-source {
+    order: 3;
+    flex: 0 1 auto;
+    white-space: normal;
+    font-size: 0.68rem;
+    color: var(--text-faint);
+  }
+  .grimoire-table td.grimoire-faction::before,
+  .grimoire-table td.grimoire-source::before { content: '· '; color: var(--text-faint); }
+  .grimoire-row.grimoire-row-expanded {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-color: var(--gold-faint);
+    background: rgba(138,110,47,0.07);
+  }
+  .grimoire-table tr.grimoire-detail-row {
+    margin-bottom: 0.45rem;
+    border: 1px solid var(--gold-faint);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    overflow: hidden;
+  }
+  .grimoire-detail-row td { padding: 0 !important; border: none; }
+  .grimoire-detail-inner { padding: 0.6rem 0.75rem 0.75rem; }
+  .grimoire-page-btn { min-height: 40px; min-width: 40px; }
+}
+
+/* ── Phones (≤600px): chronicle screens ──────────────────────────── */
+@media (max-width: 600px) {
+  .chronicle-form-row { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+  .fe-stat-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Free edit trait rows: ten touch dots are 312px; let them drop under the
+     label (a 5-dot row still fits beside it) */
+  .fe-section { padding: 1rem 0.6rem; }
+  .fe-trait-row { flex-wrap: wrap; row-gap: 0.2rem; }
+  .fe-trait-label { flex: 1 1 auto; min-width: 0; }
+  .fe-trait-row .fe-dots { gap: 5px; margin-left: auto; max-width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  .fe-dots .dot { width: 22px; height: 22px; }
+  .gcr-sphere-grid { grid-template-columns: minmax(0, 1fr); }
+  .gcr-sphere-row { min-height: 40px; }
+
+  /* Point pools: label, toggle, number and hint stack per setting */
+  .chron-pool-grid { grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
+  .chron-pool-grid > span:empty { display: none; }
+  .chron-pool-grid > .chron-pool-label { margin-top: 0.7rem; }
+  .chron-pool-grid > .chron-pool-label:first-child { margin-top: 0; }
+  .chron-pool-grid > .chron-rules-num { width: 100%; max-width: 140px; min-height: 40px; }
+  .chron-pool-grid > .chron-rules-hint { margin-bottom: 0.2rem; }
+
+  /* Quill (ST notes): compact toolbar — app.js also passes a shorter
+     format set on phones */
+  .ql-toolbar.ql-snow { padding: 4px 6px; }
+  .ql-toolbar.ql-snow .ql-formats { margin-right: 8px; }
+  .ql-snow.ql-toolbar button, .ql-snow .ql-toolbar button { width: 36px; height: 36px; padding: 6px; }
+  .ql-snow.ql-toolbar button svg, .ql-snow .ql-toolbar button svg { height: 22px; }
+
+  /* Free edit: the toolbar was sticky at top:0 and slid under the sticky
+     app header. On phones it becomes a fixed bottom action bar, like the
+     creator nav, so the header stays the only sticky bar. */
+  .fe-toolbar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-bright);
+    border-bottom: none;
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.45);
+  }
+  .fe-toolbar-left, .fe-toolbar-right { display: contents; }
+  .fe-toolbar-title, #fe-back-btn { display: none; }
+  .fe-toolbar button { min-width: 0; min-height: 44px; padding: 0.35rem 0.4rem; font-size: 0.72rem; white-space: normal; line-height: 1.15; }
+  #free-edit-content { padding-bottom: calc(1.5rem + 64px + env(safe-area-inset-bottom, 0px)); }
+}
