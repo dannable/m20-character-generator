@@ -45,3 +45,16 @@ app/dist/
 # Source document for the rote descriptions (18 MB); tools/enrich_rotes_from_grimoire.py reads it
 Enlightened-grimoire.pdf
 __pycache__/
+
+# Scratch extraction scripts and intermediate JSON from building the rote/wonder/Prism catalogues
+/*.py
+/tmp_*
+/patch_*
+/rotes_*.json
+/rotes_*.txt
+/wonders_*.json
+/index_entries.json
+/*.txt
+/*.pdf
+/tarotcards/
+Thumbs.db

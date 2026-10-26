@@ -1,11 +1,13 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
+const { PRISM, normalizeCharacterFocus } = require('../prism');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
   'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-  'creation_baselines','wonders','gear','weapons','virtues','numina'];
+  'creation_baselines','wonders','gear','weapons','virtues','numina',
+  'tenets','practice_ratings','practice_specialties'];
 
 const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons']);
 
@@ -56,6 +58,8 @@ const EDITABLE_FIELDS = new Set([
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
   'age','gender','hair','eyes','height','weight','ethnicity','gear','weapons',
   'character_type','virtues','humanity','numina',
+  // Prism of Focus (see server/prism.js)
+  'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
 ]);
 
 // ── Columns a plain POST / PUT may write ──────────────────────────────────────
@@ -126,12 +130,14 @@ function computeDiff(originalRow, proposed) {
     { key:'essence',       label:'Essence' },        { key:'nature',       label:'Nature' },
     { key:'demeanor',      label:'Demeanor' },       { key:'paradigm',     label:'Paradigm' },
     { key:'practice',      label:'Practice' },       { key:'affinity_sphere', label:'Affinity Sphere' },
+    { key:'focus_mode',    label:'Focus Mode' },
   ];
   const OBJ_TRAITS = [
     { key:'talents',     label:'Talent' },  { key:'skills',      label:'Skill' },
     { key:'knowledges',  label:'Knowledge'},{ key:'backgrounds', label:'Background' },
     { key:'spheres',     label:'Sphere' },  { key:'merits',      label:'Merit' },
     { key:'flaws',       label:'Flaw' },
+    { key:'practice_ratings', label:'Practice (Prism)', names: id => PRISM.practiceById(id)?.name },
   ];
 
   SCALARS.forEach(({ key, label }) => {
@@ -144,18 +150,27 @@ function computeDiff(originalRow, proposed) {
     const after  = (proposed[key] || '').trim();
     if (before !== after) diff.push({ field: key, label, before, after, type: 'text' });
   });
-  OBJ_TRAITS.forEach(({ key, label }) => {
+  OBJ_TRAITS.forEach(({ key, label, names }) => {
     const o = orig[key] || {};
     const p = proposed[key] || {};
     const keys = new Set([...Object.keys(o), ...Object.keys(p)]);
     keys.forEach(k => {
       const before = o[k] || 0, after = p[k] || 0;
       if (Number(before) !== Number(after)) {
-        const niceName = k.replace(/([A-Z])/g,' $1').replace(/^\w/,c=>c.toUpperCase()).trim();
+        const niceName = (names && names(k)) || k.replace(/([A-Z])/g,' $1').replace(/^\w/,c=>c.toUpperCase()).trim();
         diff.push({ field:`${key}.${k}`, label:`${label}: ${niceName}`, before: Number(before), after: Number(after), type:'trait' });
       }
     });
   });
+  // Prism tenets: one text row per category that changed
+  {
+    const o = orig.tenets || {}, p = proposed.tenets || {};
+    PRISM.TENET_CATEGORIES.forEach(cat => {
+      const before = o[cat.id] ? (PRISM.tenetById(o[cat.id])?.name || o[cat.id]) : '';
+      const after  = p[cat.id] ? (PRISM.tenetById(p[cat.id])?.name || p[cat.id]) : '';
+      if (before !== after) diff.push({ field:`tenets.${cat.id}`, label:`Tenet: ${cat.name}`, before, after, type:'text' });
+    });
+  }
   return diff;
 }
 
@@ -326,6 +341,7 @@ router.post('/', (req, res) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Character name is required' });
     const { join_code, chronicle_id: _cid, _join_code: _jc, ...bodyRest } = req.body;
+    normalizeCharacterFocus(bodyRest, null);
     const data = pickFields(serializeCharacter(bodyRest), WRITABLE_FIELDS);
     data.user_id = req.session.userId;
     const cols = Object.keys(data).join(', ');
@@ -368,6 +384,7 @@ router.put('/:id', (req, res) => {
       }
     }
 
+    normalizeCharacterFocus(rest, existing);
     const data = serializeCharacter(rest);
     const applyDirect = (vals) => {
       const keys = Object.keys(vals);
@@ -446,6 +463,7 @@ router.post('/:id/edit-request', (req, res) => {
 
     const { proposed, reason } = req.body;
     if (!proposed || !proposed.name) return res.status(400).json({ error: 'proposed character data required' });
+    normalizeCharacterFocus(proposed, existing);
 
     if (!existing.chronicle_id) {
       // No chronicle — apply directly
@@ -485,7 +503,7 @@ const SCALAR_TRAIT_COLS = new Set([
   'strength','dexterity','stamina','charisma','manipulation','appearance',
   'perception','intelligence','wits','arete','willpower',
 ]);
-const JSON_TRAIT_COLS = new Set(['talents','skills','knowledges','backgrounds','spheres']);
+const JSON_TRAIT_COLS = new Set(['talents','skills','knowledges','backgrounds','spheres','practice_ratings']);
 
 // ── POST /api/characters/:id/xp/award — add XP to character pool ─────────────
 router.post('/:id/xp/award', (req, res) => {

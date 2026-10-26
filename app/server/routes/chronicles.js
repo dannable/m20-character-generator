@@ -1,5 +1,6 @@
 const express = require('express');
 const db      = require('../db');
+const { sanitizeChronicleRules } = require('../prism');
 const router  = express.Router();
 
 // Guests may not create or join chronicles
@@ -140,7 +141,7 @@ router.post('/', noGuests, (req, res) => {
       notes    || '',
       next_session || '',
       join_code,
-      JSON.stringify(rules || {})
+      JSON.stringify(sanitizeChronicleRules(rules || {}))
     );
     const created = db.prepare(`SELECT * FROM chronicles WHERE id = ?`).get(result.lastInsertRowid);
     res.status(201).json(created);
@@ -179,7 +180,7 @@ router.put('/:id', (req, res) => {
       notes               ?? null,
       next_session        ?? null,
       allow_bg_xp != null ? (allow_bg_xp ? 1 : 0) : null,
-      rules != null ? JSON.stringify(rules) : null,
+      rules != null ? JSON.stringify(sanitizeChronicleRules(rules)) : null,
       id
     );
     res.json({ ok: true });
@@ -378,6 +379,7 @@ router.post('/:id/pending-edits/:editId/review', (req, res) => {
         'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
         'freebie_spent','attr_priority','ability_priority','description','notes',
         'character_type','virtues','humanity','numina',
+        'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
       ]);
       const snapshot = JSON.parse(edit.char_snapshot);
       const allowed  = Object.keys(snapshot).filter(k => EDITABLE.has(k));

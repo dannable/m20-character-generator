@@ -1,13 +1,14 @@
 const express = require('express');
 const db      = require('../db');
 const bcrypt  = require('bcryptjs');
+const { FOCUS_MODES } = require('../prism');
 const router  = express.Router();
 
 // ── GET /api/settings — current user info + stats ─────────────────────────────
 router.get('/', (req, res) => {
   try {
     const user = db.prepare(
-      `SELECT id, username, email, role, timezone FROM users WHERE id = ?`
+      `SELECT id, username, email, role, timezone, default_focus_mode FROM users WHERE id = ?`
     ).get(req.session.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -22,12 +23,16 @@ router.get('/', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// ── PUT /api/settings — update timezone ──────────────────────────────────────
+// ── PUT /api/settings — update timezone and/or default focus mode ────────────
 router.put('/', (req, res) => {
   try {
-    const { timezone } = req.body;
-    if (!timezone) return res.status(400).json({ error: 'Timezone is required' });
-    db.prepare(`UPDATE users SET timezone = ? WHERE id = ?`).run(timezone, req.session.userId);
+    const { timezone, default_focus_mode } = req.body;
+    if (!timezone && default_focus_mode === undefined) return res.status(400).json({ error: 'Nothing to update' });
+    if (timezone) db.prepare(`UPDATE users SET timezone = ? WHERE id = ?`).run(timezone, req.session.userId);
+    if (default_focus_mode !== undefined) {
+      if (!FOCUS_MODES.has(default_focus_mode)) return res.status(400).json({ error: 'default_focus_mode must be core or prism' });
+      db.prepare(`UPDATE users SET default_focus_mode = ? WHERE id = ?`).run(default_focus_mode, req.session.userId);
+    }
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
