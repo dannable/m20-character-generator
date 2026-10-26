@@ -3,7 +3,7 @@
 //
 //   node scripts/build-dist.js <publicDir> <distDir>
 //
-// Writes minified copies of js/app.js, js/data.js, js/tarot.js and css/style.css,
+// Writes minified copies of js/app.js, js/data.js, js/data-prism.js, js/tarot.js and css/style.css,
 // each with a source map, into <distDir> at the same relative paths, plus
 // <distDir>/manifest.json recording the size and sha256 of the source each copy
 // was built from. server/dist-static.js serves a copy only while its source still
@@ -23,7 +23,7 @@ if (!publicArg || !distArg) {
 }
 const publicDir = path.resolve(publicArg);
 const distDir = path.resolve(distArg);
-const FILES = ['js/app.js', 'js/data.js', 'js/tarot.js', 'css/style.css'];
+const FILES = ['js/app.js', 'js/data.js', 'js/data-prism.js', 'js/tarot.js', 'css/style.css'];
 
 (async () => {
   const manifest = {};
