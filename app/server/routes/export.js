@@ -91,11 +91,38 @@ const FLAW_NAMES = {
   echoes:'Echoes', ward:'Ward', sphere_inept:'Sphere Inept', avatar_deficit:'Avatar Deficit',
 };
 
+/* ── WinAnsi sanitiser ──────────────────────────────────────────────────────── */
+// The standard Helvetica fonts only encode WinAnsi (cp1252). pdf-lib's
+// widthOfTextAtSize / drawText throw on anything else (CJK, macrons, emoji …),
+// which used to 500 the whole export. Keep encodable characters, strip
+// diacritics that decompose to an encodable base letter, replace the rest.
+const WINANSI_EXTRA = new Set('\u20ac\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u017d\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u017e\u0178');
+function winAnsiOk(ch) {
+  const cp = ch.codePointAt(0);
+  return (cp >= 0x20 && cp <= 0x7e) || (cp >= 0xa0 && cp <= 0xff) || WINANSI_EXTRA.has(ch);
+}
+function sanitizeText(s) {
+  if (s == null) return '';
+  let out = '';
+  for (const ch of String(s)) {
+    if (winAnsiOk(ch)) { out += ch; continue; }
+    if (ch === '\n') { out += ch; continue; }
+    if (ch === '\r') continue;
+    if (/\s/.test(ch)) { out += ' '; continue; }
+    // Try to reduce to an encodable base (e.g. "\u0101" -> "a", "\ufb01" -> "fi")
+    const base = ch.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+    let kept = '';
+    for (const b of base) if (winAnsiOk(b)) kept += b;
+    out += kept || '?';
+  }
+  return out;
+}
+
 /* ── Text wrapping helper ───────────────────────────────────────────────────── */
 function wrapText(text, maxW, font, sz, maxLines = 20) {
   if (!text) return [];
   const out = [];
-  for (const para of String(text).split(/\r?\n/)) {
+  for (const para of sanitizeText(text).split(/\r?\n/)) {
     if (out.length >= maxLines) break;
     const words = para.split(/\s+/).filter(Boolean);
     if (!words.length) continue;
@@ -136,7 +163,7 @@ async function buildCharacterPDF(c) {
   /* ── Drawing primitives ──────────────────────────────────────────────────── */
   const T = (s, x, y, sz, f = fR, col = ink.black) => {
     if (s == null || s === '') return;
-    try { page.drawText(String(s), { x, y, size: sz, font: f, color: col }); } catch (_) {}
+    try { page.drawText(sanitizeText(s), { x, y, size: sz, font: f, color: col }); } catch (_) {}
   };
   const HL = (x, y, w, t = 0.5, col = ink.black) =>
     page.drawLine({ start: { x, y }, end: { x: x + w, y }, thickness: t, color: col });
@@ -166,9 +193,10 @@ async function buildCharacterPDF(c) {
   // Truncate string to fit within maxW pts
   const fit = (s, maxW, f, sz) => {
     if (!s) return '';
-    let out = String(s);
+    const clean = sanitizeText(s);
+    let out = clean;
     while (out.length > 1 && f.widthOfTextAtSize(out, sz) > maxW) out = out.slice(0, -1);
-    return out.length < String(s).length ? out.slice(0, -1) + '\u2026' : out;
+    return out.length < clean.length ? out.slice(0, -1) + '\u2026' : out;
   };
 
   /* ── Layout helpers ──────────────────────────────────────────────────────── */

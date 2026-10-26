@@ -463,6 +463,44 @@ router.get('/:id/notes', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// ── Storyteller note HTML sanitiser ──────────────────────────────────────────
+// Note bodies come from a Quill editor and are rendered with innerHTML on the
+// player's sheet, so they must be restricted to inert formatting markup.
+// Allow-list of tags; the only attributes kept are Quill's ql-* classes,
+// http(s)/mailto hrefs on <a>, and data-list on <li>. Everything else is dropped.
+const NOTE_ALLOWED_TAGS = new Set([
+  'p','br','div','span','strong','b','em','i','u','s','strike','sub','sup',
+  'ol','ul','li','h1','h2','h3','h4','h5','h6','blockquote','pre','code','a',
+]);
+function sanitizeNoteHtml(html) {
+  // \u0001 / \u0002 mark tags rebuilt by this function; strip them from input first so
+  // nothing user-supplied can masquerade as a rebuilt tag.
+  let s = String(html ?? '').replace(/[\u0001\u0002]/g, '');
+  s = s.replace(/<(script|style|iframe|object|embed|svg|math|template|noscript|textarea|title)\b[\s\S]*?<\/\1\s*>/gi, '');
+  s = s.replace(/<!--[\s\S]*?-->/g, '');
+  s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (m, tag, attrs) => {
+    tag = tag.toLowerCase();
+    if (!NOTE_ALLOWED_TAGS.has(tag)) return '';
+    if (m.startsWith('</')) return `\u0001/${tag}\u0002`;
+    let keep = '';
+    const cls = /\bclass\s*=\s*"([^"]*)"/i.exec(attrs);
+    if (cls && /^ql-[\w-]+(\s+ql-[\w-]+)*$/.test(cls[1].trim())) keep += ` class="${cls[1].trim()}"`;
+    if (tag === 'a') {
+      const href = /\bhref\s*=\s*"([^"]*)"/i.exec(attrs);
+      const url  = href ? href[1].trim() : '';
+      if (/^(https?:\/\/|mailto:)/i.test(url)) keep += ` href="${url.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer"`;
+    }
+    if (tag === 'li') {
+      const dl = /\bdata-list\s*=\s*"(ordered|bullet|checked|unchecked)"/i.exec(attrs);
+      if (dl) keep += ` data-list="${dl[1].toLowerCase()}"`;
+    }
+    return `\u0001${tag}${keep}\u0002`;
+  });
+  // Everything that is still a literal angle bracket is text, not markup
+  s = s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s.replace(/\u0001/g, '<').replace(/\u0002/g, '>');
+}
+
 // ── POST /api/chronicles/:id/notes — create note ─────────────────────────────
 router.post('/:id/notes', (req, res) => {
   try {
@@ -476,7 +514,7 @@ router.post('/:id/notes', (req, res) => {
 
     const result = db.prepare(
       `INSERT INTO chronicle_notes (chronicle_id, title, body) VALUES (?, ?, ?)`
-    ).run(req.params.id, title.trim(), body || '');
+    ).run(req.params.id, title.trim(), sanitizeNoteHtml(body || ''));
 
     const noteId = result.lastInsertRowid;
     if (character_ids.length) {
@@ -507,7 +545,7 @@ router.put('/:id/notes/:noteId', (req, res) => {
 
     db.prepare(
       `UPDATE chronicle_notes SET title = COALESCE(?, title), body = COALESCE(?, body) WHERE id = ?`
-    ).run(title?.trim() ?? null, body ?? null, req.params.noteId);
+    ).run(title?.trim() ?? null, body == null ? null : sanitizeNoteHtml(body), req.params.noteId);
 
     if (character_ids !== undefined) {
       db.prepare(`DELETE FROM chronicle_note_shares WHERE note_id = ?`).run(req.params.noteId);

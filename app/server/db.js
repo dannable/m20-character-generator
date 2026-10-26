@@ -141,45 +141,106 @@ db.exec(`
   );
 `);
 
-// Seed / re-seed rotes from rotes-seed.json
-// Re-seeds automatically when faction/source_book columns are missing (schema upgrade)
+// ── Rotes seed sync (non-destructive) ─────────────────────────────────────────
+// Characters store their rotes as { id, name, spheres_raw } (app.js addRote), so the
+// rotes table must never be dropped and re-created: ids would shift. Instead every
+// seed record carries a stable seed_key (written by tools/clean_rotes.py) and rows
+// are matched by it and updated in place; new seed records are inserted; rows not
+// in the seed are kept. The sync only runs when the sha256 of rotes-seed.json
+// differs from the one stored in app_meta, so ordinary start-ups do no work.
+const crypto = require('crypto');
 const rotesDataPath = path.join(__dirname, 'rotes-seed.json');
-let needsReseed = false;
-try {
-  const cols = db.prepare(`PRAGMA table_info(rotes)`).all().map(c => c.name);
-  if (!cols.includes('faction') || !cols.includes('source_book')) needsReseed = true;
-} catch { needsReseed = true; }
 
-if (needsReseed) {
-  db.exec(`DROP TABLE IF EXISTS rotes`);
-  db.exec(`
-    CREATE TABLE rotes (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      name            TEXT NOT NULL,
-      chapter         TEXT NOT NULL,
-      page            INTEGER NOT NULL,
-      source          TEXT NOT NULL DEFAULT '',
-      source_book     TEXT NOT NULL DEFAULT '',
-      faction         TEXT NOT NULL DEFAULT '',
-      spheres_raw     TEXT NOT NULL DEFAULT '',
-      spheres_parsed  TEXT NOT NULL DEFAULT '[]',
-      sphere_minimums TEXT NOT NULL DEFAULT '{}',
-      description     TEXT NOT NULL DEFAULT ''
-    )
-  `);
+// Additive schema upgrades for older installs (the former DROP TABLE path is gone)
+try { db.exec(`ALTER TABLE rotes ADD COLUMN source_book TEXT NOT NULL DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE rotes ADD COLUMN faction TEXT NOT NULL DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE rotes ADD COLUMN seed_key TEXT`); } catch {}
+try { db.exec(`ALTER TABLE rotes ADD COLUMN truncated INTEGER NOT NULL DEFAULT 0`); } catch {}
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_rotes_seed_key ON rotes(seed_key)`);
+db.exec(`CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+
+// ── Daily visits ─────────────────────────────────────────────────────────────
+// One row per signed-in user per UTC day, written by the middleware in index.js.
+// Drives the "active users" cards and chart on the admin overview. Rows are tiny
+// and never pruned (≈ a few hundred per month).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS daily_visits (
+    day     TEXT    NOT NULL,
+    user_id INTEGER NOT NULL,
+    role    TEXT    NOT NULL DEFAULT 'user',
+    PRIMARY KEY (day, user_id)
+  )
+`);
+db.prepare(`INSERT OR IGNORE INTO app_meta (key, value) VALUES ('visits_since', date('now'))`).run();
+
+// Must match seed_key() in tools/clean_rotes.py: sha1("name|page|source[|n]")[:16]
+function roteSeedKey(name, page, source, n = 0) {
+  const base = `${name}|${page}|${source}` + (n ? `|${n}` : '');
+  return crypto.createHash('sha1').update(base, 'utf8').digest('hex').slice(0, 16);
 }
 
-const rotesCount = db.prepare('SELECT COUNT(*) as c FROM rotes').get().c;
-if (rotesCount === 0 && fs.existsSync(rotesDataPath)) {
-  const rotesData = JSON.parse(fs.readFileSync(rotesDataPath, 'utf8'));
-  const insertRote = db.prepare(`
-    INSERT INTO rotes (name, chapter, page, source, source_book, faction, spheres_raw, spheres_parsed, sphere_minimums, description)
-    VALUES (@name, @chapter, @page, @source, @source_book, @faction, @spheres_raw, @spheres_parsed, @sphere_minimums, @description)
-  `);
-  const insertMany = db.transaction((rotes) => { for (const r of rotes) insertRote.run(r); });
-  insertMany(rotesData);
-  console.log(`  ★ Seeded ${rotesData.length} rotes from rotes-seed.json`);
+function syncRotesFromSeed() {
+  if (!fs.existsSync(rotesDataPath)) return;
+  const seedText = fs.readFileSync(rotesDataPath, 'utf8');
+  const seedHash = crypto.createHash('sha256').update(seedText).digest('hex');
+  const stored = db.prepare(`SELECT value FROM app_meta WHERE key = 'rotes_seed_hash'`).get();
+  if (stored && stored.value === seedHash) return;
+
+  const seed = JSON.parse(seedText);
+  const asJson = v => (typeof v === 'string' ? v : JSON.stringify(v));
+  const toRow = r => ({
+    name: r.name, chapter: r.chapter, page: r.page,
+    source: r.source || '', source_book: r.source_book || '', faction: r.faction || '',
+    spheres_raw: r.spheres_raw || '',
+    spheres_parsed:  r.spheres_parsed  == null ? '[]' : asJson(r.spheres_parsed),
+    sphere_minimums: r.sphere_minimums == null ? '{}' : asJson(r.sphere_minimums),
+    description: r.description || '',
+    truncated: r.truncated ? 1 : 0,
+    seed_key: r.seed_key || roteSeedKey(r.name, r.page, r.source || ''),
+  });
+
+  const backfill = db.prepare(`UPDATE rotes SET seed_key = ? WHERE id = ?`);
+  const update = db.prepare(`
+    UPDATE rotes SET name = @name, chapter = @chapter, page = @page, source = @source,
+      source_book = @source_book, faction = @faction, spheres_raw = @spheres_raw,
+      spheres_parsed = @spheres_parsed, sphere_minimums = @sphere_minimums,
+      description = @description, truncated = @truncated
+    WHERE seed_key = @seed_key`);
+  const insert = db.prepare(`
+    INSERT INTO rotes (name, chapter, page, source, source_book, faction, spheres_raw,
+      spheres_parsed, sphere_minimums, description, truncated, seed_key)
+    VALUES (@name, @chapter, @page, @source, @source_book, @faction, @spheres_raw,
+      @spheres_parsed, @sphere_minimums, @description, @truncated, @seed_key)`);
+
+  const stats = { backfilled: 0, updated: 0, inserted: 0, orphans: 0 };
+  db.transaction(() => {
+    // 1. Rows seeded before seed_key existed get their key from the same
+    //    (name, page, source) formula the cleanup script applied to the raw seed,
+    //    so a row and its cleaned seed record meet on the key even if the name changed.
+    const taken = new Set(db.prepare(`SELECT seed_key FROM rotes WHERE seed_key IS NOT NULL`).all().map(r => r.seed_key));
+    const seen = new Map();
+    for (const row of db.prepare(`SELECT id, name, page, source FROM rotes WHERE seed_key IS NULL ORDER BY id`).all()) {
+      const base = `${row.name}|${row.page}|${row.source}`;
+      const n = seen.get(base) || 0; seen.set(base, n + 1);
+      const key = roteSeedKey(row.name, row.page, row.source, n);
+      if (taken.has(key)) continue;            // leave keyless rather than collide
+      backfill.run(key, row.id); taken.add(key); stats.backfilled++;
+    }
+    // 2. Upsert by seed_key; ids never change
+    for (const r of seed) {
+      const row = toRow(r);
+      if (taken.has(row.seed_key)) { update.run(row); stats.updated++; }
+      else { insert.run(row); taken.add(row.seed_key); stats.inserted++; }
+    }
+    stats.orphans = db.prepare(`SELECT COUNT(*) AS c FROM rotes WHERE seed_key IS NULL`).get().c;
+    db.prepare(`INSERT INTO app_meta (key, value) VALUES ('rotes_seed_hash', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(seedHash);
+  })();
+  console.log(`  ★ Rotes seed synced (${seed.length} records): ${stats.updated} updated, ` +
+              `${stats.inserted} inserted, ${stats.backfilled} legacy rows keyed, ` +
+              `${stats.orphans} rows not in seed kept`);
 }
+syncRotesFromSeed();
 
 // ── Chronicles table ──────────────────────────────────────────────────────────
 db.exec(`
@@ -453,19 +514,28 @@ try {
 // ── Seed admin user ──────────────────────────────────────────────────────────
 const adminUsername = process.env.ADMIN_USERNAME || 'admin';
 const adminEmail    = process.env.ADMIN_EMAIL    || 'admin@localhost';
-const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
+const adminPassword = process.env.ADMIN_PASSWORD || '';
+const isProduction  = process.env.NODE_ENV === 'production';
 
+// Only runs when no admin row exists yet; existing rows are never touched.
 const existingAdmin = db.prepare(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`).get();
 if (!existingAdmin) {
-  const hash = bcrypt.hashSync(adminPassword, 12);
-  db.prepare(`INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, 'admin')`)
-    .run(adminUsername, adminEmail, hash);
-  console.log(`\n  ★ Admin account created — username: ${adminUsername}`);
-  if (adminPassword === 'admin') {
-    console.error('  ⚠️  SECURITY WARNING: Admin account is using the default password "admin".');
-    console.error('      Set ADMIN_PASSWORD environment variable before exposing this to the internet.\n');
+  const usingDefault = !adminPassword || adminPassword === 'admin';
+  if (usingDefault && isProduction) {
+    console.error('\n  ✖ No admin account exists and ADMIN_PASSWORD is unset (or the default "admin").');
+    console.error('    Refusing to seed an admin with a default password in production.');
+    console.error('    Set ADMIN_PASSWORD in the environment and restart to create the admin account.\n');
   } else {
-    console.log('      Change the admin password after first login.\n');
+    const hash = bcrypt.hashSync(usingDefault ? 'admin' : adminPassword, 12);
+    db.prepare(`INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, 'admin')`)
+      .run(adminUsername, adminEmail, hash);
+    console.log(`\n  ★ Admin account created — username: ${adminUsername}`);
+    if (usingDefault) {
+      console.error('  ⚠️  SECURITY WARNING: Admin account is using the default password "admin" (development only).');
+      console.error('      Set ADMIN_PASSWORD environment variable before exposing this to the internet.\n');
+    } else {
+      console.log('      Change the admin password after first login.\n');
+    }
   }
 }
 

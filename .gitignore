@@ -1,33 +1,47 @@
-# ── Runtime data (never commit the database) ─────────────────────
-data/
-*.db
-*.db-wal
-*.db-shm
-
-# ── Dependencies ──────────────────────────────────────────────────
-node_modules/
-app/node_modules/
-
-# ── PDF files (copyright + large binaries) ────────────────────────
-*.pdf
-
-# ── Text files extracted from PDFs ───────────────────────────────
-*.txt
-
-# ── Claude Code local settings (contains server IPs/hostnames) ───
-.claude/
-# ── CLAUDE.md (local project memory — may contain server IPs, paths) ─
-CLAUDE.md
-
-# ── Development patch/migration scripts ──────────────────────────
-patch_*.py
-fix_*.py
-tmp_*.py
-tmp_*.js
-tmp_*.css
-
-# ── OS / editor noise ─────────────────────────────────────────────
-.DS_Store
-Thumbs.db
+# Secrets - never commit
 .env
 .env.*
+!.env.example
+
+# Production SQLite database (bind-mounted into the container at /data)
+/data/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Source material (70 MB rulebook PDF and pdftotext dumps - not part of the app)
+Mage 20th Anniversary Edition.pdf
+*_section.txt
+chapter6_full.txt
+
+# Retired files kept for recovery (see README)
+_attic/
+
+# Tarot card art: 280 MB of PNGs, 29 over 5 MB. See README for how to obtain
+# it or switch to git-lfs. The cardback is referenced by js/tarot.js and is
+# kept so a fresh clone still renders.
+app/public/tarot/*.png
+!app/public/tarot/cardback.png
+# WebP derivatives of the above, regenerated with tools/make_tarot_derivatives.py
+app/public/tarot/webp/
+app/public/tarot/thumb/
+
+# Minified frontend written by app/scripts/build-dist.js inside the Docker image
+app/dist/
+
+# Editor / session backups made alongside live files
+*.bak
+*.bak-*
+*.orig
+
+# Local Claude Code permissions
+.claude/settings.local.json
+
+# Source document for the rote descriptions (18 MB); tools/enrich_rotes_from_grimoire.py reads it
+Enlightened-grimoire.pdf
+__pycache__/

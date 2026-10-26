@@ -47,7 +47,10 @@ router.get('/users', (req, res) => {
     SELECT u.id, u.username, u.email, u.role, u.is_active, u.created_at,
            u.last_login, u.login_count,
            (SELECT COUNT(*) FROM characters c WHERE c.user_id = u.id) AS character_count,
-           (SELECT COUNT(*) FROM chronicles ch WHERE ch.user_id = u.id) AS chronicle_count
+           (SELECT COUNT(*) FROM characters c WHERE c.user_id = u.id AND COALESCE(c.is_draft, 0) = 0) AS active_character_count,
+           (SELECT COUNT(*) FROM chronicles ch WHERE ch.user_id = u.id) AS chronicle_count,
+           (SELECT COUNT(*) FROM chronicles ch WHERE ch.user_id = u.id AND COALESCE(ch.is_active, 1) = 1) AS active_chronicle_count,
+           (SELECT MAX(day) FROM daily_visits v WHERE v.user_id = u.id) AS last_seen
     FROM users u
     WHERE u.role != 'guest'
     ORDER BY u.created_at DESC
@@ -200,62 +203,68 @@ router.get('/stats', (req, res) => {
       LIMIT 5
     `).all();
 
-    // Trend: count new items per "week bucket" for the past 8 weeks
-    // weeks_ago=0 means created this week, weeks_ago=7 means 7 weeks ago
-    const userTrend = db.prepare(`
-      SELECT CAST((julianday('now') - julianday(created_at)) / 7 AS INTEGER) AS weeks_ago,
-             COUNT(*) AS count
-      FROM users
-      WHERE created_at >= datetime('now', '-56 days') AND role NOT IN ('guest')
-      GROUP BY weeks_ago
-    `).all();
-
-    const charTrend = db.prepare(`
-      SELECT CAST((julianday('now') - julianday(ch.created_at)) / 7 AS INTEGER) AS weeks_ago,
-             COUNT(*) AS count
-      FROM characters ch
+    // ── Daily activity for the last 30 days (UTC days) ─────────────────────
+    // daily_visits holds one row per signed-in user per day (see index.js);
+    // sign-ups and new characters come from created_at. Days before visit
+    // tracking began are flagged so the chart can show them as "no data".
+    const DAYS = 30;
+    const since = `-${DAYS - 1} days`;
+    const byDay = (rows, key) => Object.fromEntries(rows.map(r => [r.day, r]));
+    const visits = byDay(db.prepare(`
+      SELECT day,
+             SUM(CASE WHEN role != 'guest' THEN 1 ELSE 0 END) AS users,
+             SUM(CASE WHEN role  = 'guest' THEN 1 ELSE 0 END) AS guests
+      FROM daily_visits WHERE day >= date('now', ?) GROUP BY day
+    `).all(since));
+    const signups = byDay(db.prepare(`
+      SELECT date(created_at) AS day, COUNT(*) AS n FROM users
+      WHERE role != 'guest' AND created_at >= date('now', ?) GROUP BY day
+    `).all(since));
+    const newChars = byDay(db.prepare(`
+      SELECT date(ch.created_at) AS day, COUNT(*) AS n FROM characters ch
       JOIN users u ON u.id = ch.user_id
-      WHERE ch.created_at >= datetime('now', '-56 days') AND u.role NOT IN ('guest')
-      GROUP BY weeks_ago
-    `).all();
+      WHERE u.role != 'guest' AND ch.created_at >= date('now', ?) GROUP BY day
+    `).all(since));
+    const visitsSince = (db.prepare(`SELECT value FROM app_meta WHERE key = 'visits_since'`).get() || {}).value || null;
 
-    const chronTrend = db.prepare(`
-      SELECT CAST((julianday('now') - julianday(created_at)) / 7 AS INTEGER) AS weeks_ago,
-             COUNT(*) AS count
-      FROM chronicles
-      WHERE created_at >= datetime('now', '-56 days')
-      GROUP BY weeks_ago
-    `).all();
-
-    // Convert week-bucket rows into an 8-slot array (index 0 = oldest, index 7 = this week)
-    const toArray = rows => {
-      const arr = Array(8).fill(0);
-      rows.forEach(r => {
-        const idx = 7 - Math.min(7, Math.max(0, r.weeks_ago));
-        arr[idx] += r.count;
+    const days = [];
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const d = new Date(); d.setUTCDate(d.getUTCDate() - i);
+      const day = d.toISOString().slice(0, 10);
+      days.push({
+        day,
+        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }),
+        users:  visits[day]?.users  || 0,
+        guests: visits[day]?.guests || 0,
+        new_users:      signups[day]?.n  || 0,
+        new_characters: newChars[day]?.n || 0,
+        tracked: !visitsSince || day >= visitsSince,
       });
-      return arr;
+    }
+    const today = days[days.length - 1];
+    const distinct = (spanDays) => db.prepare(`
+      SELECT COUNT(DISTINCT user_id) AS c FROM daily_visits
+      WHERE role != 'guest' AND day >= date('now', ?)`).get(`-${spanDays - 1} days`).c;
+    const trackedDays = (spanDays) => days.slice(-spanDays).filter(d => d.tracked).length || 1;
+    const sum = (arr, k) => arr.reduce((s, d) => s + d[k], 0);
+    const activity = {
+      days,
+      active_today: today.users,
+      guests_today: today.guests,
+      active_7d:  distinct(7),
+      active_30d: distinct(30),
+      avg_7d:  +(sum(days.slice(-7), 'users')  / trackedDays(7)).toFixed(1),
+      avg_30d: +(sum(days, 'users') / trackedDays(30)).toFixed(1),
+      new_users_30d:      sum(days, 'new_users'),
+      new_characters_30d: sum(days, 'new_characters'),
+      active_chronicles: db.prepare(`SELECT COUNT(*) AS c FROM chronicles WHERE COALESCE(is_active, 1) = 1`).get().c,
+      visits_since: visitsSince,
+      tracking_note: visitsSince && days[0].day < visitsSince
+        ? `Visit tracking started ${visitsSince}; earlier days show sign-ups only.`
+        : '',
     };
 
-    // Generate display labels for the 8 week buckets (week-start Monday dates)
-    const weekLabels = [];
-    for (let i = 7; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i * 7);
-      weekLabels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-    }
-
-    res.json({
-      totals,
-      recent_users,
-      recent_chars,
-      trends: {
-        labels:     weekLabels,
-        users:      toArray(userTrend),
-        characters: toArray(charTrend),
-        chronicles: toArray(chronTrend),
-      },
-    });
+    res.json({ totals, recent_users, recent_chars, activity });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 

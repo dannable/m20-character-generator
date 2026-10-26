@@ -60,7 +60,7 @@ router.post('/', feedbackLimiter, async (req, res) => {
             </tr>` : ''}
           </table>
           <div style="background:#fff;border-left:4px solid #8b1a1a;padding:1rem 1.5rem;border-radius:0 4px 4px 0;color:#222;font-size:0.95rem;line-height:1.6">
-            ${message}
+            ${escHtml(message.trim()).replace(/\r?\n/g, '<br>')}
           </div>
           <p style="margin-top:1.5rem;color:#bbb;font-size:0.75rem">
             Sent via the M20 Character Generator feedback form.
