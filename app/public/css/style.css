@@ -10332,3 +10332,12 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
   padding: 0.05rem 0.4rem; border-radius: 999px; margin-left: 0.3rem; border: 1px solid var(--border-bright); color: var(--text-faint);
 }
 .prism-member-badge.mismatch { color: #e08080; border-color: rgba(192,64,64,0.5); background: var(--crimson-dim); }
+
+/* Rule check (shared validator) */
+.rv-item { font-size: 0.82rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.rv-item.rv-error::before { content: '✕'; color: var(--crimson); }
+.rv-item.rv-warn::before  { content: '!'; color: var(--gold-mid); font-weight: 700; }
+.chron-rc-ok { color: var(--gold-mid); font-size: 0.85rem; }
+.chron-rc-member { padding: 0.4rem 0; border-top: 1px solid var(--border-dim); }
+.chron-rc-member:first-of-type { border-top: 0; }
+.chron-rc-name { font-weight: 600; color: var(--text-mid); font-size: 0.85rem; margin-bottom: 0.15rem; }

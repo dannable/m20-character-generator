@@ -288,14 +288,20 @@ const API = {
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
+  async _fail(r) {
+    const text = await r.text();
+    const err = new Error(text);
+    try { err.body = JSON.parse(text); } catch { err.body = null; }
+    throw err;
+  },
   async create(data) {
     const r = await fetch('/api/characters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) await this._fail(r);
     return r.json();
   },
   async update(id, data) {
     const r = await fetch(`/api/characters/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) await this._fail(r);
     return r.json();
   },
   async delete(id) {
@@ -3977,6 +3983,7 @@ const Chronicle = {
             ${infoRows ? `<div class="chronicle-info-block">${infoRows}</div>` : ''}
             ${c.notes ? `<div class="chron-detail-description">${escHtml(c.notes)}</div>` : ''}
             ${this._rulesDisplayHTML(detailRules)}
+            ${isST && c.members.length ? RulesUI.panelHTML() : ''}
           </div>
           <div class="chronicle-detail-sidebar">
             ${isActive ? `
@@ -4711,6 +4718,9 @@ const Chronicle = {
         const data = await r.json();
         if (!r.ok) { toast(data.error || 'Failed to save.', 'error'); return; }
         toast(isEdit ? 'Chronicle updated.' : 'Chronicle created!');
+        if (Array.isArray(data.violations) && data.violations.length) {
+          toast(`${data.violations.length} member${data.violations.length === 1 ? '' : 's'} no longer satisfy the rules — see Rule Check.`, 'error');
+        }
         if (isEdit) { this.showDetail(c.id); } else { await App.showDashboard(); }
       } catch { toast('Failed to save chronicle.', 'error'); }
     });
@@ -4753,6 +4763,7 @@ const Chronicle = {
 
   // ── Detail listeners ─────────────────────────────────────────────────────
   _attachDetailListeners(c, notes = []) {
+    RulesUI.loadPanel(c.id);
     // Update Chronicle → switch to form view (active only)
     $('#btn-edit-chronicle')?.addEventListener('click', () => {
       $('#chronicle-content').innerHTML = this._formHTML(c);
@@ -7977,16 +7988,18 @@ const Creator = {
       ? { ...this.char, join_code: this.char._join_code }
       : this.char;
     try {
+      let saved;
       if (this.editId) {
-        await API.update(this.editId, payload);
+        saved = await API.update(this.editId, payload);
         toast('Draft saved.');
       } else {
-        const created = await API.create(payload);
-        this.editId = created.id;
-        App.currentCharId = created.id;
+        saved = await API.create(payload);
+        this.editId = saved.id;
+        App.currentCharId = saved.id;
         toast('Draft saved as new character.');
       }
-    } catch { toast('Save failed.', 'error'); }
+      RulesUI.afterSave(saved, this);
+    } catch (err) { if (!RulesUI.onRejected(err, this)) toast('Save failed.', 'error'); }
   },
 
   async saveCharacter() {
@@ -8016,7 +8029,11 @@ const Creator = {
       Sheet.renderToolbar('owner');
       App.showPage('sheet');
       App.trackRecentView(char.id);
-    } catch { toast('Failed to save character.', 'error'); }
+      RulesUI.afterSave(char, null);
+    } catch (err) {
+      if (RulesUI.onRejected(err, this)) { this.char.is_draft = 1; return; }
+      toast('Failed to save character.', 'error');
+    }
   },
 
   /* ─── Helpers ──────────────────────────────────────────────── */

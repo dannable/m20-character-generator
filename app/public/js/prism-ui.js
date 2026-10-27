@@ -604,3 +604,90 @@ Object.assign(PrismUI, {
     });
   },
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Rule-check UI (shared validator results): save-time modal for players,
+   member rule-check panel for Storytellers. Not Prism-specific; lives here
+   because it ships with the same phase and shares the chronicle-rules plumbing.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const RulesUI = {
+  STEP_LABELS: ['Concept', 'Attributes', 'Abilities', 'Advantages', 'Focus', 'Spheres', 'Finishing'],
+
+  /** Modal listing errors/warnings. opts: { title, intro, blocked, onGoToStep } */
+  showViolations(result, opts = {}) {
+    const errors = result?.errors || [], warnings = result?.warnings || [];
+    if (!errors.length && !warnings.length) return;
+    const item = (v, cls) => `<div class="cw-item rv-item ${cls}">${escHtml(v.message)}${Number.isInteger(v.step) && opts.onGoToStep ? ` <button type="button" class="btn-ghost btn-sm rv-goto" data-step="${v.step}">Step ${v.step + 1}: ${this.STEP_LABELS[v.step] || ''}</button>` : ''}</div>`;
+    const overlay = document.createElement('div');
+    overlay.className = 'chron-welcome-overlay';
+    overlay.innerHTML = `
+      <div class="chron-welcome-box">
+        <div class="chron-welcome-header">
+          <div class="chron-welcome-title">${escHtml(opts.title || 'Chronicle rule check')}</div>
+          <button class="modal-close chron-welcome-close">✕</button>
+        </div>
+        <p class="chron-welcome-intro">${escHtml(opts.intro || (opts.blocked ? 'The save was rejected because the character breaks these Chronicle rules:' : 'Saved. This character does not yet satisfy some Chronicle rules:'))}</p>
+        <div class="chron-welcome-body">
+          ${errors.length ? `<div class="cw-section"><div class="cw-section-title">Must fix</div>${errors.map(v => item(v, 'rv-error')).join('')}</div>` : ''}
+          ${warnings.length ? `<div class="cw-section"><div class="cw-section-title">Warnings</div>${warnings.map(v => item(v, 'rv-warn')).join('')}</div>` : ''}
+        </div>
+        <div class="chron-welcome-footer"><button class="btn-primary chron-welcome-ok">OK</button></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector('.chron-welcome-close').onclick = close;
+    overlay.querySelector('.chron-welcome-ok').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelectorAll('.rv-goto').forEach(b => b.addEventListener('click', () => { close(); opts.onGoToStep(parseInt(b.dataset.step, 10)); }));
+  },
+
+  /** After a successful save: surface server findings without blocking. */
+  afterSave(char, creator) {
+    const v = char?._violations;
+    if (!v || (!v.errors.length && !v.warnings.length)) return;
+    const n = v.errors.length + v.warnings.length;
+    toast(`Saved with ${n} Chronicle rule ${n === 1 ? 'issue' : 'issues'}.`, 'error');
+    this.showViolations(v, { onGoToStep: creator ? (s => { creator.step = s; creator.renderStep(); }) : null });
+  },
+  /** On a rejected save (400 with violations). */
+  onRejected(err, creator) {
+    const v = err?.body?.violations;
+    if (!v) return false;
+    this.showViolations(v, { blocked: true, onGoToStep: creator ? (s => { creator.step = s; creator.renderStep(); }) : null });
+    return true;
+  },
+
+  /* ── Storyteller: member rule-check panel ─────────────────────────────── */
+  panelHTML() {
+    return `<div class="chron-detail-rules" id="chron-rule-check"><div class="chron-detail-rules-title">Rule Check</div><div class="chron-rc-body cw-note">Checking members…</div></div>`;
+  },
+  renderPanel(data) {
+    const el = document.querySelector('#chron-rule-check .chron-rc-body'); if (!el) return;
+    const members = data?.members || [];
+    if (!members.length) { el.innerHTML = `<span class="chron-rc-ok">✓ Every member satisfies the Chronicle's creation rules.</span>`; return; }
+    el.innerHTML = `<p class="cw-note" style="margin:0 0 0.4rem">${data.enforce ? 'Saves that break these rules are rejected.' : 'Rules are advisory for now; saves still go through.'}</p>` +
+      members.map(m => `
+        <div class="chron-rc-member">
+          <div class="chron-rc-name">${escHtml(m.name)}${m.is_draft ? ' <span class="cw-note">(draft)</span>' : ''}</div>
+          ${m.errors.map(v => `<div class="rv-item rv-error">${escHtml(v.message)}</div>`).join('')}
+          ${m.warnings.map(v => `<div class="rv-item rv-warn">${escHtml(v.message)}</div>`).join('')}
+        </div>`).join('');
+  },
+  async loadPanel(chronicleId) {
+    if (!document.querySelector('#chron-rule-check')) return;
+    try {
+      const r = await fetch(`/api/chronicles/${chronicleId}/violations`);
+      if (!r.ok) throw new Error();
+      this.renderPanel(await r.json());
+    } catch {
+      const el = document.querySelector('#chron-rule-check .chron-rc-body'); if (el) el.textContent = 'Rule check unavailable.';
+    }
+  },
+};
+
+// PrismUI.issues now defers to the shared validator so the sidebar and the server agree.
+PrismUI.issues = function (c) {
+  if (!this.isPrism(c)) return { errors: [], warnings: [] };
+  const r = CharValidator.prismChecks(this.ensure(c), c._chronicleRules || {});
+  return { errors: r.errors.filter(v => v.code !== 'focus_mode').map(v => v.message), warnings: r.warnings.map(v => v.message) };
+};

@@ -23,7 +23,7 @@ if (!publicArg || !distArg) {
 }
 const publicDir = path.resolve(publicArg);
 const distDir = path.resolve(distArg);
-const FILES = ['js/app.js', 'js/data.js', 'js/data-prism.js', 'js/prism-ui.js', 'js/tarot.js', 'css/style.css'];
+const FILES = ['js/app.js', 'js/data.js', 'js/data-prism.js', 'js/validate-character.js', 'js/prism-ui.js', 'js/tarot.js', 'css/style.css'];
 
 (async () => {
   const manifest = {};
