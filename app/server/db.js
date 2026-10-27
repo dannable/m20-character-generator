@@ -298,6 +298,23 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN creation_baselines TEXT DEFAULT
 // Wonders: array of { level, name } objects for the multi-instance Wonder background
 try { db.exec(`ALTER TABLE characters ADD COLUMN wonders TEXT DEFAULT '[]'`); } catch {}
 
+// ── Prism of Focus (Charles Siegel, Storytellers Vault) ───────────────────────
+// focus_mode: 'core' (M20 freeform Paradigm/Practice/Instruments, the default and
+// what every pre-existing row becomes) or 'prism' (Tenets + rated Practices).
+// The legacy paradigm / practice columns are still written in prism mode as a
+// human-readable projection so sheets, exports and diffs keep working.
+try { db.exec(`ALTER TABLE characters ADD COLUMN focus_mode TEXT NOT NULL DEFAULT 'core'`); } catch {}
+// { metaphysical, personal, ascension, social_role?, epistemology?, openness?, afterlife? } → PRISM.TENETS ids
+try { db.exec(`ALTER TABLE characters ADD COLUMN tenets TEXT DEFAULT '{}'`); } catch {}
+// PRISM.PARADIGM_PRESETS id when the tenets were filled from a book paradigm, else ''
+try { db.exec(`ALTER TABLE characters ADD COLUMN paradigm_preset TEXT DEFAULT ''`); } catch {}
+// { practiceId: 0..5 } — keys are PRISM.PRACTICES ids
+try { db.exec(`ALTER TABLE characters ADD COLUMN practice_ratings TEXT DEFAULT '{}'`); } catch {}
+// { basePracticeId: specialtyId } — which PRISM.SPECIALTIES entry replaces which base practice
+try { db.exec(`ALTER TABLE characters ADD COLUMN practice_specialties TEXT DEFAULT '{}'`); } catch {}
+// Per-user default for the Step 0 picker when a chronicle does not force a mode
+try { db.exec(`ALTER TABLE users ADD COLUMN default_focus_mode TEXT NOT NULL DEFAULT 'core'`); } catch {}
+
 // Physical description fields
 try { db.exec(`ALTER TABLE characters ADD COLUMN age TEXT DEFAULT ''`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN gender TEXT DEFAULT ''`); } catch {}
