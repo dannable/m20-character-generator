@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { PRISM, normalizeCharacterFocus } = require('../prism');
+const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
@@ -340,23 +341,28 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Character name is required' });
-    const { join_code, chronicle_id: _cid, _join_code: _jc, ...bodyRest } = req.body;
+    const { join_code, chronicle_id: _cid, _join_code: _jc, override: _ov, ...bodyRest } = req.body;
     normalizeCharacterFocus(bodyRest, null);
+    // Resolve the chronicle up front so the creation rules can be checked before the insert
+    let joinChronicleId = null;
+    if (join_code && req.session.role !== 'guest') {
+      const chron = db.prepare('SELECT id FROM chronicles WHERE join_code = ?').get(join_code.trim().toUpperCase());
+      if (chron) joinChronicleId = chron.id;
+    }
+    const check = Rules.check(bodyRest, joinChronicleId, { creation: true });
+    const rejected = Rules.gate(req, check, { characterName: req.body.name, isDraft: !!bodyRest.is_draft, canOverride: req.session.role === 'admin' || (joinChronicleId && isChronicleST(req, joinChronicleId)) });
+    if (rejected) return res.status(400).json(rejected);
     const data = pickFields(serializeCharacter(bodyRest), WRITABLE_FIELDS);
     data.user_id = req.session.userId;
     const cols = Object.keys(data).join(', ');
     const placeholders = Object.keys(data).map(k => `@${k}`).join(', ');
     const result = db.prepare(`INSERT INTO characters (${cols}) VALUES (${placeholders})`).run(data);
     // Link chronicle via join code if provided (guests may not join chronicles)
-    if (join_code && req.session.role !== 'guest') {
-      const code = join_code.trim().toUpperCase();
-      const chronicle = db.prepare('SELECT id FROM chronicles WHERE join_code = ?').get(code);
-      if (chronicle) {
-        db.prepare('UPDATE characters SET chronicle_id = ? WHERE id = ?').run(chronicle.id, result.lastInsertRowid);
-      }
+    if (joinChronicleId) {
+      db.prepare('UPDATE characters SET chronicle_id = ? WHERE id = ?').run(joinChronicleId, result.lastInsertRowid);
     }
     const created = db.prepare('SELECT * FROM characters WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(parseCharacter(created));
+    res.status(201).json({ ...parseCharacter(created), _violations: { errors: check.errors, warnings: check.warnings } });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
@@ -369,22 +375,31 @@ router.put('/:id', (req, res) => {
     if (!isAdmin && existing.user_id !== req.session.userId) return res.status(403).json({ error: 'Access denied' });
 
     // Extract chronicle fields before serializing — not character columns
-    const { join_code, chronicle_id: _ignored, _join_code: _jc, ...rest } = req.body;
+    const { join_code, chronicle_id: _ignored, _join_code: _jc, override: _ov, ...rest } = req.body;
 
-    // Resolve join code → chronicle_id (guests may not join chronicles)
+    // Resolve join code → chronicle_id (guests may not join chronicles); applied after the rules check
+    let targetChronicleId = existing.chronicle_id;
+    let chronicleChange = null;
     if (join_code !== undefined && req.session.role !== 'guest') {
       const code = (join_code || '').trim().toUpperCase();
       if (code) {
         const chronicle = db.prepare('SELECT id FROM chronicles WHERE join_code = ?').get(code);
-        if (chronicle) {
-          db.prepare('UPDATE characters SET chronicle_id = ? WHERE id = ?').run(chronicle.id, req.params.id);
-        }
+        if (chronicle) { targetChronicleId = chronicle.id; chronicleChange = chronicle.id; }
       } else {
-        db.prepare('UPDATE characters SET chronicle_id = NULL WHERE id = ?').run(req.params.id);
+        targetChronicleId = null; chronicleChange = 0;
       }
     }
 
     normalizeCharacterFocus(rest, existing);
+    const willBeDraft = rest.is_draft !== undefined ? !!rest.is_draft : !!existing.is_draft;
+    const check = Rules.check({ ...parseCharacter(existing), ...rest }, targetChronicleId, { creation: !!existing.is_draft });
+    const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: willBeDraft, canOverride: isAdmin || (targetChronicleId && isChronicleST(req, targetChronicleId)) });
+    if (rejected) return res.status(400).json(rejected);
+    if (chronicleChange !== null) {
+      db.prepare('UPDATE characters SET chronicle_id = ? WHERE id = ?').run(chronicleChange || null, req.params.id);
+    }
+    const violations = { errors: check.errors, warnings: check.warnings };
+
     const data = serializeCharacter(rest);
     const applyDirect = (vals) => {
       const keys = Object.keys(vals);
@@ -399,7 +414,7 @@ router.put('/:id', (req, res) => {
     if (direct) {
       applyDirect(pickFields(data, WRITABLE_FIELDS));
       const updated = db.prepare('SELECT * FROM characters WHERE id = ?').get(existing.id);
-      return res.json(parseCharacter(updated));
+      return res.json({ ...parseCharacter(updated), _violations: violations });
     }
 
     // Finalized chronicle-linked character owned by a player: in-play sheet state
@@ -464,6 +479,9 @@ router.post('/:id/edit-request', (req, res) => {
     const { proposed, reason } = req.body;
     if (!proposed || !proposed.name) return res.status(400).json({ error: 'proposed character data required' });
     normalizeCharacterFocus(proposed, existing);
+    const check = Rules.check({ ...parseCharacter(existing), ...proposed }, existing.chronicle_id, { creation: false });
+    const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: false, canOverride: req.session.role === 'admin' || isChronicleST(req, existing.chronicle_id) });
+    if (rejected) return res.status(400).json(rejected);
 
     if (!existing.chronicle_id) {
       // No chronicle — apply directly

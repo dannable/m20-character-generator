@@ -1,6 +1,7 @@
 const express = require('express');
 const db      = require('../db');
 const { sanitizeChronicleRules } = require('../prism');
+const Rules = require('../validate');
 const router  = express.Router();
 
 // Guests may not create or join chronicles
@@ -92,7 +93,7 @@ router.get('/:id', (req, res) => {
 
     const rawMembers = db.prepare(`
       SELECT ch.id, ch.name, ch.player, ch.affiliation, ch.tradition, ch.arete, ch.user_id,
-             ch.xp_earned, ch.xp_log,
+             ch.focus_mode, ch.xp_earned, ch.xp_log,
              u.username AS owner_username
       FROM characters ch
       LEFT JOIN users u ON u.id = ch.user_id
@@ -183,7 +184,9 @@ router.put('/:id', (req, res) => {
       rules != null ? JSON.stringify(sanitizeChronicleRules(rules)) : null,
       id
     );
-    res.json({ ok: true });
+    // Rules changed: re-check every member and hand the Storyteller the findings (never auto-edit characters)
+    const violations = rules != null ? Rules.checkChronicleMembers(id) : undefined;
+    res.json({ ok: true, violations });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
@@ -332,6 +335,13 @@ router.post('/:id/members/:charId/xp/review', (req, res) => {
 });
 
 // ── GET /api/chronicles/:id/pending-edits — list pending character edits ─────
+// ── GET /api/chronicles/:id/violations — members that break the chronicle's rules (ST/admin) ──
+router.get('/:id/violations', requireChronST, (req, res) => {
+  try {
+    res.json({ enforce: Rules.ENFORCE, members: Rules.checkChronicleMembers(parseInt(req.params.id)) });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
 router.get('/:id/pending-edits', (req, res) => {
   try {
     const chronicle = db.prepare(`SELECT * FROM chronicles WHERE id = ?`).get(req.params.id);

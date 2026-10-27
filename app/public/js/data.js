@@ -2159,3 +2159,6 @@ M20.FLAWS = [
   { id:'unsettling_effect',     name:'Unsettling Effect',           cost:'1 or 3', category:'Supernatural', mortalOnly:true, description:'Your Numina powers produce a noticeable, eerie effect. 1 pt: one intangible power; 3 pt: all intangible powers share an unsettling signature.', page:'HH II p. 45' },
   { id:'psi_focus',             name:'Psi Focus',                   cost:'3 or 5', category:'Supernatural', mortalOnly:true, description:'Your Psychic Numina require a focus to function. 3 pt: gesture or incantation; 5 pt: a physical focus (crystal, watch, lucky coin, etc.).', page:'HH II p. 45' },
 ];
+
+// Node (server-side validator) — no effect in the browser
+if (typeof module !== 'undefined' && module.exports) module.exports = M20;
