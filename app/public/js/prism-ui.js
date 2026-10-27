@@ -278,6 +278,7 @@ const PrismUI = {
               <span class="prism-abil-list">${escHtml(abilNames)}</span>
             </div>
             <div class="attr-desc prism-benefit"><strong>Benefit:</strong> ${escHtml(spec?.benefit || p.benefit)} <strong>Penalty:</strong> ${escHtml(p.penalty)}</div>
+            <div class="attr-desc prism-benefit"><strong>Common instruments:</strong> ${escHtml((p.instruments || []).join(', '))}</div>
             ${specs.length ? `<div class="prism-spec-row">
               <select class="prism-spec-select" data-practice="${id}">
                 <option value="">Base practice</option>

@@ -5730,10 +5730,11 @@ const Sheet = {
                 <span class="sheet-focus-label">Practice</span>
                 <span class="sheet-focus-value">${(char.practices && char.practices.length ? char.practices : (char.practice ? [char.practice] : [])).join(' · ') || '—'}</span>
               </div>`}
+              ${char.focus_mode === 'prism' ? '' : `
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Instruments</span>
                 <span class="sheet-focus-value">${instruments}</span>
-              </div>
+              </div>`}
               <div class="sheet-focus-item sheet-focus-resonance">
                 <span class="sheet-focus-label">Resonance</span>
                 <div class="sheet-resonance-list" id="sheet-resonance-list">${resonanceSheetHTML}</div>
@@ -8747,7 +8748,7 @@ const Creator = {
     `;
     const focusTopHTML = prismMode ? PrismUI.renderFocusSection(c) : coreFocusHTML;
     const stepInstr = prismMode
-      ? `Build your mage's <strong>Paradigm</strong> from Tenets and rate the <strong>Practices</strong> they work magick through, then pick <strong>Instruments</strong>. <span class="page-ref">Prism of Focus p. 10, 15, 31</span>`
+      ? `Build your mage's <strong>Paradigm</strong> from Tenets and rate the <strong>Practices</strong> they work magick through. Each Practice carries its own common Instruments, so there is no separate Instrument list in this mode. <span class="page-ref">Prism of Focus p. 10, 15, 31</span>`
       : `Define your mage's <strong>Paradigm</strong> (what they believe about the nature of reality), <strong>Practice</strong> (how they work their magic), and <strong>Instruments</strong> (the tools and foci they use). <span class="page-ref">M20 p. 259</span>`;
 
     return `
@@ -8757,6 +8758,7 @@ const Creator = {
 
     ${focusTopHTML}
 
+    ${prismMode ? '' : `
     <div style="margin-bottom:0.6rem">
       <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
       <p style="font-size:0.82rem;color:var(--text-dim);margin:0.2rem 0 0">
@@ -8775,6 +8777,8 @@ const Creator = {
       <input type="text" id="f-custom-instrument" placeholder="Add a custom instrument\u2026" />
       <button class="btn-secondary" id="btn-add-instrument">＋ Add</button>
     </div>
+
+    `}
 
     <div class="resonance-section">
       <label>Resonance <span class="ref">p. 186</span></label>
