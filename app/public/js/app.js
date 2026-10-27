@@ -5705,6 +5705,7 @@ const Sheet = {
             ${char.character_type === 'mortal' ? '' : `
             <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus</div>
             <div class="sheet-focus-row">
+              ${char.focus_mode === 'prism' ? PrismUI.sheetFocusHTML(char) : `
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Paradigm</span>
                 <span class="sheet-focus-value">${char.paradigm || '—'}</span>
@@ -5712,7 +5713,7 @@ const Sheet = {
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Practice</span>
                 <span class="sheet-focus-value">${(char.practices && char.practices.length ? char.practices : (char.practice ? [char.practice] : [])).join(' · ') || '—'}</span>
-              </div>
+              </div>`}
               <div class="sheet-focus-item">
                 <span class="sheet-focus-label">Instruments</span>
                 <span class="sheet-focus-value">${instruments}</span>
@@ -7132,6 +7133,8 @@ const Creator = {
       // Focus
       paradigm: '', practice: '', practices: [], instruments: [],
       resonance: [{ description: '', flavor: '', rating: 1 }],
+      // Prism of Focus (focus_mode '' = resolve from chronicle / user default on first render)
+      focus_mode: '', tenets: {}, paradigm_preset: '', practice_ratings: {}, practice_specialties: {},
       // Meta
       freebie_spent: {}, description: '', notes: '',
       attr_priority: ['Physical', 'Social', 'Mental'],
@@ -7209,6 +7212,7 @@ const Creator = {
     this._syncWonderBackground();
     this.editId = char.id;
     if (!this.char.custom_ability_names) this.char.custom_ability_names = {};
+    PrismUI.ensure(this.char);
     // Ensure numina is always a plain object (server returns parsed JSON; arrays/null would break dot writes)
     if (!this.char.numina || typeof this.char.numina !== 'object' || Array.isArray(this.char.numina)) {
       this.char.numina = {};
@@ -7443,8 +7447,12 @@ const Creator = {
       const rem  = Math.max(0, M20.CREATION.backgroundDots - used);
       if (rem > 0) issues.push(`${rem} background point${rem !== 1 ? 's' : ''} unspent`);
     } else if (step === 4) {
-      if (!c.paradigm?.trim()) issues.push('Paradigm not set');
-      if (!(c.practices?.length)) issues.push('Practice not set');
+      if (PrismUI.isPrism(c)) {
+        issues.push(...PrismUI.issues(c).errors);
+      } else {
+        if (!c.paradigm?.trim()) issues.push('Paradigm not set');
+        if (!(c.practices?.length)) issues.push('Practice not set');
+      }
     } else if (step === 5) {
       const lb5 = this._lockedBaselines;
       const rawSph  = Object.values(c.spheres).reduce((s, v) => s + v, 0);
@@ -7510,6 +7518,8 @@ const Creator = {
     if (sphCost)   lines.push({ label: 'Spheres',      cost: sphCost });
     const resCost = this.calcResonanceFreebies();
     if (resCost)   lines.push({ label: 'Resonance',    cost: resCost });
+    const pracCost = PrismUI.freebieCost(c);
+    if (pracCost)  lines.push({ label: 'Practices',    cost: pracCost });
     const areteCost = Math.max(0, (c.arete || 1) - 1) * 4;
     if (areteCost) lines.push({ label: 'Arete',        cost: areteCost });
     const wpCost = Math.max(0, (c.willpower || 5) - 5);
@@ -7557,6 +7567,7 @@ const Creator = {
     const meritCost = this.calcMeritCost();
     const flawBonus = this.calcFlawBonus();
     let total = this.calcAttrFreebies() + this.calcAbilityFreebies() + this.calcBgFreebies() + this.calcSphereFreebies() + this.calcResonanceFreebies() + meritCost - flawBonus;
+    total += PrismUI.freebieCost(c);
     // Arete: each dot above 1 costs 4 freebies, minus any chronicle arete bonus
     const areteBonus = this._lockedBaselines?.areteBonus || 0;
     total += Math.max(0, (c.arete || 1) - 1 - areteBonus) * 4;
@@ -8117,6 +8128,7 @@ const Creator = {
              </div>`
         }
       </div>
+      ${this.charType === 'mortal' ? '' : PrismUI.modePickerHTML(c)}
       <div class="form-group">
         <label>Concept <span class="ref">p. 254</span>
           <span class="info-tip" data-tip="A brief phrase that captures who your character is at their core — e.g. 'Disillusioned Corporate Spy' or 'Wandering Herbalist.'">?</span>
@@ -8377,7 +8389,7 @@ const Creator = {
       const secAll  = secondaryData[cat];
       // Secondary abilities already added: any whose ID is present in c[key]
       const secAdded     = secAll.filter(a => c[key][a.id] !== undefined);
-      const secAvailable = secAll.filter(a => c[key][a.id] === undefined);
+      const secAvailable = secAll.filter(a => c[key][a.id] === undefined && !PrismUI.removedAbility(c, a.id));
 
       const rank      = pri.indexOf(cat);
       const total     = [13, 9, 5][rank] || 0;
@@ -8675,11 +8687,8 @@ const Creator = {
       ? `<div class="practice-paradigm-note" id="practice-from-paradigm-note">✦ Suggested practices for <em>${activeParadigm.name}</em> appear at the top of the list above.</div>`
       : `<div class="practice-paradigm-note" id="practice-from-paradigm-note" style="display:none"></div>`;
 
-    return `
-    ${this.stepHeader('Step Five: Focus & Practice',
-      M20.QUOTES.step5,
-      `Define your mage's <strong>Paradigm</strong> (what they believe about the nature of reality), <strong>Practice</strong> (how they work their magic), and <strong>Instruments</strong> (the tools and foci they use). <span class="page-ref">M20 p. 259</span>`)}
-
+    const prismMode = PrismUI.isPrism(c);
+    const coreFocusHTML = `
     <div class="form-group" style="margin-bottom:1.2rem">
       <label>Paradigm — "What do you believe reality is?" <span class="ref">p. 568</span></label>
       ${trad ? `<div style="font-size:0.78rem;color:var(--purple-dim);font-style:italic;margin-bottom:0.4rem">${trad.name} paradigm: "${paradigmHint}"</div>` : ''}
@@ -8713,6 +8722,18 @@ const Creator = {
       </div>
       ${practiceHintHTML}
     </div>
+    `;
+    const focusTopHTML = prismMode ? PrismUI.renderFocusSection(c) : coreFocusHTML;
+    const stepInstr = prismMode
+      ? `Build your mage's <strong>Paradigm</strong> from Tenets and rate the <strong>Practices</strong> they work magick through, then pick <strong>Instruments</strong>. <span class="page-ref">Prism of Focus p. 10, 15, 31</span>`
+      : `Define your mage's <strong>Paradigm</strong> (what they believe about the nature of reality), <strong>Practice</strong> (how they work their magic), and <strong>Instruments</strong> (the tools and foci they use). <span class="page-ref">M20 p. 259</span>`;
+
+    return `
+    ${this.stepHeader('Step Five: Focus & Practice',
+      M20.QUOTES.step5,
+      stepInstr)}
+
+    ${focusTopHTML}
 
     <div style="margin-bottom:0.6rem">
       <label>Instruments — Tools &amp; Foci <span class="ref">p. 259</span></label>
@@ -10289,6 +10310,9 @@ const Creator = {
 
     // Mortal-flow listeners (no-op when the matching DOM isn't in the current step)
     this._attachMortalListeners(content);
+    // Prism of Focus listeners (Step 0 mode picker, Step 4 focus section; no-op elsewhere)
+    PrismUI.attachStep0(content, this);
+    PrismUI.attachStep4(content, this);
 
     // Step 0 — Basic fields
     const bind = (id, field, transform) => {
@@ -10356,6 +10380,7 @@ const Creator = {
             c._chronicleRules = null;
             c.chronicle_id    = null;
             Creator._lockedBaselines = null;
+            PrismUI.refreshPicker(c);
           }
           return;
         }
@@ -10375,6 +10400,7 @@ const Creator = {
             Creator._lockedBaselines = null; // force recompute with new rules when step 6 is entered
             // Show customization summary popup if the chronicle has any
             showChronicleWelcomeModal(result.name, c._chronicleRules);
+            PrismUI.applyChronicleMode(c, Creator);
           } else {
             joinStatus.textContent = '✗ Invalid code';
             joinStatus.className = 'join-code-status invalid';
@@ -10382,6 +10408,7 @@ const Creator = {
             c._chronicleRules    = null;
             c.chronicle_id       = null;
             Creator._lockedBaselines = null;
+            PrismUI.refreshPicker(c);
           }
         }, 400);
       });
