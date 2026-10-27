@@ -37,7 +37,7 @@ function getResend() {
 // GET /api/auth/me
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone FROM users WHERE id = ?`).get(req.session.userId);
+  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone, default_focus_mode FROM users WHERE id = ?`).get(req.session.userId);
   if (!user || !user.is_active) {
     req.session.destroy(() => {});
     return res.status(401).json({ error: 'Account not found or disabled' });
