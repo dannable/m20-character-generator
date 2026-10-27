@@ -92,7 +92,7 @@ router.get('/:id', (req, res) => {
 
     const rawMembers = db.prepare(`
       SELECT ch.id, ch.name, ch.player, ch.affiliation, ch.tradition, ch.arete, ch.user_id,
-             ch.xp_earned, ch.xp_log,
+             ch.focus_mode, ch.xp_earned, ch.xp_log,
              u.username AS owner_username
       FROM characters ch
       LEFT JOIN users u ON u.id = ch.user_id

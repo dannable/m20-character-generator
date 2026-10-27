@@ -10315,3 +10315,20 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .sheet-prism-cat { color: var(--text-faint); font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; margin-right: 0.35rem; }
 .sheet-prism-practice { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.82rem; line-height: 1.6; }
 .sheet-dots-ro { pointer-events: none; }
+
+/* Prism: Storyteller rules card, detail/member badges */
+.prism-st-modes { display: grid; gap: 0.3rem; }
+.prism-st-mode strong { color: var(--text-bright); }
+.prism-st-details { margin-top: 0.5rem; border: 1px solid var(--border-dim); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; background: var(--bg-raised); }
+.prism-st-details summary { cursor: pointer; font-size: 0.85rem; color: var(--text-mid); }
+.prism-st-grid-tools { display: flex; gap: 0.4rem; margin: 0.4rem 0; }
+.prism-st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.1rem 0.8rem; }
+.prism-st-tag { font-size: 0.7rem; color: var(--text-faint); font-style: italic; }
+.prism-st-tag.corrupted { color: var(--crimson); }
+.prism-st-tenets { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.6rem; }
+.prism-st-tenet-cat-name { font-family: var(--font-display); font-size: 0.7rem; color: var(--gold-mid); margin: 0.3rem 0 0.2rem; letter-spacing: 0.05em; }
+.prism-member-badge {
+  display: inline-block; font-size: 0.6rem; letter-spacing: 0.06em; text-transform: uppercase; vertical-align: middle;
+  padding: 0.05rem 0.4rem; border-radius: 999px; margin-left: 0.3rem; border: 1px solid var(--border-bright); color: var(--text-faint);
+}
+.prism-member-badge.mismatch { color: #e08080; border-color: rgba(192,64,64,0.5); background: var(--crimson-dim); }

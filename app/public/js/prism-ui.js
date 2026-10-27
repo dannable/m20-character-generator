@@ -413,3 +413,194 @@ const PrismUI = {
       </div>`;
   },
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Storyteller side: chronicle rules card, detail pills, welcome modal section,
+   member badges, settings default. Mirrors server/prism.js sanitizeChronicleRules.
+   ═══════════════════════════════════════════════════════════════════════════ */
+Object.assign(PrismUI, {
+  FOCUS_MODE_LABELS: { player_choice: 'Player’s choice', core: 'M20 Core only', prism: 'Prism of Focus only' },
+
+  stRulesActive(rules) {
+    const p = rules?.prism || {};
+    return (rules?.focusMode && rules.focusMode !== 'player_choice')
+      || Array.isArray(p.allowedPractices) || Array.isArray(p.allowedSpecialties) || !!p.hideCorrupted
+      || !!(p.allowedTenets && Object.keys(p.allowedTenets).length) || !!p.requireFactionSpecialty
+      || (p.bonusPracticeDots || 0) > 0 || p.enforceAbilityRequirement === false;
+  },
+
+  /* ── chronicle form card ─────────────────────────────────────────────────── */
+  stRulesCardHTML(rules) {
+    const mode = rules?.focusMode || 'player_choice';
+    const p = rules?.prism || {};
+    const allowP = Array.isArray(p.allowedPractices) ? new Set(p.allowedPractices) : null;
+    const allowS = Array.isArray(p.allowedSpecialties) ? new Set(p.allowedSpecialties) : null;
+    const allowT = p.allowedTenets || null;
+    const cb = (cls, val, label, checked, extra = '') =>
+      `<label class="chron-toggle-label chron-subfac-row"><input type="checkbox" class="${cls}" value="${val}" ${checked ? 'checked' : ''} ${extra}> ${label}</label>`;
+    const practiceBoxes = PRISM.PRACTICES.map(x => cb('prism-practice-cb', x.id, escHtml(x.name), !allowP || allowP.has(x.id))).join('');
+    const specBoxes = PRISM.SPECIALTIES.map(x => {
+      const tag = x.corrupted ? '<em class="prism-st-tag corrupted">corrupted</em>' : `<em class="prism-st-tag">${escHtml(x.faction)}</em>`;
+      return cb('prism-spec-cb', x.id, `${escHtml(x.name)} ${tag}`, !allowS || allowS.has(x.id), `data-corrupted="${x.corrupted ? 1 : 0}"`);
+    }).join('');
+    const tenetGroups = PRISM.TENET_CATEGORIES.map(cat => {
+      const list = allowT && Array.isArray(allowT[cat.id]) ? new Set(allowT[cat.id]) : null;
+      return `<div class="prism-st-tenet-cat"><div class="prism-st-tenet-cat-name">${cat.name}${cat.required ? '' : ' <span class="cw-note">(optional)</span>'}</div>
+        ${PRISM.TENETS.filter(t => t.category === cat.id).map(t => cb('prism-tenet-cb', t.id, escHtml(t.name), !list || list.has(t.id), `data-cat="${cat.id}"`)).join('')}</div>`;
+    }).join('');
+    const radio = (val, label, hint) => `
+      <label class="chron-toggle-label prism-st-mode"><input type="radio" name="prism-focus-mode" value="${val}" ${mode === val ? 'checked' : ''}> <strong>${label}</strong> <span class="cw-note">${hint}</span></label>`;
+    return `
+      <div class="chron-rules-group" id="prism-st-rules">
+        <h4 class="chron-rules-heading">Focus System
+          <span class="chron-rules-subhead">M20 Core focus, or Prism of Focus tenets and rated practices</span>
+        </h4>
+        <div class="prism-st-modes">
+          ${radio('player_choice', 'Player’s choice', 'each character picks on Step One')}
+          ${radio('core', 'M20 Core only', 'freeform Paradigm, Practice, Instruments (p. 259)')}
+          ${radio('prism', 'Prism of Focus only', 'Tenets + rated Practices (Storytellers Vault supplement)')}
+        </div>
+        <div id="prism-st-options" style="${mode === 'core' ? 'display:none' : ''}">
+          <p class="chron-rules-hint" style="margin:0.6rem 0 0.4rem">These apply to characters built in Prism mode.</p>
+          <div class="chron-rules-row" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
+            <label class="chron-toggle-label"><input type="checkbox" id="prism-st-enforce" ${p.enforceAbilityRequirement === false ? '' : 'checked'}> Enforce 2 Associated Ability dots per Practice dot <span class="cw-note">(off = warning only)</span></label>
+            <label class="chron-toggle-label"><input type="checkbox" id="prism-st-faction-spec" ${p.requireFactionSpecialty ? 'checked' : ''}> Faction members must take their faction’s specialty</label>
+            <label class="chron-toggle-label"><input type="checkbox" id="prism-st-hide-corrupted" ${p.hideCorrupted ? 'checked' : ''}> Hide corrupted practices</label>
+            <label class="chron-toggle-label">Bonus practice dots <input type="number" id="prism-st-bonus-dots" class="form-input chron-rules-num" value="${p.bonusPracticeDots || 0}" min="0" max="10" style="width:4.5rem"></label>
+          </div>
+          <details class="prism-st-details"><summary>Allowed practices <span class="cw-note" id="prism-st-practice-count">${allowP ? allowP.size + ' of ' + PRISM.PRACTICES.length : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-practice-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-practice-cb" data-on="0">None</button></div>
+            <div class="prism-st-grid">${practiceBoxes}</div></details>
+          <details class="prism-st-details"><summary>Allowed specialized and corrupted practices <span class="cw-note" id="prism-st-spec-count">${allowS ? allowS.size + ' of ' + PRISM.SPECIALTIES.length : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-spec-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-spec-cb" data-on="0">None</button></div>
+            <div class="prism-st-grid">${specBoxes}</div></details>
+          <details class="prism-st-details"><summary>Allowed tenets <span class="cw-note" id="prism-st-tenet-count">${allowT && Object.keys(allowT).length ? 'restricted' : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-tenet-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm prism-st-all" data-target="prism-tenet-cb" data-on="0">None</button></div>
+            <div class="prism-st-tenets">${tenetGroups}</div></details>
+        </div>
+      </div>`;
+  },
+
+  attachSTForm(root) {
+    const card = (root || document).querySelector('#prism-st-rules');
+    if (!card) return;
+    card.addEventListener('change', e => {
+      if (e.target.name === 'prism-focus-mode') {
+        const opts = card.querySelector('#prism-st-options');
+        if (opts) opts.style.display = e.target.value === 'core' ? 'none' : '';
+      }
+      this._updateSTCounts(card);
+    });
+    card.addEventListener('click', e => {
+      const b = e.target.closest('.prism-st-all'); if (!b) return;
+      card.querySelectorAll('.' + b.dataset.target).forEach(c => { c.checked = b.dataset.on === '1'; });
+      this._updateSTCounts(card);
+    });
+  },
+  _updateSTCounts(card) {
+    const count = (cls, el, total) => {
+      const boxes = [...card.querySelectorAll('.' + cls)];
+      const n = boxes.filter(b => b.checked).length;
+      const out = card.querySelector('#' + el); if (out) out.textContent = n === total ? 'all' : `${n} of ${total}`;
+    };
+    count('prism-practice-cb', 'prism-st-practice-count', PRISM.PRACTICES.length);
+    count('prism-spec-cb', 'prism-st-spec-count', PRISM.SPECIALTIES.length);
+    const t = [...card.querySelectorAll('.prism-tenet-cb')];
+    const tc = card.querySelector('#prism-st-tenet-count');
+    if (tc) tc.textContent = t.every(b => b.checked) ? 'all' : 'restricted';
+  },
+
+  /** Returns { focusMode, prism } for collectRules(). */
+  collectSTRules() {
+    const card = document.getElementById('prism-st-rules');
+    if (!card) return {};
+    const focusMode = card.querySelector('input[name="prism-focus-mode"]:checked')?.value || 'player_choice';
+    const checkedVals = cls => [...card.querySelectorAll('.' + cls)].filter(b => b.checked).map(b => b.value);
+    const practices = checkedVals('prism-practice-cb');
+    const specs     = checkedVals('prism-spec-cb');
+    const allowedTenets = {};
+    PRISM.TENET_CATEGORIES.forEach(cat => {
+      const boxes = [...card.querySelectorAll(`.prism-tenet-cb[data-cat="${cat.id}"]`)];
+      const on = boxes.filter(b => b.checked).map(b => b.value);
+      if (on.length !== boxes.length) allowedTenets[cat.id] = on;
+    });
+    const prism = {
+      allowedPractices:   practices.length === PRISM.PRACTICES.length ? null : practices,
+      allowedSpecialties: specs.length === PRISM.SPECIALTIES.length ? null : specs,
+      hideCorrupted:      !!card.querySelector('#prism-st-hide-corrupted')?.checked,
+      requireFactionSpecialty: !!card.querySelector('#prism-st-faction-spec')?.checked,
+      enforceAbilityRequirement: card.querySelector('#prism-st-enforce')?.checked !== false,
+      bonusPracticeDots:  parseInt(card.querySelector('#prism-st-bonus-dots')?.value, 10) || 0,
+      allowedTenets:      Object.keys(allowedTenets).length ? allowedTenets : null,
+    };
+    return { focusMode, prism };
+  },
+
+  /* ── detail page pills + welcome modal ───────────────────────────────────── */
+  _ruleLines(rules) {
+    const lines = [];
+    const mode = rules?.focusMode || 'player_choice';
+    if (mode !== 'player_choice') lines.push(['Focus system', this.FOCUS_MODE_LABELS[mode]]);
+    const p = rules?.prism || {};
+    if (mode !== 'core') {
+      if (Array.isArray(p.allowedPractices)) lines.push(['Practices', p.allowedPractices.map(id => PRISM.practiceById(id)?.name).filter(Boolean).join(', ') || 'none']);
+      if (Array.isArray(p.allowedSpecialties)) lines.push(['Specialties', p.allowedSpecialties.map(id => PRISM.specialtyById(id)?.name).filter(Boolean).join(', ') || 'none']);
+      if (p.hideCorrupted) lines.push(['Corrupted practices', 'hidden']);
+      if (p.allowedTenets) Object.entries(p.allowedTenets).forEach(([cat, ids]) => {
+        const c = PRISM.TENET_CATEGORIES.find(x => x.id === cat);
+        lines.push([`${c?.name || cat} tenets`, ids.map(id => PRISM.tenetById(id)?.name).filter(Boolean).join(', ') || 'none']);
+      });
+      if (p.requireFactionSpecialty) lines.push(['Faction specialty', 'required for faction members']);
+      if ((p.bonusPracticeDots || 0) > 0) lines.push(['Bonus practice dots', `+${p.bonusPracticeDots}`]);
+      if (p.enforceAbilityRequirement === false) lines.push(['Ability requirement', 'warning only']);
+    }
+    return lines;
+  },
+  stDetailRulesHTML(rules, sec) {
+    const lines = this._ruleLines(rules);
+    if (!lines.length) return '';
+    return sec('Focus (Prism of Focus)', lines.map(([k, v]) => `<span class="chron-dr-pill">${escHtml(k)}: ${escHtml(v)}</span>`).join(''));
+  },
+  welcomeSectionHTML(rules, section) {
+    const lines = this._ruleLines(rules);
+    if (!lines.length) return '';
+    return section('Focus System', '', lines.map(([k, v]) => `<div class="cw-item"><span class="cw-label">${escHtml(k)}:</span> <strong>${escHtml(v)}</strong></div>`).join(''));
+  },
+
+  /* ── member badge on the chronicle page ──────────────────────────────────── */
+  memberBadgeHTML(m, rules) {
+    const mode = m.focus_mode === 'prism' ? 'prism' : 'core';
+    const forced = rules?.focusMode === 'core' || rules?.focusMode === 'prism' ? rules.focusMode : null;
+    const mismatch = forced && forced !== mode;
+    const label = mode === 'prism' ? 'Prism' : 'Core';
+    return `<span class="prism-member-badge${mismatch ? ' mismatch' : ''}" title="${mismatch ? `Chronicle requires ${this.FOCUS_MODE_LABELS[forced]}; this character uses ${label}` : `Focus system: ${label}`}">${label}${mismatch ? ' ⚠' : ''}</span>`;
+  },
+
+  /* ── settings page ───────────────────────────────────────────────────────── */
+  settingsSectionHTML(data) {
+    const cur = data?.default_focus_mode === 'prism' ? 'prism' : 'core';
+    return `
+        <div class="settings-section">
+          <h3 class="settings-section-title">Default Focus System</h3>
+          <p class="settings-hint">Pre-selects the Focus System on Step One for new characters. A Chronicle that fixes the system overrides this.</p>
+          <div class="settings-row">
+            <select id="settings-focus-mode" class="form-input" style="max-width:16rem">
+              <option value="core" ${cur === 'core' ? 'selected' : ''}>M20 Core</option>
+              <option value="prism" ${cur === 'prism' ? 'selected' : ''}>Prism of Focus</option>
+            </select>
+            <button class="btn-primary" id="btn-save-focus-mode">Save</button>
+          </div>
+        </div>`;
+  },
+  attachSettings() {
+    $('#btn-save-focus-mode')?.addEventListener('click', async () => {
+      const v = $('#settings-focus-mode')?.value;
+      try {
+        const r = await fetch('/api/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ default_focus_mode: v }) });
+        if (!r.ok) throw new Error();
+        if (App.currentUser) App.currentUser.default_focus_mode = v;
+        toast('Default focus system saved.');
+      } catch { toast('Failed to save.', 'error'); }
+    });
+  },
+});

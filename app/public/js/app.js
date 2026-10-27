@@ -187,7 +187,7 @@ function showChronicleWelcomeModal(chronicleName, rules) {
   const hasPoolChange = (fp !== undefined && fp !== 15)
                      || (mc !== undefined && mc !== null)
                      || (fc !== undefined && fc !== 7);
-  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac || capEntries.length;
+  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac || capEntries.length || PrismUI.stRulesActive(rules);
   if (!hasPoolChange && !hasCustom) return;
 
   function fmtBd(bd) {
@@ -207,7 +207,7 @@ function showChronicleWelcomeModal(chronicleName, rules) {
     </div>`;
   }
 
-  let body = '';
+  let body = PrismUI.welcomeSectionHTML(rules, section);
   if (hasPoolChange) {
     let rows = '';
     if (fp !== undefined && fp !== 15) rows += `<div class="cw-item"><span class="cw-label">Freebie Points:</span> <strong>${fp}</strong> <span class="cw-note">(default 15)</span></div>`;
@@ -3861,6 +3861,8 @@ const Chronicle = {
                 <button type="button" class="btn-ghost btn-sm" id="btn-add-custom-flaw">+ Add Flaw</button>
               </div>
 
+              ${PrismUI.stRulesCardHTML(rules)}
+
               <div class="chron-rules-group">
                 <h4 class="chron-rules-heading">Allowed Factions
                   <span class="chron-rules-subhead">Restrict which affiliations characters may belong to</span>
@@ -3918,6 +3920,7 @@ const Chronicle = {
     const date = c.next_session
       ? new Date(c.next_session + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : null;
+    const detailRules = (() => { try { return typeof c.rules === 'object' ? c.rules : JSON.parse(c.rules || '{}'); } catch { return {}; } })();
     const membersHTML = c.members.length === 0
       ? `<p class="chronicle-empty-state">${isActive ? 'No characters have joined yet. Share your join code!' : 'No characters are assigned.'}</p>`
       : c.members.map(m => {
@@ -3933,7 +3936,7 @@ const Chronicle = {
           <div class="chronicle-member-row chronicle-member-clickable" data-char-id="${m.id}">
             <div class="chronicle-member-info">
               <span class="chronicle-member-name">${escHtml(m.name)}</span>
-              <span class="chronicle-member-meta">${escHtml(m.tradition || m.affiliation || '—')} · Arete ${m.arete}</span>
+              <span class="chronicle-member-meta">${escHtml(m.tradition || m.affiliation || '—')} · Arete ${m.arete} ${PrismUI.memberBadgeHTML(m, detailRules)}</span>
               ${m.owner_username ? `<span class="chronicle-member-owner">Player: ${escHtml(m.owner_username)}</span>` : ''}
             </div>
             ${xpTrack}
@@ -3948,8 +3951,6 @@ const Chronicle = {
             </div>
           </div>`;
         }).join('');
-
-    const detailRules = (() => { try { return typeof c.rules === 'object' ? c.rules : JSON.parse(c.rules || '{}'); } catch { return {}; } })();
 
     const infoRows = [
       c.setting && `<div class="chronicle-info-row"><span class="chronicle-info-label">Setting</span><span>${escHtml(c.setting)}</span></div>`,
@@ -4149,7 +4150,7 @@ const Chronicle = {
                        || (mc !== undefined && mc !== null)
                        || (fc !== undefined && fc !== 7);
     const hasContent = hasPoolChange || capPills || bds.length || cBgs.length || cAbils.length
-                    || cMerits.length || cFlaws.length || normFacDetail;
+                    || cMerits.length || cFlaws.length || normFacDetail || PrismUI.stRulesActive(rules);
     if (!hasContent) return '';
 
     const sec = (label, rows) => rows ? `
@@ -4178,6 +4179,7 @@ const Chronicle = {
       }).join('');
       html += sec('Allowed Factions', facPills);
     }
+    html += PrismUI.stDetailRulesHTML(rules, sec);
     if (cAbils.length) html += sec('Custom Abilities',
       cAbils.map(a => `<span class="chron-dr-pill">${escHtml(a.name)} <em>${abilCat[a.category]||a.category}</em></span>`).join(''));
     if (cBgs.length) html += sec('Custom Backgrounds',
@@ -4504,6 +4506,8 @@ const Chronicle = {
       btn.textContent = (allCb?.checked || picked === total) ? 'All ▾' : `${picked} selected ▾`;
     }
 
+    PrismUI.attachSTForm(document);
+
     document.querySelectorAll('.chron-faction-cb').forEach(cb => {
       cb.addEventListener('change', () => {
         const f = cb.dataset.faction;
@@ -4681,6 +4685,7 @@ const Chronicle = {
         customMerits:       rulesState.customMerits.filter(m => m.name),
         customFlaws:        rulesState.customFlaws.filter(f => f.name),
         allowedFactions,
+        ...PrismUI.collectSTRules(),
       };
     }
 
@@ -14032,6 +14037,8 @@ const Settings = {
           </div>
         </div>
 
+        ${PrismUI.settingsSectionHTML(data)}
+
         <!-- Change Password -->
         <div class="settings-section">
           <h3 class="settings-section-title">Change Password</h3>
@@ -14102,6 +14109,8 @@ const Settings = {
         toast('Timezone saved.');
       } catch { toast('Failed to save timezone.', 'error'); }
     });
+
+    PrismUI.attachSettings();
 
     // ── Obsidian settings ────────────────────────────────────────────────────
     $('#btn-save-obsidian')?.addEventListener('click', () => {
