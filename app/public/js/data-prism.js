@@ -504,7 +504,7 @@ const PRISM = {
     "id": "scientific_experimentation",
     "name": "Scientific Experimentation",
     "category": "epistemology",
-    "desc": "Science is a challenging and meticulous process, the goal of which is to pry knowledge out of the clenched fist of the Universe itself. Everything is subject to inquiry through both theoretical speculation and direct experiment. Though it helps, performing experiments personally isn’t needed to acquire scientific knowledge. Most of the time, theories and data are transmitted by teachers and books. Scientists use these tech-",
+    "desc": "Science is a challenging and meticulous process, the goal of which is to pry knowledge out of the clenched fist of the Universe itself. Everything is subject to inquiry through both theoretical speculation and direct experiment. Though it helps, performing experiments personally isn’t needed to acquire scientific knowledge. Most of the time, theories and data are transmitted by teachers and books. Scientists use these techniques to study the natural world. Mages who believe in science can push their inquiries beyond it and into the supernatural.",
     "associated": [
       "alchemy",
       "craftwork",
