@@ -1,0 +1,193 @@
+rotes-seed.json cleanup report
+================================================================
+metric                                                        before   after
+records                                                          954     955
+garbage names                                                     12       0
+rotes using Technocratic sphere names                             34      34
+  …with the Technocratic sphere missing from sphere_minimums      30       0
+  …with empty sphere_minimums                                     11       0
+hyphen breaks "xx- yy"                                            19       0
+descriptions ending in a bled citation                             5       0
+descriptions with leading stray letters                           26       0
+descriptions with trailing stray letter                           47       0
+descriptions starting mid-word (lowercase)                        30       4
+empty descriptions                                                 5       7
+descriptions ending mid-sentence                                 671     655
+flagged truncated                                                  0     655
+source_book values                                                66      62
+odd source_book (empty / fragment / "pas N" / leading "- ")       17       7
+straight apostrophes in source/source_book                         0       0
+records with seed_key                                              0     955
+
+duplicate (name,page,source) triples given ordinal keys: 0
+parser validation on non-Technocratic records (identical / different): 910 / 10
+parser differences (left untouched) (8):
+    'Sparrow’s Fall': 'Time 4, Entropy 3, Prime 2, may substitute Mind 4 or Life 3'
+    'Hands of Death': 'Life 3 or Forces 2 or both'
+    'Holdout Weapon': 'Entropy 1, either Life 1 or Matter 1, optional other spheres OR Matter 3, Prime 2'
+    'Witch’s Vengeance': 'Entropy 4 or Life 3, Time 3 or both, optional Correspondence 2'
+    'Massage Therapy': 'Life 3 or Mind 3 or both'
+    'Summon Weapon': 'Correspondence 2, Matter 1 or Matter 3, Prime 2'
+    'Checklist': 'Entropy 2 or Prime 5 “'
+    'Thunder’s Gauntlet': 'Correspondence 3, Mind 3 and either Prime 2, Forces 3 or Matter'
+names reconstructed (12):
+    '188' -> 'Trace to Source'  (p.36, Mage: The Ascension Second Edition page 190; Correspondence 3)
+    'Mage: The Ascension Second' -> 'Scry Distant Location'  (p.36, Edition page 189; Correspondence 2)
+    'Magick' -> 'Cold Water Magick'  (p.48, no source; Matter 2, Prime 2)
+    'Drug)' -> 'Prime Generation (Drug)'  (p.53, Convention Book: Progenitors (Revised) page 74; Life 3, Prime 3)
+    'DMSO (' -> 'DMSO (Dimethyl Sulfoxide)'  (p.70, Guide to the Technocracy page 212; Life 3, Matter 3, Prime 2)
+    'Chi)' -> 'Heal Self (Channel Chi)'  (p.75, Mage: The Ascension Revised page 170; Life 2)
+    'Talisman)' -> 'Enchant Object (Create Talisman)'  (p.90, Mage: The Ascension Revised page 184; Prime 4)
+    'Gauntlet)' -> 'Strengthen/Weaken Gauntlet'  (p.115, Tradition Book: Dreamspeakers (Revised) page 66; Spirit 2)
+    'Deviant)' -> 'Identify Reality Deviant'  (p.128, Convention Book: New World Order (Revised) page 87; Prime 1, Dimensional Science 2 or Life 2)
+    'Blade)' -> 'Quickened Reflexes'  (p.148, no source; Time 3)
+    '610' -> 'Petrify the Undead'  (p.175, no source; Life 5, Matter 5)
+    'Conditioning)' -> 'Remove Conditioning'  (p.195, Convention Book: Void Engineers (Revised) page 85; Mind 4, optional Prime 2)
+sources fixed (10):
+    'Luck Be a Lady Tonight': 'Fallen Tower: Las Vegas page 120' / 'Fallen Tower: Las Vegas'
+    'Nobody Dies in Vegas': 'Fallen Tower: Las Vegas page 119' / 'Fallen Tower: Las Vegas'
+    'Scry Distant Location': 'Mage: The Ascension Second Edition page 189' / 'Mage: The Ascension Second Edition'
+    'Adaptive Chemistry': 'Convention Book: Progenitors (Revised) page 72' / 'Convention Book: Progenitors (Revised)'
+    'Neon-Mail': 'Fallen Tower: Las Vegas page 119' / 'Fallen Tower: Las Vegas'
+    'Holes in the Desert': 'Fallen Tower: Las Vegas page 120' / 'Fallen Tower: Las Vegas'
+    'I Know Your Cousin': 'Fallen Tower: Las Vegas page 120' / 'Fallen Tower: Las Vegas'
+    'Holy Union': 'Mage: The Ascension page 197-199' / 'Mage: The Ascension'
+    'Warp-Spasm': 'Dead Magic 2 page 120; Dead Magic 2 page 120' / 'Dead Magic 2'
+    'Comp Me': 'Fallen Tower: Las Vegas page 119' / 'Fallen Tower: Las Vegas'
+Technocratic spheres mapped (34):
+    'DRM': 'Data 3, Prime 2, Mind 1' -> minimums {'Prime': 2, 'Mind': 1} => {'Correspondence': 3, 'Prime': 2, 'Mind': 1}
+    'Psychic Interface': 'Mind 3 or 4, Data 2, Forces 2, optional Spirit 2 instead of Data' -> minimums {'Mind': 3, 'Forces': 2} => {'Mind': 3, 'Correspondence': 2, 'Forces': 2}
+    'High-Definition': 'Data 2, Mind 2' -> minimums {'Mind': 2} => {'Correspondence': 2, 'Mind': 2}
+    'PIN Drop': 'Data 2, Forces 2, Mind 2, Time 2' -> minimums {'Forces': 2, 'Mind': 2, 'Time': 2} => {'Correspondence': 2, 'Forces': 2, 'Mind': 2, 'Time': 2}
+    "Jung's Trick": 'Mind 3, Data 2' -> minimums {'Mind': 3} => {'Mind': 3, 'Correspondence': 2}
+    'Play Back': 'Data 2, Time 2' -> minimums {'Time': 2} => {'Correspondence': 2, 'Time': 2}
+    'Scan Non-Local Universe': 'Dimensional Science 2, Correspondence 2' -> minimums {'Correspondence': 2} => {'Spirit': 2, 'Correspondence': 2}
+    'Primal Credit Rating': 'Data 3, Primal Utility 3, Entropy 2 OR Prime 3' -> minimums {'Entropy': 2} => {'Correspondence': 3, 'Prime': 3, 'Entropy': 2}
+    'Economic Warfare': 'Primal Utility 4' -> minimums {} => {'Prime': 4}
+    'Caffeine Plus': 'Life 3, Matter 2, Prime 2 OR Life 3, Time 2, Dimensional Science 1, Mind 1' -> minimums {'Life': 3, 'Matter': 2, 'Prime': 2} => {'Life': 3, 'Matter': 2, 'Prime': 2}
+    'Breach Alien Gauntlet': 'Dimensional Science 4' -> minimums {} => {'Spirit': 4}
+    'Create Horizon Realm Construct': 'Dimensional Science 5, Matter 4, Prime 4' -> minimums {'Matter': 4, 'Prime': 4} => {'Spirit': 5, 'Matter': 4, 'Prime': 4}
+    'Voidcast': 'Correspondence 4, optional Life 3 and Time 4 or 5 OR Correspondence 4, Dimensional Science 3 or Correspondence 5, Dimensional Science 5' -> minimums {'Correspondence': 4} => {'Correspondence': 4}
+    'Travel': 'Dimensional Science 3' -> minimums {} => {'Spirit': 3}
+    'Deep Universe Survival': 'Dimensional Science 5' -> minimums {} => {'Spirit': 5}
+    'Gateway Transport': 'Correspondence 5, Dimensional Science 5' -> minimums {'Correspondence': 5} => {'Correspondence': 5, 'Spirit': 5}
+    'Long-Distance Universal Travel': 'Dimensional Science 5' -> minimums {} => {'Spirit': 5}
+    'Liftoff': 'Forces 5, Matter 4, Prime 2, optional Dimensional Science 4' -> minimums {'Forces': 5, 'Matter': 4, 'Prime': 2} => {'Forces': 5, 'Matter': 4, 'Prime': 2}
+    'Universal Travel': 'Dimensional Science 3 OR Correspondence 5, Dimensional Science 4' -> minimums {} => {'Spirit': 3}
+    'Sousveillance': 'Data 1, Mind 1, optional other Spheres' -> minimums {'Mind': 1} => {'Correspondence': 1, 'Mind': 1}
+    'Genome Mapping': 'Data 3, Life 2' -> minimums {'Life': 2} => {'Correspondence': 3, 'Life': 2}
+    'Right-Click': 'Mind 3, Data 3, and often others' -> minimums {'Mind': 3} => {'Mind': 3, 'Correspondence': 3}
+    'Identify Reality Deviant': 'Prime 1, Dimensional Science 2 or Life 2' -> minimums {'Prime': 1, 'Life': 2} => {'Prime': 1, 'Spirit': 2, 'Life': 2}
+    'Internal Clock': 'Dimensional Science 1 OR Time 1' -> minimums {} => {'Spirit': 1}
+    'Dimension Bomb': 'Dimensional Science 3, optional Forces 3, Prime 2' -> minimums {'Prime': 2} => {'Spirit': 3, 'Prime': 2}
+    'Evaluate Gauntlet/Scan Locality': 'Dimensional Science 1' -> minimums {} => {'Spirit': 1}
+    'Counterintelligence': 'Prime 1, Data 1 or Mind 1' -> minimums {'Prime': 1, 'Mind': 1} => {'Prime': 1, 'Correspondence': 1, 'Mind': 1}
+    'Fortify Gauntlet': 'Dimensional Science 2' -> minimums {} => {'Spirit': 2}
+    'Quantum Interference Shielding': 'Dimensional Science 2, optional Prime 2' -> minimums {} => {'Spirit': 2}
+    'Reconstruct Gauntlet': 'Dimensional Science 4' -> minimums {} => {'Spirit': 4}
+    'LERMUization': 'Dimensional Science 5, Life 5' -> minimums {'Life': 5} => {'Spirit': 5, 'Life': 5}
+    'Fifteen Minutes': 'Data 3, Mind 2' -> minimums {'Mind': 2} => {'Correspondence': 3, 'Mind': 2}
+    'Going Viral': 'Data 4, Mind 3' -> minimums {'Mind': 3} => {'Correspondence': 4, 'Mind': 3}
+    'The Trip': 'Life 3, Mind 4, Primal Utility 3' -> minimums {'Life': 3, 'Mind': 4} => {'Life': 3, 'Mind': 4, 'Prime': 3}
+records added (1):
+    'Squaring the Circle' (Order of Reason p.88, Correspondence 2, Mind 1) split out of Adad
+bled citations stripped (5):
+    'Encode': ' Digital Web page 98'
+    'Accidental Overdose': ', Mage: The Ascension First Edition page 198'
+    'Antiquing': ' World of Darkness: Outcasts page 91'
+    'Courtesan’s Draught/Blessed Heir': ' Mage: The Ascension First Edition page 220'
+    'Behavior Modification Device': ' Tradition Book: Virtual Adepts (First Edition) page 62'
+leading stray tokens stripped (26):
+    'Encrypt': 'e '
+    'Tracking Device': 'n '
+    'Samas': 'd '
+    'Biometric Holographic Recreation': 'e '
+    'Dowsing': 'nd '
+    'Recharge Gift': 'e '
+    'Taking Poison for the Enemy': 'h '
+    'Healing Slumber': 'e '
+    'Industry': 'e '
+    'Maintain Device': 't '
+    "Shaman's Craft": 'f '
+    'Corrupt Text': 'r '
+    'Cypher Wheel': 't '
+    'Sense Connection': 'e '
+    'Current Metering': 's '
+    'Holes in the Desert': 't '
+    'Perfect Time': 'e '
+    "Walk to Too'ga": 't '
+    'Serenity of the Stone': 'l '
+    'Bubble of Reality': 'g '
+    'Secret Labyrinth': 'd '
+    'Perfect Metamorphosis': 'f '
+    'Battery Man': 'n '
+    'Strength of the Earth': 't '
+    'Horsemaster’s Bidding': 'n '
+    'Mind Rune': 'n '
+trailing stray tokens stripped (47):
+    'Ace of Diamonds': ' o'
+    "Shishipat's Favor": ' e'
+    'Waiting to Exhale': ' i'
+    'Virtual Lockpick': ' b'
+    'Area Scan': ' m'
+    'Anger in the Land': ' e'
+    'Embracing the Earth Mother': ' b'
+    'Mahu (Steam)': ' s'
+    'Ricochet': ' o'
+    'Accelerated Aging': ' d'
+    'Gift of Prana': ' p'
+    'Counter-Irritant': ' d'
+    'Turkey Basting': ' k'
+    'Pickpocket': ' e'
+    'Dash and a Pinch': ' p'
+    'Ripple Through Space': ' e'
+    'O’Doul’s Ingeniae': ' s'
+    'Psychiatric Compounds': ' n'
+    'Adder’s Tongue': ' c'
+    'Auspicious Dialogues': ' o'
+    'Temper Viasilicos': ' h'
+    'Levitation Walk': ' c'
+    'Traffic Pulse': ' s'
+    'Dialectic': ' t'
+    'Find Reality Flaws': ' d'
+    'Hallmark': ' d'
+    'Kohl Sight': ' f'
+    'Smart Drink': ' A'
+    'Shelter from the Storm': ' P'
+    'Ghost Rune': ' d'
+    'Maze of the Minotaur': ' b'
+    'Spirit Kiss)': ' o'
+    'Lull the Waking Dreamborn': ' t'
+    'War the Inner Sanctum': ' H'
+    'Clone': ' b'
+    'Mold Tree': ' t'
+    'Animal Form': ' g'
+    'Thorn Wall': ' M'
+    'LERMUization': ' A'
+    'Apathy': ' t'
+    'Branding': ' c'
+    'Comp Me': ' c'
+    'Cool Glamour': ' r'
+    'Loving Cup': ' i'
+    'Divine Aura': ' F'
+    'Fifteen Minutes': ' n'
+    'Scan Memories': ' C'
+hyphen breaks joined (11):
+    General
+    because
+    supernatural
+    Traditions
+    Distance
+    teleportation
+    immortality
+    essence
+    exceptionally
+    inanimate
+    interpreting
+hyphen breaks kept as compound (6):
+    Energy-Work
+    pre-Columbian
+    non-Enlightened
+    non-extreme
+    fury-filled
+    five-minute

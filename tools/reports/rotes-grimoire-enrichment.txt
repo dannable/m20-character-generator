@@ -1,0 +1,521 @@
+rotes-seed.json ← Enlightened-grimoire.pdf enrichment report
+================================================================
+pdf pages                                            213
+index names                                          1097
+entries parsed                                       1106
+entries not in index                                 11
+index names without a parsed entry                   5
+entries with no source line                          1
+entries with empty description                       0
+page-wide section headers dropped                    122
+section-intro lines dropped                          463
+seed records                                         955
+  matched to an entry                                955
+  description replaced (was truncated/partial)       714
+  description filled (was empty)                     7
+  unchanged (already identical or pdf empty)         232
+  start mismatch, left unchanged                     2
+  no grimoire entry                                  0
+still flagged truncated                              8
+empty descriptions                                   0
+hyphen breaks joined / kept                          32 / 11
+
+index names without a parsed entry:
+    Agama Te Sojourn
+    Coerce Spiri
+    Long-Distance Universal Travel/Puncture Reality Barrier
+    Luck of the Lotus/The Crippled Lotus
+    Midnight O
+entries not in index (headings accepted by centring + source rule):
+    'Luck of the Lotus' (pdf p.11)
+    'FIRP' (pdf p.19)
+    'Midnight Oil' (pdf p.56)
+    'Matter Pattern Disassociation' (pdf p.83)
+    'Agama Re Sojourn/Agama Te Sojourn' (pdf p.109)
+    'Long-Distance Universal Travel' (pdf p.114)
+    'Antinoise' (pdf p.141)
+    'Sulfurous Darkness' (pdf p.142)
+    'Coerce Spirit' (pdf p.155)
+    'Evaluate Gauntlet/Scan Locality' (pdf p.156)
+    'Loving Scar' (pdf p.159)
+page-wide section headers dropped:
+    p.10: Flexible Use
+    p.11: Blessings
+    p.14: Curses
+    p.18: Digital Web
+    p.21: Electronics
+    p.22: Hacking and Information
+    p.24: Upgrades
+    p.26: Espionage
+    p.27: Fate
+    p.30: Oaths
+    p.30: Prophecy
+    p.34: Scrying
+    p.38: General
+    p.40: Earth
+    p.40: Electricity
+    p.41: Fire and Heat
+    p.44: Light
+    p.45: Water and Weather
+    p.48: Meta-Magick
+    p.49: Nodes
+    p.51: Quintessence and Tass
+    p.53: Reality Manipulation
+    p.54: Resonance and Synergy
+    p.55: Sacrifice
+    p.58: Utility
+    p.60: Coordination
+    p.61: Martial Arts
+    p.63: Melee
+    p.64: Ranged
+    p.68: Diagnostics
+    p.69: Drugs and Poisons
+    p.72: Harming
+    p.74: Healing
+    p.77: Mental Health
+    p.78: Pain
+    p.80: Resurrection
+    p.80: Temporary Health
+    p.82: Alterations
+    p.85: Analysis
+    p.85: Conjuration
+    p.86: Creation
+    p.88: Destruction
+    p.89: Enhanced Objects
+    p.91: Repair and Reinforcement
+    p.93: Transmutation
+    p.100: Utility
+    p.101: Alter Distance
+    p.102: Astral Travel
+    p.103: Breaking In
+    p.104: Broadcast
+    p.106: Language
+    p.107: Realms
+    p.107: Secret Messages
+    p.110: Sleeping Land
+    p.111: Teleportation
+    p.112: Umbral Travel
+    p.116: Unusual Environments
+    p.117: Unusual Modes
+    p.120: Correspondence/Data
+    p.121: Entropy
+    p.123: Forces
+    p.125: Matter
+    p.125: Mind
+    p.127: Prime/Primal Utility
+    p.128: Spirit/Dimensional Science
+    p.129: Time
+    p.130: Complex
+    p.132: Fetters
+    p.135: Rebirth
+    p.135: Servants
+    p.138: Blending In
+    p.140: Unnoticed
+    p.141: Unseen
+    p.144: Knowledge
+    p.146: Time Manipulation
+    p.149: Warping Space
+    p.152: Basic Interactions
+    p.154: Binding
+    p.156: Perception
+    p.161: Warding
+    p.166: Alter Appearance
+    p.170: Creation
+    p.172: Metamorphosis
+    p.176: Self Improvement
+    p.182: Anger and Calm
+    p.183: Fear and Intimidation
+    p.184: Seduction
+    p.189: Animal Control
+    p.190: Attention
+    p.190: Cooperation
+    p.191: Disruption
+    p.191: Dreams
+    p.192: Illusions
+    p.192: Memory
+    p.194: Mind Control
+    p.200: Dramatic Tension
+    p.17: Computers  [in-column]
+    p.25: Divination and Fate  [in-column]
+    p.37: Elemental Magick  [in-column]
+    p.47: Energy-Work  [in-column]
+    p.57: Enhanced Combat  [in-column]
+    p.67: Healing and Harming  [in-column]
+    p.81: Inanimate Objects  [in-column]
+    p.95: Miscellaneous  [in-column]
+    p.99: Movement and  [in-column]
+    p.109: Shadowlands Travel  [in-column]
+    p.119: Mystic Perception  [in-column]
+    p.131: Necromancy  [in-column]
+    p.133: Ghosts and the  [in-column]
+    p.137: Obfuscation  [in-column]
+    p.139: Disappearing  [in-column]
+    p.143: Space-Time  [in-column]
+    p.145: Many Places  [in-column]
+    p.151: Summoning, Binding  [in-column]
+    p.157: Summoning  [in-column]
+    p.165: Transformations  [in-column]
+    p.168: Alteration  [in-column]
+    p.178: Genitals  [in-column]
+    p.181: Uncanny Influence  [in-column]
+    p.185: Other Emotions  [in-column]
+    p.192: Successes  [in-column]
+    p.199: Appendix: Expanded  [in-column]
+grimoire entries with an empty description:
+seed records still flagged truncated:
+    'Glorious Sword of Heaven' (p.44): ' city block, which almost certainly will destroy Vampires in that area'
+    'Cup of Itz' (p.55): 'te prevents the Mage from feeling the pain, preventing wound penalties'
+    'Dim Mak' (p.62): 'ding beyond the point where they should have died in order to complete'
+    'Polysorbate' (p.70): 'rtness • soulless, dead food that destroys some of their\nPrimal Energy'
+    'Sustenance Pill' (p.70): 'eed food or rest for a number of days equal to the successes they roll'
+    'Break the Dreamshell' (p.110): 'most Mages will ever encounter, being essentially unique to Australian'
+    'Ear of Dionysus' (p.124): 'd of their footfalls, what items they have on them from the sound\nLife'
+    'Alter Small Sequence' (p.168): 'person to\nonly need 4 hours of sleep to be fully rested • cause cancer'
+ambiguous names resolved (5):
+    'Burn Out': 2 entries -> pdf p.21 ['Book of Shadows page 145'] evidence=['source', 'page']
+    'Burn-Out': 2 entries -> pdf p.88 ['World of Darkness: Outcasts page 91'] evidence=['source', 'spheres', 'spheres', 'page', 'text']
+    'Back to the Earth': 2 entries -> pdf p.93 ['Hidden Lore page 51'] evidence=['source', 'page']
+    'Danse Macabre': 2 entries -> pdf p.121 ['Order of Reason page 69'] evidence=['source', 'spheres', 'spheres', 'page', 'text']
+    'Danse Macabre': 2 entries -> pdf p.132 ['World of Darkness: Outcasts page 91'] evidence=['source', 'spheres', 'spheres', 'page', 'text']
+description start does not match and no other evidence (left unchanged) (2):
+    'Dim Mak' (seed p.62, pdf p.121)
+      seed: 'One of the most famous applications of Do, this rote allows the Akashic using it to keep s'
+      pdf : 'An Akashic technique for detecting the weak points in objects and people, similar to Locat'
+    'Break the Dreamshell' (seed p.110, pdf p.113)
+      seed: 'Sleeping Sleeping Lands are not places that most Mages will ever encounter, being essentia'
+      pdf : 'A Master of Spirit can finally step beyond the Horizon, leaving the part of the Umbra that'
+fuzzy name matches (1):
+    'Chain of Whispers 3' ~ 'Chain of Whispers'
+matched by page + source (seed name differs) (10):
+    'Trace to Source' -> 'Stalking the Void' (pdf p.36)
+    'Scry Distant Location' -> 'Open/Close Window' (pdf p.36)
+    'Prime Generation (Drug)' -> 'Primal Infusion' (pdf p.52)
+    'Enchant Object (Create Talisman)' -> 'Create Talismans and Artifacts' (pdf p.90)
+    'Telekinetic Control)' -> 'Telekinesis' (pdf p.98)
+    'Travel' -> 'Breach Gauntlet Undetectably' (pdf p.112)
+    'Strengthen/Weaken Gauntlet' -> 'Moving the World Walls' (pdf p.115)
+    'Identify Reality Deviant' -> 'Detect Reality Deviation' (pdf p.127)
+    'Spirit Kiss)' -> "The Spirit's Caress" (pdf p.153)
+    'Remove Conditioning' -> 'Deprocessing' (pdf p.195)
+matched by page + spheres+text (seed name differs) (4):
+    'Cold Water Magick' -> "Cold Water's Blessing" (pdf p.48)
+    'Travel' -> 'Astral Projection' (pdf p.102)
+    'Quickened Reflexes' -> 'St. Vitus’s Kiss' (pdf p.148)
+    'Petrify the Undead' -> 'The Notorious Vampiric Lawn Chair' (pdf p.175)
+seed description was wrong text (replaced; identity confirmed by page) (32):
+    'The Hand of the Siphoner'
+      seed: 'A suicide maneuver that is rarely used, the Euthanatos pulls all the Quintessence they can'
+      pdf : 'By touching the physical object tied to a Node, the Mage can draw Quintessence from it at '
+    'Balancing the Furies'
+      seed: 'The Master of Prime can invest Quintessence into an object, doing so with great care and a'
+      pdf : 'This allows the Akashic to temporarily change the Mage’s Resonance, or at Prime 5, pass it'
+    'Screech of the Owl'
+      seed: 'Akashics can use Do to defend against multiple opponents at a time, and make it look like '
+      pdf : 'Required Do Maneuver: Kiai\nOften, an Akashic prefers to avoid battle. With this technique,'
+    'Holdout Weapon'
+      seed: 'Like Cynical Eye. Splitting the Cuirass allows the user to find flaws in armor, with Life '
+      pdf : 'With this Procedure, an Agent can materialize a small, easily concealed weapon, particular'
+    'Tolerance'
+      seed: 'The subject is first made immune to a poison, and then their biochemistry is altered so th'
+      pdf : 'This rote allows a Cultist to regain control of themselves despite whatever methods they’v'
+    'Destructive Genegineering'
+      seed: 'Subtle versions of this effect can cause old wounds to reopen, the target to fall victim t'
+      pdf : 'Quick and dirty genetic engineering allows the Progenitor to inflict the target with genet'
+    'Heal Simple Creature'
+      seed: 'This rote has identical effects to Rapid Healing but can be used on a patient in the Mage’'
+      pdf : 'The Mage can repair virtually any injury or disease in a simple life form, which covers al'
+    'Apportation'
+      seed: 'Just as Alloy mixes two substances, Transformers allows the Mage to combine two devices in'
+      pdf : 'Allows the Mage to pull a small object to their location from elsewhere.'
+    'Chainbreaker Rune'
+      seed: 'By careful examination of a broken machine, an Etherite may determine exactly what needs t'
+      pdf : 'The most basic level allows the Mage to detect weaknesses in any sort of physical binding.'
+    'Create Fetish'
+      seed: 'The most basic level allows the Mage to detect weaknesses in any sort of physical binding.'
+      pdf : 'The Mage can bind spirits to objects to give access to some of the spirit’s powers to the '
+    'Like Clockwork'
+      seed: 'Effects an extreme hardening of an object to make it harder to break. At Matter 3, it beco'
+      pdf : 'The Mage protects an object from Entropy and decay, allowing it to run perfectly for years'
+    'Maintain Device'
+      seed: 'Converts a nonliving and nonmagical object into a c tattoo on the Mage’s body at the cost '
+      pdf : 'Allows the Mage to refuel a Device with new quintessence from a Node.'
+    'Seeds of Gold'
+      seed: 'The Mage protects an object from Entropy and decay, allowing it to run perfectly for years'
+      pdf : 'Through the alchemical skill of the Children of Knowledge, they can sprinkle a simple vers'
+    'Simple Transmutation'
+      seed: 'This rote refines objects to their idealized states. Stone becomes crystal, glass becomes '
+      pdf : 'Allows the mage to transform one pure substance into another.'
+    'Unleash Nanotech Destruction'
+      seed: 'This rote creates a storm over a battlefield. The storm specifically makes it impossible t'
+      pdf : 'A kill-switch included in every DEI, if an Iterator with a DEI defects, they can be remote'
+    'Unseen Arm'
+      seed: 'Using tricks of the light, the Ahl-i-Batin can alter the target’s shadow. Mind is used to '
+      pdf : 'The Mage can directly alter kinetic energy, creating arbitrary amounts from nothing, or de'
+    'Cypher Wheel'
+      seed: 'One of the most basic and useful Nephandic tricks is this mystical form of gaslighting. Th'
+      pdf : 'The High Guild and the Ksirafai especially, but the Order of Reason as a whole, has a need'
+    'Breach Gauntlet Undetectably'
+      seed: 'This effect allows the Mage to travel from one place to another. The Correspondence 4 vers'
+      pdf : 'At a cost of requiring two more successes than Stepping Sideways, a Void Engineer can diss'
+    'Levitation Walk'
+      seed: 'With a barrel made of iron and glass, it becomes v airtight and allows a clear view of its'
+      pdf : 'This allows the Wu Lung to levitate and move as quickly as if they were in the Umbra.'
+    'Time Travel'
+      seed: 'Rather than attempting “true” time travel, some Etherites have developed a technique for t'
+      pdf : 'The Master of Time who performs this effect just disappears from where they are and appear'
+    'Protection Song'
+      seed: 'This Procedure uses chemical pheromones and ultrasonic vibrations to repel lower lifeforms'
+      pdf : 'This rote combines Ward and Energy Shield and with Spirit, extends to the Umbra as well.'
+    'Repel the Hungry Dead'
+      seed: 'This sets a device or warding or other long-term and permanent effects to only work or to '
+      pdf : 'This creates a spiritual barrier around the Wu Lung that prevents possession.'
+    'Zisurru'
+      seed: 'A powerful Wu Lung alchemical technique, it creates either a circle of blades or an ultra-'
+      pdf : 'The original ward against demons, from which most Hermetic warding is descended, it create'
+    'Genetic Mastery'
+      seed: 'By warping space in dramatic ways, the Mage is capable to shrinking, and dramatically so. '
+      pdf : 'With complete mastery of genetics, a Genegineer at this level can create virtually any cre'
+    "Circe's Enchantment"
+      seed: 'Used by a Master who knows that they are about to die, this ties the Mage’s avatar to thei'
+      pdf : 'This rote allows a Verbena to transform a human into an animal. Five successes are require'
+    'The Weeping Willow'
+      seed: 'While true sharks are considered good luck by Polynesian Mages, the Rokea are considered s'
+      pdf : 'This allows a Sister of Hippolyta to transform a woman, often one who has run out of optio'
+    'Wolf Form'
+      seed: "Powerful mages of the Bata'a can shapeshift, taking the forms of animals. With Life 4, it "
+      pdf : 'As the Mutate Form effect, the Mage transforms into a wolf. Thanks to the Mind sphere, the'
+    'Loving Cup'
+      seed: 'Hermetics use this rote to imbue an object with a near t irresistible pull. The weaker ver'
+      pdf : 'By sharing a drink with the target, the Mage can influence the target’s emotional state. L'
+    'Subtle Persuasion'
+      seed: 'Through a well-timed look or saying just the right word, a Syndicate agent can create an i'
+      pdf : 'Related to the Craft Tome effect, but rather than conveying a hidden meaning only to those'
+    'The Trip'
+      seed: 'Targets of this procedure work harder than they’ve d ever worked before. Successes are spe'
+      pdf : 'The Cultist can use this rote to seize control of a target’s mind and cause them to relive'
+    'Plausible Denial'
+      seed: 'With this rote, a Virtual Adept can project a holograph of themselves. Forces creates the '
+      pdf : 'The New World Order Agent can use this Procedure to induce memory blackouts in a target, f'
+    'Hypernarrative Influence'
+      seed: 'This rote is used to shock a target (see Discharge Static) whenever they think a certain t'
+      pdf : 'An effective agent who understands common narratives in pop culture can take advantage of '
+seed description was wrong text (replaced; identity confirmed by page/source) (11):
+    'Burn Out'
+      seed: 'Pulling up a readout window, the Digital Web user has a running basic analysis and scan of'
+      pdf : 'This rote lets the Mage fry circuitry by directing electricity at its weakest point, disab'
+    'Awaken the Sleeping Earth'
+      seed: 'It is not an exaggeration to call Parma Magica the greatest accomplishment of Bonisagus hi'
+      pdf : 'When a Mage finds a Node that is dormant, they can tap it. This rote opens a channel into '
+    'Sustenance Pill'
+      seed: 'Life kills any parasites that might be in food, Matter purifies it and improves the taste.'
+      pdf : 'A Technocrat properly prepared can take one of these pills and not need food or rest for a'
+    'Blight of Aging'
+      seed: 'Creates a deadly poison that the Mage can then attempt to get into their target. Other sph'
+      pdf : 'Subtle versions of this effect can cause old wounds to reopen, the target to fall victim t'
+    'Caffeine Plus'
+      seed: 'The Wound-Proof Shirt. This ritual creates a shirt that is an extremely potent defense. Th'
+      pdf : 'Through the Synthetic Ritual technique (see Guide to the Technocracy page 211), a Progenit'
+    'Back to the Earth'
+      seed: 'This effect reverses the refinement of artificial materials, reducing them to their raw ma'
+      pdf : 'Vulgar enough that few non-Marauders would try it, this rote transforms inorganic matter i'
+    'Universal Travel'
+      seed: 'A team of Void Engineers mark the boundaries of an area that they will use to simulate spa'
+      pdf : 'This allows a Void Engineer to survive traveling in the Umbra.'
+    'Field of Yin'
+      seed: 'A male Wu-Keng can disguise himself as a woman h perfectly, either by destroying the idea '
+      pdf : 'A male Wu-Keng can disguise himself as a woman perfectly, either by destroying the idea th'
+    'Ward'
+      seed: 'The effect protects the Mage’s things, so that no one can tamper with them. It prevents an'
+      pdf : 'A Ward prevents others from being to form connections to the protected location. With conj'
+    'Rat’s Rage/Lost Cousin'
+      seed: "This rote allows a Bata'a to intimidate a target. With Mind, it acts as Subliminal Impulse"
+      pdf : 'By tagging a target with a “scent”, the Technocrat can cause a group to either turn on a s'
+    'Horsemaster’s Bidding'
+      seed: 'The witchwind is summoned by tying thirteen knots w into a rope, submerging it in the bloo'
+      pdf : 'This rote allows the Mage to force a horse to do what they want. In the case of something '
+seed description was wrong text (replaced; identity confirmed by page/source/spheres) (56):
+    'Blight/Farmer’s Favor'
+      seed: 'some way, to cause circumstances to work out, often in improbably ways, to bring about the'
+      pdf : 'This rote can be used to affect the state of crops or stored food. Life 3 and Time 3 accel'
+    "Shishipat's Favor"
+      seed: 'By eating goose boiled in caribou fat, the Mage g ensures that the subject will have a suc'
+      pdf : 'By eating goose boiled in caribou fat, the Mage ensures that the subject will have a succe'
+    'Encrypt'
+      seed: 'This rote scrambles a person’s (or computer’s) y memory so that if coercion is used to try'
+      pdf : 'This rote scrambles a person’s (or computer’s) memory so that if coercion is used to try t'
+    'Personal Assistant Software'
+      seed: 'This rote compresses time insight the computer and makes many, many educated guesses about'
+      pdf : 'This procedure creates a digital smartphone assistant based on the Technocrat’s personalit'
+    'Virtual Lockpick'
+      seed: 'Upgra No one wants to work with an obsolete machine, and if you’re a Mage, you often don’t'
+      pdf : 'This rote compresses time insight the computer and makes many, many educated guesses about'
+    'Telescreen'
+      seed: 'The New World Order is quite adept at watching n people through their television screens. '
+      pdf : 'The New World Order is quite adept at watching people through their television screens. Wi'
+    'Search Engine'
+      seed: '. This rote puts the Virtual Adept in touch with l someone who matches their needs, or som'
+      pdf : 'This rote puts the Virtual Adept in touch with someone who matches their needs, or someone'
+    'Biometric Holographic Recreation'
+      seed: 'With a half hour spent scanning and detailed g investigation of the scene of an incident, '
+      pdf : 'With a half hour spent scanning and detailed investigation of the scene of an incident, th'
+    'Anger in the Land'
+      seed: 'This rote allows a Kopa Loei to summon forth an element in question. Matter is needed for '
+      pdf : 'elemental by chanting near a large volume of the element in question. Matter is needed for'
+    'Banish Elemental'
+      seed: 'This chapter is divided by element, starting with General which works with multiple elemen'
+      pdf : 'This rote is a direct attack that only works against elemental spirits. It deals aggravate'
+    'No Surrender'
+      seed: 'A last-ditch rite to prevent any group of Sisters of Hippolyta from being conquered, this '
+      pdf : 'Hippolyta from being conquered, this unleashes earthquakes, firestorms, plagues or explosi'
+    'Dowsing'
+      seed: 'Weather , With Dowsing, nothing is hidden from the Mage. n When searching for a substance,'
+      pdf : 'With Dowsing, nothing is hidden from the Mage. When searching for a substance, particularl'
+    'Delay Paradox'
+      seed: 'With this procedure, Technocratic Devices can be recharged, infusing Primal Energy into th'
+      pdf : 'The Taftani tend to accrue large amounts of paradox. Their very survival has depended on b'
+    'Recharge Device'
+      seed: 'Reality M Some of the most powerful applications of Energy-Work call under Reality Manipul'
+      pdf : 'With this procedure, Technocratic Devices can be recharged, infusing Primal Energy into th'
+    'Wearing the Bear Shirt'
+      seed: 'Coordin Nothing succeeds in combat like a group of people working together as a single uni'
+      pdf : 'Also known as berserking, this makes the Mage terrifying in battle. The Mage channels the '
+    'Righteous Fist'
+      seed: 'There is a certain magick in a blade, that the most skilled users can tap into. Other mele'
+      pdf : 'Akashics of the Hsien Chuan and Lohan Chuan schools can set the injury from a blow to trig'
+    'Conclave Wellness Works'
+      seed: 'In this chapter, we cover rotes for Diagnostics, because a problem must be identified befo'
+      pdf : 'At the start of a season, the Sisters of Hippolyta burn incense and sing to welcome it in '
+    'Gilgul'
+      seed: '3, Correspondence 5 Gilgul is the most severe punishment that the Traditions have ever des'
+      pdf : 'Gilgul is the most severe punishment that the Traditions have ever designed. It is nothing'
+    'Trauma'
+      seed: 'Mental In the World of Darkness, there are many things that it’s bad to even get a good lo'
+      pdf : 'A Cosian technique for emergency medicine, if the Mage can get to the injured party quickl'
+    'Branding the Heart'
+      seed: 'Uses a cold branding iron to give the target the c sensation of being branded, including t'
+      pdf : 'Uses a cold branding iron to give the target the sensation of being branded, including the'
+    'Stop-Gap Resurrection'
+      seed: 'Temporar There is a limit on how healthy a person can actually a be, to how much damage th'
+      pdf : 'Once, for one minute per success, this procedure can restore the dead (temporarily) to lif'
+    'Evaluation'
+      seed: 'Conju object than there should be both constitute conjuration. This area can often be mist'
+      pdf : 'This gives the Void Engineer detailed information about a physical object within line of s'
+    'Watchdog'
+      seed: '1 Stating a trigger for the effect at casting, an object is imbued with the ability to do '
+      pdf : 'Stating a trigger for the effect at casting, an object is imbued with the ability to do on'
+    'Bambolai'
+      seed: 'With this, a Cultist can make a drug more intense. u With Spirit, the spirit of the drug i'
+      pdf : 'With this, a Cultist can make a drug more intense. With Spirit, the spirit of the drug is '
+    'Consecration'
+      seed: 'This chapter contains Utility rotes, which are helpful for many different sorts of travel,'
+      pdf : 'The Mage can attune an objects Pattern to their own, making them count as the same for man'
+    'Safecracker'
+      seed: 'The Mage randomly twists the dial on a lock and s manages to unlock it. For each success, '
+      pdf : 'The Mage randomly twists the dial on a lock and manages to unlock it. For each success, th'
+    'Dreamline'
+      seed: '3, Spirit 2 There is a bond that all Cultists share. With this rote, a Mage can reach thro'
+      pdf : 'There is a bond that all Cultists share. With this rote, a Mage can reach through this bon'
+    'Thief in the Night'
+      seed: 'Broad Sometimes, a Mage needs to get a message out NOW. Broadcast rotes do this, passing a'
+      pdf : 'The Knights Templar developed this effect to defeat electronic alarm systems. It allows th'
+    'Temper Viasilicos'
+      seed: 'This allows the Mage to use a Viasilicos, a m geometrically perfect crystal created by the'
+      pdf : 'This allows the Mage to use a Viasilicos, a geometrically perfect crystal created by the O'
+    'Thunder’s Gauntlet'
+      seed: '3 or Life 3 Originating in House Tytalus, this ancient Hermetic rote allows the Mage to is'
+      pdf : 'Originating in House Tytalus, this ancient Hermetic rote allows the Mage to issue a Certam'
+    'Corrupt Text'
+      seed: 'Two related rotes from an obscure Hermetic House, r Tower of Babel inserts chaos into spee'
+      pdf : 'Weavers are paranoid about their knowledge ever falling into the hands of their enemies. T'
+    'Tower of Babel/Speak in Tongues'
+      seed: 'Rea Only the most powerful of Mages ever need to worry about creating Realms, but those th'
+      pdf : 'Two related rotes from an obscure Hermetic House, Tower of Babel inserts chaos into speech'
+    'Songline Walking'
+      seed: 'Telepo One of the great classic magickal abilities, teleportation effects transmit a perso'
+      pdf : 'This allows the Mage to detect and follow the path of a Songline that they have been intro'
+    'Current Metering'
+      seed: 'The Technocrat has access to substantial r infrastructure. This access allows them to dete'
+      pdf : 'The Technocrat has access to substantial infrastructure. This access allows them to determ'
+    'Kohl Sight'
+      seed: 'By using kohl (a thick, black powder) around their C eyes, the Taftani can see things they'
+      pdf : 'By using kohl (a thick, black powder) around their eyes, the Taftani can see things they n'
+    'Summon Volva'
+      seed: 'This rote is identical to the Ghost Rune. Mages often have a need to hide things. Obfuscat'
+      pdf : 'This rote is identical to the Ghost Rune.'
+    'Move Along'
+      seed: 'With this rote, the Tradition Mage seems like a harmless eccentric, causing others to fear'
+      pdf : 'By stationing Agents at the perimeter of an are they want quarantined, the New World Order'
+    'Shield'
+      seed: 'Unnot It is relatively easy for a Mage to ensure that they are seen, but not really notice'
+      pdf : 'Creates a mental shield which defends against Mind magick.'
+    'Bubble of Reality'
+      seed: 'Space n A Mage with the appropriate knowledge can create a s pocket dimension, trapping an'
+      pdf : 'A Mage with the appropriate knowledge can create a pocket dimension, trapping an object or'
+    'Maze of the Minotaur'
+      seed: 'A craftsman can build a maze so complex that it a causes anyone inside it to lose their se'
+      pdf : 'A craftsman can build a maze so complex that it causes anyone inside it to lose their sens'
+    'Spirit Slaying'
+      seed: 'A Dreamspeaker can infuse a weapon with prime cause serious harm to attacked spirits.'
+      pdf : 'A Dreamspeaker can infuse a weapon with prime\nenergy so that it can strike through the Gau'
+    'Lull the Waking Dreamborn'
+      seed: 'Perce Before interacting directly with spirits, a Mage must M be able to perceive them. Be'
+      pdf : 'This long ritual is used by Aboriginal Australians to lull a spirit into slumber. The ritu'
+    'Clone'
+      seed: 'The FACADE Engineer can replicate a human or s animal given a tissue sample. No alteration'
+      pdf : 'The FACADE Engineer can replicate a human or animal given a tissue sample. No alterations '
+    'Courtesan’s Draught/Blessed Heir'
+      seed: 'Life 2 for self, 3 for others, this rote allows the user to control the target’s fertility'
+      pdf : 'control the target’s fertility, either increasing or decreasing it. Correspondence can be '
+    'Thorn Wall'
+      seed: 'Metamor This section contains the full-scale transformations of d a human being into somet'
+      pdf : 'A traditional Verbena rote that is vulgar almost everywhere on Earth, the Verbena clasps a'
+    'Perfect Metamorphosis'
+      seed: 'The Mage is now able to transform into an animal e without risk of losing their mind. Addi'
+      pdf : 'The Mage is now able to transform into an animal without risk of losing their mind. Additi'
+    'Strength of the Earth'
+      seed: 'By drawing on the Earth itself as a source, the s Verbena can increase their Strength, one'
+      pdf : 'By drawing on the Earth itself as a source, the Verbena can increase their Strength, one d'
+    'Olive Branch'
+      seed: 'Other Emotions can all be instilled directly. Beyond that, Animal Control can be performed'
+      pdf : 'This rote allows the user to act as a calmer head and try to prevent a fight from breaking'
+    'Cool Glamour'
+      seed: 'Hollow Ones often put a lot of work into their a appearance. With this rote, when they do '
+      pdf : 'Hollow Ones often put a lot of work into their appearance. With this rote, when they do so'
+    'Empathic Projection'
+      seed: 'The Mage can project an emotion into a target, t forcing them to feel it with an intensity'
+      pdf : 'The Mage can project an emotion into a target, forcing them to feel it with an intensity p'
+    'Gatha'
+      seed: 'An Akashic poet can weave emotion into every g character of the work. The writer chooses a'
+      pdf : 'An Akashic poet can weave emotion into every character of the work. The writer chooses an '
+    'Fifteen Minutes'
+      seed: 'Cooper Mages, but particularly the Syndicate, can smooth out S difficulties and ensure tha'
+      pdf : 'The Agent chooses a target and temporarily gives them Fame for the duration, at one day pe'
+    'Downward Spiral'
+      seed: 'Dre Oneiromancy is the magick of manipulating and interpreting dreams. Some Mages speciali'
+      pdf : 'Reserved for their reviled enemies, this rote inserts a phrase into the target’s mind. Thi'
+    'Behavior Modification Device'
+      seed: 'ons'
+      pdf : 'This Procedure allows the Void Engineers to alter and delete selected memories in the subj'
+    'Mind Rune'
+      seed: 'With the Mind Rune, a Mage can take control of a another person’s mind, as with Possession'
+      pdf : 'With the Mind Rune, a Mage can take control of another person’s mind, as with Possession o'
+    'Processing'
+      seed: 'Using extreme situations: loud music, straps, c holographic projectors, acupuncture needle'
+      pdf : 'Using extreme situations: loud music, straps, holographic projectors, acupuncture needles,'
+seed description was wrong text (replaced; identity confirmed by page/spheres) (4):
+    'Secret Rune'
+      seed: 'A Master can read Fate carefully enough that they can request that Fate give an individual'
+      pdf : 'The Mage uses this rune when sharing a secret with a trusted person. The trusted person sw'
+    'Manipulate Time Fragment'
+      seed: 'The Mage can investigate the past or future, with successes spent on both the duration of '
+      pdf : 'With the proper apparatus, a Void Engineer Chrononaut can see ten minutes into the future '
+    'Orgone Accumulator'
+      seed: 'This allows the Akashic to temporarily change the Mage’s Resonance, or at Prime 5, pass it'
+      pdf : 'Some Etherites work with the Odyllic Force, stored as Orgone, a representation of the emot'
+    'Holes in the Desert'
+      seed: 'With this rote, a Mage can detect if something is e “different” underneath a desert’s sand'
+      pdf : 'With this rote, a Mage can detect if something is “different” underneath a desert’s sand. '
+seed description was wrong text (replaced; identity confirmed by source) (1):
+    'Melt and Reform'
+      seed: 'The weaker version directly changes the state of Matter for the duration of the effect. Th'
+      pdf : 'The Mage can transform an object into an easier to modify form, such as stone into clay.'

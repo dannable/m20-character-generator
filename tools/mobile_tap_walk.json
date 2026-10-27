@@ -1,0 +1,94 @@
+[
+ {
+  "name": "00_login",
+  "url": "http://127.0.0.1:8009/",
+  "js": "Auth.enterAsGuest().then(()=>App.currentUser&&App.currentUser.username)",
+  "wait": 3500
+ },
+ {
+  "name": "01_new",
+  "js": "(()=>{window.__tap=s=>{const el=typeof s==='string'?document.querySelector(s):s;if(!el)return 'MISSING '+s;el.click();return 'ok';};window.__set=(s,v)=>{const el=document.querySelector(s);if(!el)return 'MISSING '+s;el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return 'ok';};window.__issues=()=>Creator.getStepIncomplete(Creator.step).join('; ')||'complete';window.__fill=(rows,pts,max,base=0)=>{let rem=pts;for(const row of rows){if(rem<=0)break;const n=Math.min(max,rem);const d=row.querySelector('.dot[data-val=\"'+(base+n)+'\"]');if(!d)continue;d.click();rem-=n;}return rem;};App.newCharacterOfType('awakened');return 'step='+Creator.step;})()",
+  "wait": 1500,
+  "maxHeight": 300
+ },
+ {
+  "name": "02_concept_fill",
+  "js": "(()=>{const r=[];r.push(__set('#f-name','Tap Walk'));r.push(__set('#f-concept','Street witch'));r.push(__tap('.affil-tab[data-affil=\"Technocracy\"]'));const vis=getComputedStyle(document.querySelector('#tradition-panel-Technocracy')).display;r.push('techPanel='+vis);r.push(__tap('#tradition-panel-Technocracy .tradition-card .trad-expand'));r.push('expanded='+document.querySelector('#tradition-panel-Technocracy .tradition-card').classList.contains('expanded')+' descShown='+getComputedStyle(document.querySelector('#tradition-panel-Technocracy .tradition-card .trad-desc')).display);r.push(__tap('.affil-tab[data-affil=\"Traditions\"]'));r.push(__tap('.tradition-card[data-tradition=\"Verbena\"]'));r.push(__tap('.essence-card[data-essence=\"Dynamic\"] .trad-expand'));r.push(__tap('.essence-card[data-essence=\"Dynamic\"]'));r.push(__tap('.archetype-card[data-archetype=\"Activist\"]'));r.push('archExpanded='+document.querySelector('.archetype-card[data-archetype=\"Activist\"]').classList.contains('expanded'));r.push(__tap('.archetype-nd-btn.nd-n[data-archetype=\"Activist\"]'));r.push(__tap('.archetype-nd-btn.nd-d[data-archetype=\"Architect\"]'));r.push('trad='+Creator.char.tradition+'/'+Creator.char.affiliation+' ess='+Creator.char.essence+' N='+Creator.char.nature+' D='+Creator.char.demeanor);r.push('issues: '+__issues());return r.join(' | ');})()",
+  "maxHeight": 2400
+ },
+ {
+  "name": "03_to_attributes",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1800
+ },
+ {
+  "name": "04_attr_swap_tap",
+  "js": "(()=>{const r=[];r.push(__tap('.priority-chip[data-cat=\"Mental\"]'));r.push('armed='+!!document.querySelector('.priority-chip.armed')+' targets='+document.querySelectorAll('.priority-tier-label.tap-target').length);r.push(__tap('.priority-tier-label[data-tier=\"0\"]'));r.push('pri='+Creator.char.attr_priority.join(','));r.push('fp='+document.querySelector('#freebie-display').textContent);return r.join(' | ');})()",
+  "maxHeight": 900
+ },
+ {
+  "name": "05_attr_dots",
+  "js": "(()=>{const row=id=>document.querySelector('.attr-row[data-attr-id=\"'+id+'\"]');const rem=[__fill(['perception','intelligence','wits'].map(row),7,4,1),__fill(['charisma','manipulation','appearance'].map(row),5,3,1),__fill(['strength','dexterity','stamina'].map(row),3,2,1)];return 'unfilled='+rem.join(',')+' | issues: '+__issues()+' | fp='+document.querySelector('#freebie-display').textContent;})()",
+  "maxHeight": 1800
+ },
+ {
+  "name": "06_to_abilities",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1200
+ },
+ {
+  "name": "07_abil_swap_chip_chip",
+  "js": "(()=>{const r=[];r.push(__tap('.priority-chip[data-cat=\"Talents\"]'));r.push(__tap('.priority-chip[data-cat=\"Knowledges\"]'));r.push('pri='+Creator.char.ability_priority.join(','));r.push('select-visible='+getComputedStyle(document.querySelector('.priority-select')).display);r.push(__set('.priority-select[data-cat=\"Skills\"]','0'));r.push('pri='+Creator.char.ability_priority.join(','));return r.join(' | ');})()",
+  "maxHeight": 900
+ },
+ {
+  "name": "08_abil_dots",
+  "js": "(()=>{const rows=k=>[...document.querySelectorAll('.attr-row[data-category=\"'+k+'\"]:not(.secondary-ability-row)')];const rem=[__fill(rows('skills'),13,3),__fill(rows('knowledges'),9,3),__fill(rows('talents'),5,3)];return 'unfilled='+rem.join(',')+' | issues: '+__issues()+' | fp='+document.querySelector('#freebie-display').textContent;})()",
+  "maxHeight": 2600
+ },
+ {
+  "name": "09_to_advantages",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1200
+ },
+ {
+  "name": "10_bg_dots",
+  "js": "(()=>{const rows=[...document.querySelectorAll('.attr-row[data-bg]')];return 'unfilled='+__fill(rows,7,3)+' | issues: '+__issues();})()",
+  "maxHeight": 1200
+ },
+ {
+  "name": "11_to_focus",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1200
+ },
+ {
+  "name": "12_focus",
+  "js": "(()=>{const r=[];const ps=document.querySelector('#f-paradigm-select');const pv=[...ps.options].map(o=>o.value).find(v=>v&&v!=='custom');r.push(__set('#f-paradigm-select',pv));const pr=document.querySelector('#f-practice-select');const prv=[...pr.options].map(o=>o.value).find(v=>v&&v!=='custom');r.push(__set('#f-practice-select',prv));r.push('paradigm='+(Creator.char.paradigm||'').slice(0,30)+' practices='+JSON.stringify(Creator.char.practices));r.push('issues: '+__issues());return r.join(' | ');})()",
+  "maxHeight": 1200
+ },
+ {
+  "name": "13_to_spheres",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1200
+ },
+ {
+  "name": "14_spheres",
+  "js": "(()=>{const r=[];const aff=Creator.char.affinity_sphere;r.push('affinity='+aff);const before=(document.querySelector('#sphere-rank-detail')||{}).textContent;r.push(__tap('.sphere-card[data-sphere=\"life\"] .dot[data-val=\"2\"]'));r.push(__tap('.sphere-card[data-sphere=\"forces\"] .dot[data-val=\"2\"]'));r.push(__tap('.sphere-card[data-sphere=\"prime\"] .dot[data-val=\"2\"]'));r.push(__tap('.sphere-card[data-sphere=\"forces\"]'));const after=(document.querySelector('#sphere-rank-detail')||{}).textContent;r.push('rankPanelChangedOnTap='+(after!==before)+' text='+(after||'').trim().slice(0,40));r.push('spheres='+JSON.stringify(Creator.char.spheres));r.push('issues: '+__issues());return r.join(' | ');})()",
+  "maxHeight": 2600
+ },
+ {
+  "name": "15_to_finishing",
+  "js": "__tap('#btn-next');'step='+Creator.step",
+  "maxHeight": 1200
+ },
+ {
+  "name": "16_freebie_tap",
+  "js": "(()=>{const r=[];r.push(__tap('[data-stat=\"willpower\"] .dot[data-val=\"6\"]'));r.push('fb-remaining='+document.querySelector('#fb-remaining').textContent+' sidebar='+document.querySelector('#freebie-display').textContent);r.push(__tap('#sidebar-freebie'));r.push('breakdownShown='+getComputedStyle(document.querySelector('#freebie-breakdown')).display);r.push('nextLabel='+document.querySelector('#btn-next').textContent);return r.join(' | ');})()",
+  "maxHeight": 1200
+ },
+ {
+  "name": "17_finalize",
+  "js": "(()=>{__tap('#btn-next');const ov=document.querySelector('.fin-overlay');return 'finalizeOverlay='+(ov?getComputedStyle(ov).display:'absent')+' finRows='+(ov?ov.querySelectorAll('.fin-row').length:0)+' title='+(ov?ov.querySelector('.fin-title').textContent:'')+' | '+(ov?ov.querySelector('.fin-remaining').textContent.trim():'');})()",
+  "maxHeight": 844
+ }
+]

@@ -1,0 +1,16 @@
+[
+ {"name":"00_login_guest","url":"http://127.0.0.1:8009/","js":"Auth.enterAsGuest().then(()=>App.currentUser&&App.currentUser.username)","wait":3500},
+ {"name":"01_dashboard","js":"'dash'","wait":500},
+ {"name":"02_step0_concept","js":"App.newCharacterOfType('awakened');'ok'","wait":1500},
+ {"name":"03_step1_attributes","js":"Creator.step=1;Creator.renderStep();'ok'"},
+ {"name":"04_step2_abilities","js":"Creator.step=2;Creator.renderStep();'ok'"},
+ {"name":"05_step3_advantages","js":"Creator.step=3;Creator.renderStep();'ok'"},
+ {"name":"06_step4","js":"Creator.step=4;Creator.renderStep();'ok'"},
+ {"name":"07_step5","js":"Creator.step=5;Creator.renderStep();'ok'"},
+ {"name":"08_step6_finishing","js":"Creator.step=6;Creator.renderStep();'ok'","maxHeight":3200},
+ {"name":"09_grimoire","js":"App.showGrimoire();'ok'","wait":3000},
+ {"name":"10_hamburger","js":"App.toggleHamburger(new Event('click'));'ok'","maxHeight":844},
+ {"name":"11_tarot","js":"App.closeHamburger&&App.closeHamburger(); (typeof Tarot!=='undefined' && (Tarot.show||Tarot.open||Tarot.start)) ? ((Tarot.show||Tarot.open||Tarot.start).call(Tarot),'tarot') : 'no tarot entry'","wait":2500},
+ {"name":"12_sheet_readonly","js":"Tarot.close&&Tarot.close();(()=>{const c=Object.assign({},Creator.char||{},{id:0,name:'Harness Test Mage',player:'Harness',concept:'Etherite tinkerer',weapons:[{name:'Lightning gun',diff:'6',damage:'5 L',range:'30',rate:'1',clip:'3'},{name:'Knife',diff:'4',damage:'Str+1 L'}],gear:[{name:'Goggles',description:'Brass, with lenses'}],notes:'Harness render of the read-only sheet.'});Sheet.sharedToken='harness';Sheet.render(c);Sheet.renderToolbar('shared',{token:'harness',likeCount:0,userLiked:false});document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-sheet').classList.add('active');window.scrollTo(0,0);return 'sheet'})()","wait":1500,"maxHeight":4200},
+ {"name":"13_shared_sheet","url":"http://127.0.0.1:8009/s/$SHARE_TOKEN","wait":3500,"maxHeight":4200}
+]

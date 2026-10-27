@@ -1,0 +1,168 @@
+wonders.json cleanup report
+============================================================
+metric                                              before     after
+records                                                449       447
+running-header fragments                               119         0
+descriptions containing a header                        97         0
+hyphen breaks "xx- yy"                                 729         0
+descriptions ending in another wonder name             338         0
+descriptions ending in terminal punctuation             19       419
+empty descriptions                                      12        17
+descriptions > 3000 chars                                4         2
+longest description                                  20456      3550
+heading rows (Armor/Car/Weapons)                         3         0
+index dotted leaders                                     1         0
+source_book spellings                                   46        44
+source_book with straight apostrophe                    20         0
+background_cost shapes:
+    string                                             405         -
+    null                                                44        45
+    int                                                  -       358
+    text                                                 -        35
+    range                                                -         9
+arete shapes:
+    null                                               180       181
+    string                                             269         -
+    int                                                  -       260
+    range                                                -         3
+    text                                                 -         3
+quintessence shapes:
+    null                                               177       178
+    string                                             272         -
+    int                                                  -       261
+    range                                                -         4
+    text                                                 -         4
+gnosis shapes:
+    null                                               444       442
+    string                                               5         -
+    int                                                  -         5
+flagged truncated                                        0        11
+flagged needs_review                                     0        20
+flagged long_entry                                       0         2
+type:
+    Unknown                                              -       407
+    Device                                               -        10
+    Fetish                                               -         9
+    Talisman                                             -         9
+    Periapt                                              -         7
+    Charm                                                -         3
+    Gadget                                               -         1
+    Artifact                                             -         1
+
+running headers removed: 119
+leading citations removed: 1
+trailing bleed stripped (records): 420
+wonder names bled from entries missing in this file (candidates) (79):
+    Bangles of Infinite Acceptance
+    Bio-Cloaking
+    Bond Fine Tobacco Products
+    Cardio-Muscular Assemblage
+    Cloë the Growl-Growl Bear
+    Correlli's Badass Jackhammer
+    Demon Mask
+    E/E, Personal Cloaking Device
+    Energy Enhancement Module
+    Exoskeleton
+    Extraction Device
+    Extrasensory Access
+    Faerie Cap
+    Fencing Square
+    Fertility Tiki
+    Fireball Pearl
+    Flying Unguent
+    Fortune Tiki
+    Fractal Symphonies
+    GODSPIN Blotter Acid
+    Ghost-Devouring Jack-o'-Lantern
+    Golden Bands
+    Great Sigil Pendant
+    Guardian Tiki
+    He'e Tatu
+    Herbal Plaster of the Ancients
+    Hidioshi Wearable Translator
+    Holocomputer
+    Hrunting
+    Huaca
+    Hypermed Injection System
+    Impact
+    Instruments
+    Iteration MP-0
+    Magickal Macro Keyboard
+    Matter Transmission Portal
+    Mental Enhancement Glasses
+    Panoramic Surveillance Node
+    Physical Transfer Unit or Suit
+    Rapid Text Stream Data Reader
+    Raptor Silencer
+    Ravana’s Skin
+    Remote Piloted Vehicle
+    Rimbaud's Recipe for Sacred Absinthe
+    Rocket Chariot
+    Rod of Holy Cleansing
+    Sacred Bullhide
+    Sampo Fragments
+    Samson's Gauntlets
+    Sea Spirit Shell
+    Seeds of Decay
+    Selective Mine
+    Senex's Blade
+    Sense Amplifiers
+    Sensor Glasses
+    Sentinel Satellite
+    Shan Tattoo of Undisciplined Strength
+    Sin-TV
+    Skeletal
+    Special Items
+    Sub-Dermals
+    Submersible Car
+    Super-Steroids
+    Sword-Breaker
+    The Bond of ibn Daud
+    The Fiberopticon
+    The Filth Altar
+    The Greater Key of Solomon
+    The Masquer's Grand Disguise
+    The Ragnaroc Home Security System
+    The Rebooter Self-Retrieval
+    The Robes of the Golden Mandarin
+    The Uranian Pleasure Manual
+    Thought Transference Device
+    Universal Nanotech Interface
+    VBC-3 Bio-Computer and Mind-Link XF251
+    Verrecchia's Marvelous Lions
+    X14 A Thunderhead Other
+    Zulu Warshield a
+records dropped (3):
+    'Armor': heading row; duplicate of 'Alanson Light Hardsuit'
+    'Car': heading row; duplicate of 'DDGR Card, The'
+    'Weapons': heading row; duplicate of 'Abh-t Dagger'
+records added (1):
+    Digital Enhancement Implants (DEI / ADEI)
+interleaved section text healed (2):
+    '3-Dim Sonographic Sense Factory': ab-stracts <- removed 220 chars: Other Wonders which are not unique but are often strange, those that manipulate Space and ...
+    'Fishbowl of Prosperity': busi-ness <- removed 312 chars: A tripod and transmitter device that makes onlook- ers perceive the wearer of the transmit...
+hyphen breaks joined to one word: 683
+hyphen breaks kept as compound "xx-yy": 23
+compounds kept (review) (22):
+    Diffi-Damage
+    Ino-Nui
+    Jury-rigging
+    Lock-picking
+    STAR-TPU
+    Urge-spirits
+    air-pressure
+    anti-gravity
+    anti-infantry
+    belt-fed
+    cactus-root
+    double-helix
+    fold-out
+    hyper-tech
+    mind-influencing
+    now-deceased
+    on-Boosters
+    re-enchanted
+    sec-can
+    specially-treated
+    spring-powered
+    super-cooled
