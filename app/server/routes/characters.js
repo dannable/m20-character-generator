@@ -53,7 +53,7 @@ function serializeCharacter(data) {
 const EDITABLE_FIELDS = new Set([
   'name','player','concept','chronicle','affiliation','tradition','faction','essence','nature','demeanor',
   'strength','dexterity','stamina','charisma','manipulation','appearance','perception','intelligence','wits',
-  'arete','willpower','quintessence','paradox','paradigm','practice','affinity_sphere',
+  'arete','willpower','quintessence','paradox','paradigm','practice','affinity_sphere','affinity_sphere_2',
   'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
   'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
@@ -130,7 +130,7 @@ function computeDiff(originalRow, proposed) {
     { key:'tradition',     label:'Tradition' },      { key:'faction',      label:'Faction' },
     { key:'essence',       label:'Essence' },        { key:'nature',       label:'Nature' },
     { key:'demeanor',      label:'Demeanor' },       { key:'paradigm',     label:'Paradigm' },
-    { key:'practice',      label:'Practice' },       { key:'affinity_sphere', label:'Affinity Sphere' },
+    { key:'practice',      label:'Practice' },       { key:'affinity_sphere', label:'Affinity Sphere' }, { key:'affinity_sphere_2', label:'Second Affinity Sphere' },
     { key:'focus_mode',    label:'Focus Mode' },
   ];
   const OBJ_TRAITS = [

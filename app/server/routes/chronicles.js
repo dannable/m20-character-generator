@@ -384,7 +384,7 @@ router.post('/:id/pending-edits/:editId/review', (req, res) => {
       const EDITABLE = new Set([
         'name','player','concept','chronicle','affiliation','tradition','faction','essence','nature','demeanor',
         'strength','dexterity','stamina','charisma','manipulation','appearance','perception','intelligence','wits',
-        'arete','willpower','quintessence','paradox','paradigm','practice','affinity_sphere',
+        'arete','willpower','quintessence','paradox','paradigm','practice','affinity_sphere','affinity_sphere_2',
         'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
         'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
         'freebie_spent','attr_priority','ability_priority','description','notes',

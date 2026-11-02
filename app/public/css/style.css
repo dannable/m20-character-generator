@@ -10349,3 +10349,46 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .fe-custom-adder input { flex: 1; min-width: 0; }
 .fe-practices { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .fe-instrument-list { max-height: 18rem; overflow-y: auto; }
+
+/* ── Sheet: inline resonance editing (owner) ─────────────────────────────── */
+.sheet-res-name-input {
+  font-family: var(--font-body, inherit);
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-mid);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom-color: var(--gold-faint);
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  width: 9rem;
+  max-width: 40vw;
+}
+.sheet-res-name-input:hover, .sheet-res-name-input:focus { border-color: var(--gold-faint); background: var(--bg-elev, rgba(255,255,255,0.03)); outline: none; }
+.sheet-res-flavor-select {
+  font-family: var(--font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-mid);
+  background: transparent;
+  border: 1px solid var(--gold-faint);
+  border-radius: 3px;
+  padding: 0.05rem 0.25rem;
+}
+.sheet-rote-result-name .mf-custom-badge { margin-left: 0.3rem; font-size: 0.55rem; vertical-align: middle; }
+.sheet-edit-link {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--gold-mid);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 0.2rem;
+  margin-left: 0.3rem;
+  opacity: 0.75;
+}
+.sheet-edit-link:hover { opacity: 1; text-decoration: underline; }
+.sheet-empty-hint { font-size: 0.75rem; color: var(--text-faint); font-style: italic; text-align: center; margin-bottom: 0.4rem; }

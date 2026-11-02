@@ -1218,7 +1218,6 @@ const M20 = {
     {
       id: 'entropy',
       name: 'Entropy',
-      altName: 'Primal Utility (Syndicate)',
       description: 'Controlling the energies of probability and decay, an Entropy-schooled mage can manipulate random factors, observe and influence flaws within a system, tap into the energies of the Low Umbra, induce or remove corruption, and otherwise exert his Will through the inexorable process of mortality. Unlike most other Spheres, Entropy spells don\'t inflict damage until Rank 4; after that, such damage is aggravated, as it breaks down the very Patterns of existence.',
       ranks: [
         { rank: 1, name: 'Sense Flaws, Fate & Fortune / Ring of Truth', description: 'Basic Entropic understanding allows a mage to see the currents of probability, spot flaws in Patterns, and note the subtle yet telling details in a person\'s speech and behavior that suggest whether or not she\'s telling what she believes to be the truth. He can predict dice throws, card draws, and other apparently random events; spot weak spots in objects, people, or arguments; and use those imperfect yet profound insights to his advantage.' },
@@ -1289,6 +1288,7 @@ const M20 = {
     {
       id: 'prime',
       name: 'Prime',
+      altName: 'Primal Utility (Syndicate)',
       description: 'By studying the raw energy of Creation, a student of the Prime Sphere learns to understand, manipulate, and absorb the Fifth Essence within all things. Also known as Odyllic Force, Primal Energy, and Quintessence, this baseline energy fuels the Patterns of other forms — Forces, Life, Matter — and flows through the sublime essence of Spirit. A Prime-skilled mage can create and destroy things at their essential level, power items of enchanted or Enlightened creation, and sustain her own life essence through her understanding of Primal Force.',
       ranks: [
         { rank: 1, name: 'Etheric Senses / Consecration / Infuse Personal Quintessence', description: 'A beginning study of Prime allows the mage to perceive and channel Quintessence from Nodes, Tass, Wonders, and magickal Effects. She may spot energetic ebbs and flows, sense and read Resonance and Synergy signatures, and absorb Quintessence into her personal Pattern. (Mages without at least one dot in Prime cannot absorb Quintessence beyond their Avatar Background rating.) When infusing Quintessence into an object, she may also consecrate it with her personal energy so that it changes with her when she shapeshifts or steps sideways.' },

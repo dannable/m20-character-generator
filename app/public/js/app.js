@@ -116,6 +116,33 @@ function jsStr(s) {
   return escHtml(String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n'));
 }
 
+// Technocrats call three Spheres by other names (M20 p. 509): Data for Correspondence
+// (all Conventions), Primal Utility for Prime (Syndicate), Dimensional Science for
+// Spirit (Void Engineers). Returns the name the character would use.
+function sphereDisplayName(sphere, char) {
+  if (!sphere) return '';
+  if (!char || char.affiliation !== 'Technocracy' || !sphere.altName) return sphere.name;
+  const conv = (char.tradition || '').toLowerCase();
+  if (sphere.id === 'prime'  && !conv.includes('syndicate')) return sphere.name;
+  if (sphere.id === 'spirit' && !conv.includes('void'))      return sphere.name;
+  return sphere.altName.replace(/\s*\(.*\)\s*$/, '');
+}
+// Dual Affiliation (BoS p. 82) lets a mage claim a second Affinity Sphere.
+function hasDualAffiliation(char) {
+  const m = char && char.merits;
+  return !!(m && !Array.isArray(m) && m.dual_affiliation !== undefined);
+}
+function isAffinitySphere(char, id) {
+  if (!char || !id) return false;
+  id = String(id).toLowerCase();
+  if (id === (char.affinity_sphere || '').toLowerCase()) return true;
+  return hasDualAffiliation(char) && id === (char.affinity_sphere_2 || '').toLowerCase();
+}
+function sphereDisplayNameById(id, char) {
+  const sp = M20.SPHERES.find(s => s.id === (id || '').toLowerCase());
+  return sp ? sphereDisplayName(sp, char) : (id || '');
+}
+
 // Returns the faction-appropriate display name for a background
 function bgDisplayName(bg, affiliation) {
   if (!bg) return '';
@@ -3525,7 +3552,7 @@ const Grimoire = {
           const castable    = charSpheres ? canCast(rt, charSpheres) : null;
           const rowCls      = castable === null ? '' : (castable ? 'castable' : 'not-castable');
           const factionCls  = (activeFaction && rt.faction === activeFaction) ? ' faction-highlight' : '';
-          const pageNote    = rt.page ? ` <span class="grimoire-page-inline">p.${rt.page}</span>` : '';
+          const pageNote    = rt.page ? ` <span class="grimoire-page-inline" title="Page in the compiled Grimoire; the original book is listed in the source">Grimoire p.${rt.page}</span>` : '';
           return `<tr class="grimoire-row ${rowCls}" data-rote-id="${rt.id}">
             ${showCastability ? `<td class="grimoire-castable-icon">${castable ? '✦' : ''}</td>` : ''}
             <td class="grimoire-name">${rt.name || '—'}${pageNote}</td>
@@ -3565,7 +3592,7 @@ const Grimoire = {
           const cont = (desc && rote.truncated)
             ? `<span class="rote-truncated-note">… (continues in ${escHtml(rote.source || rote.source_book || 'the source book')})</span>`
             : '';
-          const pageInfo = rote.page ? `<span class="rote-detail-page">p.${rote.page}</span>` : '';
+          const pageInfo = rote.page ? `<span class="rote-detail-page" title="Page in the compiled Grimoire">Grimoire p.${rote.page}</span>` : '';
           const detailRow = document.createElement('tr');
           detailRow.className = 'grimoire-detail-row';
           detailRow.innerHTML = `<td colspan="${colCount + 1}" class="grimoire-detail-cell">
@@ -5400,6 +5427,29 @@ const Sheet = {
     }
   },
 
+  // One resonance row on the sheet. Shared/ST views are static text; the owner can
+  // rename the trait, pick its flavor, click dots, and remove it.
+  _sheetResItemHTML(res, idx, dotSpans, ro) {
+    if (ro) {
+      return `<div class="sheet-resonance-item">
+        <span class="sheet-resonance-name">${escHtml(res.description || '—')}</span>
+        ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${escHtml(res.flavor)}</span>` : ''}
+        <div class="sheet-resonance-dots">${dotSpans}</div>
+      </div>`;
+    }
+    const flavorOpts = (M20.RESONANCE_FLAVORS || []).map(f =>
+      `<option value="${f.id}" ${res.flavor === f.id ? 'selected' : ''}>${f.id}</option>`).join('');
+    return `<div class="sheet-resonance-item" data-res-idx="${idx}">
+      <input type="text" class="sheet-res-name-input" data-res-idx="${idx}" maxlength="40"
+        placeholder="Resonance…" value="${escHtml(res.description || '')}" title="Click to rename">
+      <select class="sheet-res-flavor-select" data-res-idx="${idx}" title="Flavor">
+        <option value="">— Flavor —</option>${flavorOpts}
+      </select>
+      <div class="sheet-resonance-dots">${dotSpans}</div>
+      <button class="sheet-res-remove" data-res-idx="${idx}" title="Remove resonance">✕</button>
+    </div>`;
+  },
+
   render(char, stNotes = [], opts = {}) {
     this.char = char;
     // Ensure rotes is always an array
@@ -5409,6 +5459,11 @@ const Sheet = {
     const specialties = char.specialties || {};
     const instruments = (Array.isArray(char.instruments) ? char.instruments : []).join(', ') || '—';
     const ro = !!this.sharedToken || opts.mode === 'storyteller';
+
+    // Small "✎ Edit" link in a group title that opens Free Edit scrolled to that section
+    // (finalized characters only; drafts go back through the wizard).
+    const editLink = (section, label = '✎ Edit') => (ro || char.is_draft) ? ''
+      : ` <button type="button" class="sheet-edit-link" data-fe-section="${section}" title="Edit in Free Edit">${label}</button>`;
 
     // Resonance display (read-only for shared, editable for owner)
     const resonances = Array.isArray(char.resonance) && char.resonance.length > 0
@@ -5420,14 +5475,7 @@ const Sheet = {
         + (ro ? '' : `data-res-idx="${idx}" data-val="${i+1}" `)
         + '></span>'
       ).join('');
-      // Both shared and owner views show name/flavor as static text.
-      // Owner additionally gets clickable dots and a delete button.
-      return `<div class="sheet-resonance-item" ${ro ? '' : `data-res-idx="${idx}"`}>
-        <span class="sheet-resonance-name">${escHtml(res.description || '—')}</span>
-        ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${escHtml(res.flavor)}</span>` : ''}
-        <div class="sheet-resonance-dots">${dotSpans}</div>
-        ${!ro ? `<button class="sheet-res-remove" data-res-idx="${idx}" title="Remove resonance">✕</button>` : ''}
-      </div>`;
+      return this._sheetResItemHTML(res, idx, dotSpans, ro);
     }).join('');
 
     // All abilities — primary + any added secondary/custom abilities
@@ -5494,9 +5542,9 @@ const Sheet = {
     const allSpheres = M20.SPHERES.map(s => {
       const val  = (char.spheres || {})[s.id] || 0;
       const spec = specialties[s.id];
-      const isAff = s.id === _affinityId;
+      const isAff = isAffinitySphere(char, s.id);
       return `<div class="sheet-trait-row${isAff ? ' affinity-row' : ''}">
-        <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${s.name}${isAff ? ' ✦' : ''}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+        <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${sphereDisplayName(s, char)}${isAff ? ' ✦' : ''}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
         ${dots(val, 5, 'readonly sphere-dots')}
       </div>`;
     }).join('');
@@ -5679,9 +5727,9 @@ const Sheet = {
           <div class="sheet-group">
             ${M20.SPHERES.filter(s => ['correspondence','entropy','forces'].includes(s.id)).map(s => {
               const val = (char.spheres || {})[s.id] || 0;
-              const isAff = s.id === _affinityId;
+              const isAff = isAffinitySphere(char, s.id);
               return `<div class="sheet-trait-row${isAff ? ' affinity-row' : ''}">
-                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${sphereDisplayName(s, char)}</span>
                 ${dots(val, 5, 'readonly')}
               </div>`;
             }).join('')}
@@ -5689,9 +5737,9 @@ const Sheet = {
           <div class="sheet-group">
             ${M20.SPHERES.filter(s => ['life','matter','mind'].includes(s.id)).map(s => {
               const val = (char.spheres || {})[s.id] || 0;
-              const isAff = s.id === _affinityId;
+              const isAff = isAffinitySphere(char, s.id);
               return `<div class="sheet-trait-row${isAff ? ' affinity-row' : ''}">
-                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${sphereDisplayName(s, char)}</span>
                 ${dots(val, 5, 'readonly')}
               </div>`;
             }).join('')}
@@ -5699,9 +5747,9 @@ const Sheet = {
           <div class="sheet-group">
             ${M20.SPHERES.filter(s => ['prime','spirit','time'].includes(s.id)).map(s => {
               const val = (char.spheres || {})[s.id] || 0;
-              const isAff = s.id === _affinityId;
+              const isAff = isAffinitySphere(char, s.id);
               return `<div class="sheet-trait-row${isAff ? ' affinity-row' : ''}">
-                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${s.name}</span>
+                <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${isAff ? '✦ ' : ''}${sphereDisplayName(s, char)}</span>
                 ${dots(val, 5, 'readonly')}
               </div>`;
             }).join('')}
@@ -5716,10 +5764,11 @@ const Sheet = {
           <div class="sheet-group">
             <div class="sheet-group-title">Backgrounds</div>
             ${bgsAll}
-            ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits</div>${meritsHTML}` : ''}
-            ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws</div>${flawsHTML}` : ''}
+            ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits${editLink('fe-mf')}</div>${meritsHTML}` : ''}
+            ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws${editLink('fe-mf')}</div>${flawsHTML}` : ''}
+            ${!meritsHTML && !flawsHTML && !ro && !char.is_draft ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits &amp; Flaws${editLink('fe-mf', '✎ Add')}</div><div class="sheet-empty-hint">None yet. Use Edit to add Merits or Flaws.</div>` : ''}
             ${char.character_type === 'mortal' ? '' : `
-            <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus</div>
+            <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus${editLink('fe-focus-section')}</div>
             <div class="sheet-focus-row">
               ${char.focus_mode === 'prism' ? PrismUI.sheetFocusHTML(char) : `
               <div class="sheet-focus-item">
@@ -6001,7 +6050,8 @@ const Sheet = {
 
   removeRote(id) {
     if (!Array.isArray(this.char.rotes)) return;
-    this.char.rotes = this.char.rotes.filter(r => r.id !== id);
+    // Rote ids are numbers for Grimoire rotes and strings ('custom-N', 'chron-N-M') for custom ones
+    this.char.rotes = this.char.rotes.filter(r => String(r.id) !== String(id));
     this.renderSheetRotes();
     this.saveRotes();
   },
@@ -6035,8 +6085,7 @@ const Sheet = {
     // Re-attach remove button listeners
     $$('.rote-remove-btn', el).forEach(btn => {
       btn.addEventListener('click', e => {
-        const id = parseInt(btn.dataset.roteId);
-        this.removeRote(id);
+        this.removeRote(btn.dataset.roteId);
       });
     });
   },
@@ -6619,6 +6668,14 @@ const Sheet = {
       pInp.addEventListener('focus',   () => pInp.select());
     }
 
+    // ── "✎ Edit" links → Free Edit, scrolled to the section ──────
+    $$('.sheet-edit-link').forEach(btn => btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      await App.editCharacter(this.char.id);
+      const target = document.getElementById(btn.dataset.feSection);
+      if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }));
+
     // ── Sheet resonance editing (owner only) ─────────────────────
     const sheetResList = $('#sheet-resonance-list');
 
@@ -6630,16 +6687,29 @@ const Sheet = {
         const dotSpans = Array.from({length: 5}, (_, i) =>
           `<span class="dot ${i < r ? 'filled' : ''} sheet-res-dot" data-res-idx="${idx}" data-val="${i+1}"></span>`
         ).join('');
-        return `<div class="sheet-resonance-item" data-res-idx="${idx}">
-          <span class="sheet-resonance-name">${escHtml(res.description || '—')}</span>
-          ${res.flavor ? `<span class="sheet-resonance-flavor-badge">${escHtml(res.flavor)}</span>` : ''}
-          <div class="sheet-resonance-dots">${dotSpans}</div>
-          <button class="sheet-res-remove" data-res-idx="${idx}" title="Remove resonance">✕</button>
-        </div>`;
+        return this._sheetResItemHTML(res, idx, dotSpans, false);
       }).join('');
     };
 
     if (sheetResList) {
+      // Rename / re-flavor a resonance trait (owner only)
+      const _saveResDebounced = debounce(() => this.saveSheetState(), 600);
+      sheetResList.addEventListener('input', e => {
+        const inp = e.target.closest('.sheet-res-name-input');
+        if (!inp) return;
+        const idx = parseInt(inp.dataset.resIdx);
+        if (!this.char.resonance?.[idx]) return;
+        this.char.resonance[idx].description = inp.value.trim();
+        _saveResDebounced();
+      });
+      sheetResList.addEventListener('change', e => {
+        const sel = e.target.closest('.sheet-res-flavor-select');
+        if (!sel) return;
+        const idx = parseInt(sel.dataset.resIdx);
+        if (!this.char.resonance?.[idx]) return;
+        this.char.resonance[idx].flavor = sel.value;
+        this.saveSheetState();
+      });
       sheetResList.addEventListener('click', e => {
         const dot = e.target.closest('.sheet-res-dot');
         if (dot) {
@@ -6676,8 +6746,7 @@ const Sheet = {
     // Initial remove-button listeners (for rotes already on the list at render time)
     $$('.rote-remove-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.roteId);
-        this.removeRote(id);
+        this.removeRote(btn.dataset.roteId);
       });
     });
 
@@ -6992,6 +7061,26 @@ const Sheet = {
     } catch { /* silent */ }
   },
 
+  // User + chronicle custom rotes shaped like /api/rotes rows (id, name, spheres_raw,
+  // spheres_parsed, source) so the sheet picker and canCast() can treat them alike.
+  _customRotesForPicker() {
+    const shape = (r, id, badge) => {
+      let sp = {};
+      try { sp = typeof r.spheres === 'string' ? JSON.parse(r.spheres || '{}') : (r.spheres || {}); } catch { sp = {}; }
+      const entries = Object.entries(sp).filter(([, v]) => v > 0);
+      const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+      return {
+        id, name: r.name || 'Custom rote',
+        spheres_raw: entries.map(([k, v]) => `${cap(k)} ${v}`).join(', '),
+        spheres_parsed: entries.map(([k, v]) => ({ required: true, alternatives: [{ sphere: k, min: v }] })),
+        source: r.source || '', page: null, _customBadge: badge,
+      };
+    };
+    const out = _getUserCustomRotes().map(r => shape(r, `custom-${r.id}`, 'Custom'));
+    _getChronicleCustom().forEach(ch => (ch.rotes || []).forEach(r => out.push(shape(r, `chron-${ch.id}-${r.id}`, `Chronicle · ${ch.name}`))));
+    return out;
+  },
+
   async _fetchRotePickerResults() {
     const roteInput    = $('#rote-search-input');
     const roteChapter  = $('#rote-search-chapter');
@@ -7014,6 +7103,15 @@ const Sheet = {
       const data = await r.json();
       let rotes = data.rotes || [];
 
+      // The player's own custom rotes and any chronicle-shared rotes sit at the top
+      // of the results (they are not in /api/rotes). Hidden when a Grimoire chapter is selected.
+      if (!chapter) {
+        await Promise.all([_loadUserCustomRotes(), _loadChronicleCustom()]).catch(() => {});
+        const q = search.toLowerCase();
+        const customs = this._customRotesForPicker().filter(rt => !q || rt.name.toLowerCase().includes(q) || (rt.spheres_raw || '').toLowerCase().includes(q));
+        rotes = [...customs, ...rotes];
+      }
+
       if (castOnly) {
         rotes = rotes.filter(rt => canCast(rt, charSpheres));
       }
@@ -7025,22 +7123,23 @@ const Sheet = {
         return;
       }
 
-      const knownIds = new Set((this.char.rotes || []).map(r => r.id));
+      const knownIds = new Set((this.char.rotes || []).map(r => String(r.id)));
       roteResults.innerHTML = rotes.map(rt => {
-        const known = knownIds.has(rt.id);
+        const known = knownIds.has(String(rt.id));
         return `<div class="sheet-rote-result-item${known ? ' already-known' : ''}"
           data-rote-id="${rt.id}" data-rote-name="${(rt.name||'').replace(/"/g,'&quot;')}"
           data-rote-spheres="${(rt.spheres_raw||'').replace(/"/g,'&quot;')}">
-          <span class="sheet-rote-result-name">${rt.name}</span>
-          <span class="sheet-rote-result-spheres">${rt.spheres_raw || ''}</span>
-          <span class="sheet-rote-result-source">${rt.chapter || ''} p.${rt.page || '?'} — ${rt.source || ''}</span>
+          <span class="sheet-rote-result-name">${escHtml(rt.name)}${rt._customBadge ? ` <span class="mf-custom-badge">${escHtml(rt._customBadge)}</span>` : ''}</span>
+          <span class="sheet-rote-result-spheres">${escHtml(rt.spheres_raw || '')}</span>
+          <span class="sheet-rote-result-source">${rt.source ? escHtml(rt.source) : ''}${rt.page ? ` · Grimoire p.${rt.page}` : ''}</span>
         </div>`;
       }).join('');
 
       // Attach click listeners
       $$('.sheet-rote-result-item:not(.already-known)', roteResults).forEach(item => {
         item.addEventListener('click', () => {
-          const id      = parseInt(item.dataset.roteId);
+          const rawId   = item.dataset.roteId;
+          const id      = /^\d+$/.test(rawId) ? parseInt(rawId) : rawId;
           const name    = item.dataset.roteName;
           const spheres = item.dataset.roteSpheres;
           this.addRote(id, name, spheres);
@@ -7144,7 +7243,7 @@ const Creator = {
       // Merits & Flaws
       merits: {}, flaws: {}, merit_labels: {},
       // Spheres
-      spheres: {}, affinity_sphere: '',
+      spheres: {}, affinity_sphere: '', affinity_sphere_2: '',
       // Stats
       arete: 1, willpower: 5, quintessence: 0, paradox: 0,
       // Focus
@@ -8839,12 +8938,27 @@ const Creator = {
       </div>`;
     }
 
+    // Dual Affiliation: a second Affinity Sphere (any sphere but the first)
+    const dual = hasDualAffiliation(c);
+    if (!dual) c.affinity_sphere_2 = '';
+    else if (c.affinity_sphere_2) c.affinity_sphere_2 = c.affinity_sphere_2.toLowerCase();
+    if (dual) {
+      const opts2 = M20.SPHERES.filter(s => s.id !== selectedAffinity)
+        .map(s => `<option value="${s.id}" ${c.affinity_sphere_2 === s.id ? 'selected' : ''}>${sphereDisplayName(s, c)}</option>`).join('');
+      affinitySelectHtml += `
+      <div class="form-group" style="margin-bottom:1rem">
+        <label>Second Affinity Sphere <span class="ref">Dual Affiliation · BoS p. 82</span></label>
+        <select id="affinity-select-2">
+          <option value="">— Select Second Affinity Sphere —</option>${opts2}
+        </select>
+        <p style="font-size:0.78rem;color:var(--text-dim);margin-top:0.3rem">Your Dual Affiliation Merit grants a second Affinity Sphere, usually drawn from your other group. It is raised at the Affinity rate (7 XP per dot).</p>
+      </div>`;
+    }
+
     const sphereCards = M20.SPHERES.map(sphere => {
       const val = c.spheres[sphere.id] || 0;
-      const isAffinity = !!selectedAffinity && (
-        sphere.name === selectedAffinity ||
-        (sphere.altName && sphere.altName.startsWith(selectedAffinity))
-      );
+      const isAffinity = (!!selectedAffinity && sphere.id === selectedAffinity)
+        || (dual && !!c.affinity_sphere_2 && sphere.id === c.affinity_sphere_2);
       const rankName = val > 0 ? (sphere.ranks[val - 1]?.name || '') : 'Unlearned';
 
       const sphereImgName = sphere.name.replace(/\s+/g, '');
@@ -8852,10 +8966,10 @@ const Creator = {
       <div class="sphere-card ${isAffinity ? 'affinity' : ''}" data-sphere="${sphere.id}">
         <div class="sphere-card-bg" style="background-image:url('/images/Sphere${sphereImgName}.webp')"></div>
         <div class="sphere-card-header">
-          <span class="sphere-name">${sphere.name}</span>
+          <span class="sphere-name">${sphereDisplayName(sphere, c)}</span>
           ${isAffinity ? '<span class="sphere-affinity-badge">Affinity ✦</span>' : ''}
         </div>
-        ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphere.altName}</div>` : ''}
+        ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphereDisplayName(sphere, c) === sphere.name ? sphere.altName : `${sphere.name} (M20)`}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 3, null, 'sphere-dots')}</div>
         <div class="specialty-row" style="display:none">
@@ -8968,7 +9082,8 @@ const Creator = {
     // inherentMin:  dots at or below this are inherently free (gold), not teal — used for
     //               attributes which always start at 1 regardless of chronicle rules.
     const fbRow = (id, label, current, max, baseline, costPer, costNote, stat = null, specOptions = null, currentSpec = '', specThreshold = 4, desc = '', bonusCeiling = 0, inherentMin = 0) => {
-      const spent     = Math.max(0, current - baseline) * costPer;
+      // Quintessence is 1 freebie per 4 dots above the Avatar baseline (M20 p. 266)
+      const spent     = stat === 'quintessence' ? Math.ceil(Math.max(0, current - baseline) / 4) : Math.max(0, current - baseline) * costPer;
       const dotsHtml  = Array.from({length: max}, (_, i) => {
         const val = i + 1;
         // Chronicle-free: above the inherent min, within the bonus ceiling
@@ -8976,7 +9091,7 @@ const Creator = {
         const isFree   = val <= baseline && !isBonus;            // allocation/inherent (gold)
         const isFilled = val <= current;
         const dotCls   = isBonus ? 'dot-chronicle' : isFree ? 'dot-free' : 'dot-freebie';
-        const tipText  = isBonus ? 'Chronicle bonus (free)' : isFree ? 'Free (creation)' : `Costs ${costPer} freebie pt${costPer>1?'s':''}`;
+        const tipText  = isBonus ? 'Chronicle bonus (free)' : isFree ? 'Free (creation)' : stat === 'quintessence' ? '1 freebie pt per 4 dots' : `Costs ${costPer} freebie pt${costPer>1?'s':''}`;
         return `<span class="dot ${isFilled ? 'filled' : ''} ${dotCls}"
           data-val="${val}" title="${tipText}"></span>`;
       }).join('');
@@ -11164,6 +11279,13 @@ const Creator = {
         this.renderStep(); // Re-render to update highlights
       });
     }
+    const affinitySelect2 = $('#affinity-select-2', content);
+    if (affinitySelect2) {
+      affinitySelect2.addEventListener('change', () => {
+        c.affinity_sphere_2 = affinitySelect2.value.toLowerCase();
+        this.renderStep();
+      });
+    }
 
     // Core stat dots (step 6) — identified by data-stat attribute
     const areteBonus = this._lockedBaselines?.areteBonus || 0;
@@ -11382,8 +11504,10 @@ const Creator = {
         const cur = char[stat] || minVal;
         // Freebie overspend guard
         const tentativeVal = cur === val ? Math.max(minVal, val - 1) : Math.min(max, val);
-        const oldCost = Math.max(0, cur - baseline) * costPer;
-        const newCost = Math.max(0, tentativeVal - baseline) * costPer;
+        // Quintessence is 1 freebie per 4 dots above the Avatar baseline (M20 p. 266); everything else is per dot
+        const costOf = extra => stat === 'quintessence' ? Math.ceil(Math.max(0, extra) / 4) : Math.max(0, extra) * costPer;
+        const oldCost = costOf(cur - baseline);
+        const newCost = costOf(tentativeVal - baseline);
         const delta   = newCost - oldCost;
         if (delta > 0 && !c.canSpendFreebie(delta)) {
           toast(`Not enough freebie points (need ${delta}, have ${c.freebiesRemaining()}).`, 'error');
@@ -12228,7 +12352,7 @@ const Creator = {
       } else if (bd.type === 'focus_sphere' && traitType === 'sphere') {
         // Only applies to the character's affinity sphere
         const sphereObj = M20.SPHERES.find(s => s.name === traitName || s.id === traitName);
-        if (sphereObj && sphereObj.id === (this.char.affinity_sphere || '').toLowerCase()) total += amt;
+        if (sphereObj && isAffinitySphere(this.char, sphereObj.id)) total += amt;
       }
     }
     return total;
@@ -12972,7 +13096,7 @@ const FreeEdit = {
     // Sphere row helper
     const sphRow = (name, id) => {
       const val = (c.spheres || {})[id] || 0;
-      const isAff = id === (c.affinity_sphere || '').toLowerCase();
+      const isAff = isAffinitySphere(c, id);
       return `<div class="fe-trait-group${isAff ? ' fe-affinity-row' : ''}">
         <div class="fe-trait-row">
           <span class="fe-trait-label${isAff ? ' fe-affinity-label' : ''}">${isAff ? '✦ ' : ''}${name}</span>
@@ -13050,6 +13174,7 @@ const FreeEdit = {
         <div class="fe-field"><label>Faction / Order</label>${this._input('faction', c.faction, 'Faction or order')}</div>
         <div class="fe-field"><label>Essence</label>${this._input('essence', c.essence, 'Dynamic / Pattern / Primordial / Questing')}</div>
         <div class="fe-field"><label>Affinity Sphere</label>${this._input('affinity_sphere', c.affinity_sphere, 'e.g. life, mind, forces')}</div>
+        ${hasDualAffiliation(c) ? `<div class="fe-field"><label>Second Affinity Sphere <span class="fe-secondary-badge">Dual Affiliation</span></label>${this._input('affinity_sphere_2', c.affinity_sphere_2, 'e.g. prime, spirit')}</div>` : ''}
       </div>
     </div>
 
@@ -13143,9 +13268,9 @@ const FreeEdit = {
     <div class="fe-section">
       <div class="fe-section-title">Spheres</div>
       <div class="fe-grid-3">
-        <div>${['correspondence','entropy','forces'].map(id => sphRow(M20.SPHERES.find(s=>s.id===id)?.name||id, id)).join('')}</div>
-        <div>${['life','matter','mind'].map(id => sphRow(M20.SPHERES.find(s=>s.id===id)?.name||id, id)).join('')}</div>
-        <div>${['prime','spirit','time'].map(id => sphRow(M20.SPHERES.find(s=>s.id===id)?.name||id, id)).join('')}</div>
+        <div>${['correspondence','entropy','forces'].map(id => sphRow(sphereDisplayNameById(id, c), id)).join('')}</div>
+        <div>${['life','matter','mind'].map(id => sphRow(sphereDisplayNameById(id, c), id)).join('')}</div>
+        <div>${['prime','spirit','time'].map(id => sphRow(sphereDisplayNameById(id, c), id)).join('')}</div>
       </div>
     </div>`}
 
@@ -13174,7 +13299,7 @@ const FreeEdit = {
     </div>`}
 
     <!-- Merits & Flaws -->
-    <div class="fe-section">
+    <div class="fe-section" id="fe-mf">
       <div class="fe-section-title">Merits &amp; Flaws</div>
       <div class="fe-mf-cols">
         <div class="fe-mf-col">
@@ -13763,6 +13888,7 @@ const Obsidian = {
       `quintessence: ${char.quintessence || 0}`,
       `paradox: ${char.paradox || 0}`,
       char.affinity_sphere && `affinity_sphere: "${char.affinity_sphere}"`,
+      hasDualAffiliation(char) && char.affinity_sphere_2 && `affinity_sphere_2: "${char.affinity_sphere_2}"`,
       char.id        && `character_id: ${char.id}`,
       shareUrl       && `share_url: "${shareUrl}"`,
       `tags: [mage, m20, character]`,
@@ -13842,8 +13968,8 @@ const Obsidian = {
         const s = sphList[i + j];
         if (s) {
           const v    = (char.spheres || {})[s.id] || 0;
-          const mark = s.id === affinityId ? ' ✦' : '';
-          cols.push(e(s.name) + mark, d(v));
+          const mark = isAffinitySphere(char, s.id) ? ' ✦' : '';
+          cols.push(e(sphereDisplayName(s, char)) + mark, d(v));
         } else {
           cols.push('', '');
         }
@@ -14477,12 +14603,11 @@ const Advancement = {
   },
 
   _sphereSection(char, rem) {
-    const affinityId = char.affinity_sphere || '';
     const spheres    = char.spheres || {};
     const rows = M20.SPHERES.map(s => {
       const val   = spheres[s.id] || 0;
-      const isAff = s.id === affinityId;
-      const label = `${s.name}${isAff ? ' <span class="adv-affinity-badge">✦ Affinity</span>' : ''}`;
+      const isAff = isAffinitySphere(char, s.id);
+      const label = `${sphereDisplayName(s, char)}${isAff ? ' <span class="adv-affinity-badge">✦ Affinity</span>' : ''}`;
       return this._advRow('sphere', 'spheres', s.id, label, val, 5, rem, isAff);
     }).join('');
     return `<div class="adv-section"><h3 class="adv-section-title">Spheres</h3>${rows}</div>`;
