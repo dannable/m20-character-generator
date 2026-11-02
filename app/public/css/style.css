@@ -10341,3 +10341,11 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .chron-rc-member { padding: 0.4rem 0; border-top: 1px solid var(--border-dim); }
 .chron-rc-member:first-of-type { border-top: 0; }
 .chron-rc-name { font-weight: 600; color: var(--text-mid); font-size: 0.85rem; margin-bottom: 0.15rem; }
+
+/* Free Edit: focus + ability adders */
+.fe-abil-adder { display: grid; gap: 0.3rem; margin-top: 0.4rem; }
+.fe-abil-adder select, .fe-custom-adder input { font-size: 0.8rem; }
+.fe-custom-adder { display: flex; gap: 0.3rem; }
+.fe-custom-adder input { flex: 1; min-width: 0; }
+.fe-practices { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.fe-instrument-list { max-height: 18rem; overflow-y: auto; }

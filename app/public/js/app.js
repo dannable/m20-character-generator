@@ -12945,12 +12945,12 @@ const FreeEdit = {
     };
 
     // Ability row helper
-    const abilRow = (name, id, catKey, max = 5, badgeHtml = '') => {
+    const abilRow = (name, id, catKey, max = 5, badgeHtml = '', removable = false) => {
       const val = (c[catKey] || {})[id] || 0;
       return `<div class="fe-trait-group">
         <div class="fe-trait-row">
           <span class="fe-trait-label">${name}${badgeHtml}</span>
-          ${this._dots(val, max, catKey, id)}
+          <span style="display:flex;align-items:center;gap:0.3rem">${this._dots(val, max, catKey, id)}${removable ? FreeEditExtras.abilityRemoveBtnHTML(catKey, id) : ''}</span>
         </div>
         ${this._specRow(id, val, name, abilSpecMap[id] || [])}
       </div>`;
@@ -12986,13 +12986,13 @@ const FreeEdit = {
     const buildAbilColumn = (key, primaryList, secondaryList) => {
       const primRows = primaryList.map(a => abilRow(a.name, a.id, key)).join('');
       const addedSec = secondaryList.filter(a => (c[key] || {})[a.id] !== undefined);
-      const secRows  = addedSec.map(a => abilRow(a.name, a.id, key, 3, secBadge)).join('');
+      const secRows  = addedSec.map(a => abilRow(a.name, a.id, key, 5, secBadge, true)).join('');
       const custIds  = Object.keys(c.custom_ability_names || {}).filter(id => (c[key] || {})[id] !== undefined);
-      const custRows = custIds.map(id => abilRow(c.custom_ability_names[id] || id, id, key, 3, custBadge)).join('');
+      const custRows = custIds.map(id => abilRow(c.custom_ability_names[id] || id, id, key, 5, custBadge, true)).join('');
       const chronAbils = (c._chronicleRules?.customAbilities || []).filter(a => a.category === key && a.name);
       const chronRows = chronAbils.map(a => abilRow(a.name, a.id, key, 5,
         `<span class="fe-secondary-badge">Chronicle</span>`)).join('');
-      return primRows + secRows + custRows + chronRows;
+      return primRows + secRows + custRows + chronRows + FreeEditExtras.abilityAdderHTML(c, key, secondaryList);
     };
 
     // Backgrounds — show all from M20 (except multi-instance Wonder) plus any chronicle custom ones
@@ -13045,11 +13045,11 @@ const FreeEdit = {
         <div class="fe-field"><label>Tradition / Convention</label>${this._input('tradition', c.tradition, 'Tradition or Convention')}</div>
         <div class="fe-field"><label>Faction / Order</label>${this._input('faction', c.faction, 'Faction or order')}</div>
         <div class="fe-field"><label>Essence</label>${this._input('essence', c.essence, 'Dynamic / Pattern / Primordial / Questing')}</div>
-        <div class="fe-field"><label>Paradigm</label>${this._input('paradigm', c.paradigm, 'Paradigm')}</div>
-        <div class="fe-field"><label>Practice</label>${this._input('practice', c.practice, 'Practice')}</div>
         <div class="fe-field"><label>Affinity Sphere</label>${this._input('affinity_sphere', c.affinity_sphere, 'e.g. life, mind, forces')}</div>
       </div>
     </div>
+
+    ${FreeEditExtras.focusSectionHTML(c)}
 
     <!-- Attributes -->
     <div class="fe-section">
@@ -13463,6 +13463,8 @@ const FreeEdit = {
         c[inp.dataset.feField] = parseInt(inp.value) || 0;
       }
     });
+
+    FreeEditExtras.attach(el, this);
 
     // Bottom buttons
     $('#fe-cancel-btn-bottom')?.addEventListener('click', () => this._cancel());
@@ -14444,7 +14446,17 @@ const Advancement = {
       const cust = Object.keys(customNames).filter(id => dict[id] !== undefined).map(id =>
         this._advRow('ability', g.col, id, customNames[id] || id, dict[id] || 0, 5, rem)
       ).join('');
-      return `<div class="adv-group-label">${g.label}</div>${prim}${sec}${cust}`;
+      // Learn a new Secondary Ability: first dot costs the "new Ability" rate (3 XP, M20 p. 336)
+      const newCost = xpCost('ability', 0);
+      const learnable = g.sec.filter(a => dict[a.id] === undefined && !PrismUI.removedAbility(char, a.id));
+      const learn = learnable.length ? `
+        <div class="adv-trait-row adv-learn-row">
+          <select class="adv-learn-select" data-col="${g.col}" ${rem < newCost ? 'disabled' : ''}>
+            <option value="">＋ Learn a new ${g.label.replace(/s$/, '')}… (${newCost} XP)</option>
+            ${learnable.map(a => `<option value="${a.id}">${escHtml(a.name)}</option>`).join('')}
+          </select>
+        </div>` : '';
+      return `<div class="adv-group-label">${g.label}</div>${prim}${sec}${cust}${learn}`;
     }).join('');
     return `<div class="adv-section"><h3 class="adv-section-title">Abilities</h3>${rows}</div>`;
   },
@@ -14525,6 +14537,17 @@ const Advancement = {
         } catch { toast('Failed to save setting.', 'error'); }
       });
     }
+
+    // Learn-new-ability dropdowns
+    document.querySelectorAll('.adv-learn-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const id = sel.value; if (!id) return;
+        const col = sel.dataset.col;
+        const def = [...(M20.SECONDARY_TALENTS||[]), ...(M20.SECONDARY_SKILLS||[]), ...(M20.SECONDARY_KNOWLEDGES||[])].find(a => a.id === id);
+        sel.value = '';
+        this._spendXP({ group: 'ability', col, key: id, label: def?.name || id, from: '0', to: '1', cost: String(xpCost('ability', 0)) });
+      });
+    });
 
     this._attachRaiseBtns();
   },
