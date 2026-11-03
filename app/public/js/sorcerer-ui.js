@@ -570,7 +570,7 @@ const SorcererUI = {
 
   /* ── sidebar completeness ───────────────────────────────────────────── */
   stepIssues(creator, step) {
-    const c = creator.char; this.ensure(c); const issues = [];
+    const c = creator.char; this.ensure(c); const issues = this.chronicleIssues(c, step);
     if (step === 0) {
       if (!c.name?.trim()) issues.push('Name not set');
       if (!c.concept?.trim()) issues.push('Concept not set');
@@ -881,6 +881,123 @@ const SorcererUI = {
     const arts = Array.isArray(c.artifacts) ? c.artifacts : [];
     if (arts.length) { md += '**Artifacts**\n\n'; arts.forEach(a => { md += `- ${e(a.name)} ${'●'.repeat(a.rating || 0)}${a.notes ? ` — ${e(a.notes)}` : ''}\n`; }); md += '\n'; }
     return md + '---\n\n';
+  },
+
+  /* ── Chronicle (Storyteller) rules ──────────────────────────────────── */
+  stRulesActive(rules) {
+    const r = (rules && rules.sorcerer) || {};
+    return r.allowSorcerers === false || Array.isArray(r.allowedAffiliations) || Array.isArray(r.allowedPaths) || Array.isArray(r.allowedPhenomena)
+      || (r.enforceFavored && r.enforceFavored !== 'block') || !!r.allowBothStyles || (r.bonusNuminaDots || 0) > 0 || !!r.simplifiedAspects || !!r.restrictMerits;
+  },
+  stRulesCardHTML(rules) {
+    const r = (rules && rules.sorcerer) || {};
+    const allowA = Array.isArray(r.allowedAffiliations) ? new Set(r.allowedAffiliations) : null;
+    const allowP = Array.isArray(r.allowedPaths) ? new Set(r.allowedPaths) : null;
+    const allowPh = Array.isArray(r.allowedPhenomena) ? new Set(r.allowedPhenomena) : null;
+    const cb = (cls, val, label, checked) => `<label class="chron-toggle-label chron-subfac-row"><input type="checkbox" class="${cls}" value="${val}" ${checked ? 'checked' : ''}> ${label}</label>`;
+    const affs = SORCERER.AFFILIATIONS.filter(a => a.kind === 'affiliation');
+    const affBoxes = affs.map(a => cb('sorc-aff-cb', a.id, escHtml(a.name), !allowA || allowA.has(a.id))).join('');
+    const pathBoxes = SORCERER.PATHS.map(p => cb('sorc-path-cb', p.id, escHtml(p.name) + (p.placeholder ? ' <em class="prism-st-tag">not in book</em>' : ''), !allowP || allowP.has(p.id))).join('');
+    const phenBoxes = SORCERER.PHENOMENA.map(p => cb('sorc-phen-cb', p.id, escHtml(p.name), !allowPh || allowPh.has(p.id))).join('');
+    const enforce = r.enforceFavored || 'block';
+    const allowed = r.allowSorcerers !== false;
+    return `
+      <div class="chron-rules-group" id="sorc-st-rules">
+        <h4 class="chron-rules-heading">Sorcerers
+          <span class="chron-rules-subhead">Hedge wizards and psychics (M20 Sorcerer)</span>
+        </h4>
+        <label class="chron-toggle-label"><input type="checkbox" id="sorc-st-allow" ${allowed ? 'checked' : ''}> Allow Sorcerer characters in this Chronicle</label>
+        <div id="sorc-st-options" style="${allowed ? '' : 'display:none'}">
+          <div class="chron-rules-row" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:0.5rem">
+            <label class="chron-toggle-label">Favored Attribute &amp; Affinity Path
+              <select id="sorc-st-enforce" class="form-input" style="width:auto;margin-left:0.3rem">
+                <option value="block" ${enforce === 'block' ? 'selected' : ''}>enforce (block)</option>
+                <option value="warn" ${enforce === 'warn' ? 'selected' : ''}>warn only</option>
+                <option value="off" ${enforce === 'off' ? 'selected' : ''}>off</option>
+              </select></label>
+            <label class="chron-toggle-label"><input type="checkbox" id="sorc-st-both" ${r.allowBothStyles ? 'checked' : ''}> Allow Paths and Phenomena together at creation <span class="cw-note">(house rule)</span></label>
+            <label class="chron-toggle-label"><input type="checkbox" id="sorc-st-restrict-merits" ${r.restrictMerits ? 'checked' : ''}> Only the Sorcerer book’s Merits and Flaws</label>
+            <label class="chron-toggle-label"><input type="checkbox" id="sorc-st-simplified" ${r.simplifiedAspects ? 'checked' : ''}> Simplified Aspects <span class="cw-note">(p. 14, shown as a note)</span></label>
+            <label class="chron-toggle-label">Bonus Numina dots <input type="number" id="sorc-st-bonus" class="form-input chron-rules-num" value="${r.bonusNuminaDots || 0}" min="0" max="5" style="width:4.5rem"></label>
+          </div>
+          <details class="prism-st-details"><summary>Allowed Affiliations <span class="cw-note" id="sorc-st-aff-count">${allowA ? allowA.size + ' of ' + affs.length : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-aff-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-aff-cb" data-on="0">None</button></div>
+            <div class="prism-st-grid">${affBoxes}</div><p class="chron-rules-hint">Unaligned sorcerers are always allowed.</p></details>
+          <details class="prism-st-details"><summary>Allowed Paths <span class="cw-note" id="sorc-st-path-count">${allowP ? allowP.size + ' of ' + SORCERER.PATHS.length : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-path-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-path-cb" data-on="0">None</button></div>
+            <div class="prism-st-grid">${pathBoxes}</div></details>
+          <details class="prism-st-details"><summary>Allowed Phenomena <span class="cw-note" id="sorc-st-phen-count">${allowPh ? allowPh.size + ' of ' + SORCERER.PHENOMENA.length : 'all'}</span></summary>
+            <div class="prism-st-grid-tools"><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-phen-cb" data-on="1">All</button><button type="button" class="btn-ghost btn-sm sorc-st-all" data-target="sorc-phen-cb" data-on="0">None</button></div>
+            <div class="prism-st-grid">${phenBoxes}</div></details>
+        </div>
+      </div>`;
+  },
+  attachSTForm(root) {
+    const card = (root || document).querySelector('#sorc-st-rules'); if (!card) return;
+    const counts = () => {
+      const count = (cls, el, total) => { const n = [...card.querySelectorAll('.' + cls)].filter(b => b.checked).length; const o = card.querySelector('#' + el); if (o) o.textContent = n === total ? 'all' : `${n} of ${total}`; };
+      count('sorc-aff-cb', 'sorc-st-aff-count', SORCERER.AFFILIATIONS.filter(a => a.kind === 'affiliation').length);
+      count('sorc-path-cb', 'sorc-st-path-count', SORCERER.PATHS.length);
+      count('sorc-phen-cb', 'sorc-st-phen-count', SORCERER.PHENOMENA.length);
+    };
+    card.addEventListener('change', e => {
+      if (e.target.id === 'sorc-st-allow') { const o = card.querySelector('#sorc-st-options'); if (o) o.style.display = e.target.checked ? '' : 'none'; }
+      counts();
+    });
+    card.addEventListener('click', e => { const b = e.target.closest('.sorc-st-all'); if (!b) return; card.querySelectorAll('.' + b.dataset.target).forEach(c => { c.checked = b.dataset.on === '1'; }); counts(); });
+  },
+  /** Returns { sorcerer } for collectRules(). */
+  collectSTRules() {
+    const card = document.getElementById('sorc-st-rules'); if (!card) return {};
+    const vals = cls => [...card.querySelectorAll('.' + cls)].filter(b => b.checked).map(b => b.value);
+    const affs = vals('sorc-aff-cb'), paths = vals('sorc-path-cb'), phens = vals('sorc-phen-cb');
+    const nAff = SORCERER.AFFILIATIONS.filter(a => a.kind === 'affiliation').length;
+    return { sorcerer: {
+      allowSorcerers: !!card.querySelector('#sorc-st-allow')?.checked,
+      allowedAffiliations: affs.length === nAff ? null : affs,
+      allowedPaths: paths.length === SORCERER.PATHS.length ? null : paths,
+      allowedPhenomena: phens.length === SORCERER.PHENOMENA.length ? null : phens,
+      enforceFavored: card.querySelector('#sorc-st-enforce')?.value || 'block',
+      allowBothStyles: !!card.querySelector('#sorc-st-both')?.checked,
+      restrictMerits: !!card.querySelector('#sorc-st-restrict-merits')?.checked,
+      simplifiedAspects: !!card.querySelector('#sorc-st-simplified')?.checked,
+      bonusNuminaDots: parseInt(card.querySelector('#sorc-st-bonus')?.value, 10) || 0,
+    } };
+  },
+  _ruleLines(rules) {
+    const r = (rules && rules.sorcerer) || {}; const lines = [];
+    if (r.allowSorcerers === false) { lines.push(['Sorcerers', 'not allowed']); return lines; }
+    if (Array.isArray(r.allowedAffiliations)) lines.push(['Affiliations', r.allowedAffiliations.map(id => (SORCERER.affiliationById(id) || {}).name).filter(Boolean).join(', ') || 'none (Unaligned only)']);
+    if (Array.isArray(r.allowedPaths)) lines.push(['Paths', r.allowedPaths.map(id => (SORCERER.pathById(id) || {}).name).filter(Boolean).join(', ') || 'none']);
+    if (Array.isArray(r.allowedPhenomena)) lines.push(['Phenomena', r.allowedPhenomena.map(id => (SORCERER.phenomenonById(id) || {}).name).filter(Boolean).join(', ') || 'none']);
+    if (r.enforceFavored && r.enforceFavored !== 'block') lines.push(['Favored Attribute / Affinity Path', r.enforceFavored === 'warn' ? 'warning only' : 'not enforced']);
+    if (r.allowBothStyles) lines.push(['Numina styles', 'Paths and Phenomena may be mixed at creation']);
+    if ((r.bonusNuminaDots || 0) > 0) lines.push(['Bonus Numina dots', `+${r.bonusNuminaDots}`]);
+    if (r.restrictMerits) lines.push(['Merits and Flaws', 'Sorcerer book only']);
+    if (r.simplifiedAspects) lines.push(['Aspects', 'simplified (one success per Aspect, p. 14)']);
+    return lines;
+  },
+  stDetailRulesHTML(rules, sec) {
+    const lines = this._ruleLines(rules); if (!lines.length) return '';
+    return sec('Sorcerers (M20 Sorcerer)', lines.map(([k, v]) => `<span class="chron-dr-pill">${escHtml(k)}: ${escHtml(v)}</span>`).join(''));
+  },
+  welcomeSectionHTML(rules, section) {
+    const lines = this._ruleLines(rules); if (!lines.length) return '';
+    return section('Sorcerers', '', lines.map(([k, v]) => `<div class="cw-item"><span class="cw-label">${escHtml(k)}:</span> <strong>${escHtml(v)}</strong></div>`).join(''));
+  },
+  /** After a join code resolves in the wizard: warn if Sorcerers are barred, drop choices the chronicle disallows, re-render. */
+  applyChronicleRules(c, creator) {
+    const r = this.rules(c);
+    if (r.allowSorcerers === false) toast('This Chronicle does not allow Sorcerer characters. You can still build one, but it will not be accepted.', 'error');
+    if (c.affiliation && Array.isArray(r.allowedAffiliations)) { const a = this.affiliation(c); if (a && a.kind === 'affiliation' && !r.allowedAffiliations.includes(a.id)) { c.affiliation = ''; toast('Your Affiliation is not allowed in this Chronicle; pick another.', 'error'); } }
+    creator.renderStep({ scroll: false });
+  },
+  /** Chronicle-rule problems the wizard sidebar should show for a step (from the shared validator). */
+  chronicleIssues(c, step) {
+    if (typeof CharValidator === 'undefined' || !c._chronicleRules) return [];
+    const codes = new Set(['sorcerer_allowed', 'affiliation_allowed', 'path_allowed', 'phenomenon_allowed', 'casting_favored', 'affinity_favored', 'merit_book', 'style_secondary_creation']);
+    const res = CharValidator.sorcererChecks(c, c._chronicleRules, { creation: true });
+    return [...res.errors, ...res.warnings].filter(i => i.step === step && codes.has(i.code)).map(i => i.message);
   },
 
   /* ── Merits & Flaws from the Sorcerer book, shaped like M20.MERITS ──── */

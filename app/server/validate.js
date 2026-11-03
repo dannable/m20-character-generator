@@ -13,10 +13,10 @@ const CharValidator = require(path.join(__dirname, '..', 'public', 'js', 'valida
 
 const ENFORCE = /^(1|true|yes)$/i.test(String(process.env.RULES_ENFORCE || ''));
 
-const JSON_COLS = ['talents','skills','knowledges','backgrounds','spheres','merits','flaws','tenets','practice_ratings','practice_specialties'];
+const JSON_COLS = ['talents','skills','knowledges','backgrounds','spheres','merits','flaws','tenets','practice_ratings','practice_specialties','numina','rituals','artifacts'];
 function parsed(row) {
   const c = { ...row };
-  JSON_COLS.forEach(k => { if (typeof c[k] === 'string') { try { c[k] = JSON.parse(c[k]); } catch { c[k] = {}; } } });
+  JSON_COLS.forEach(k => { if (typeof c[k] === 'string') { try { c[k] = JSON.parse(c[k]); } catch { c[k] = (k === 'rituals' || k === 'artifacts') ? [] : {}; } } });
   return c;
 }
 function chronicleRules(chronicleId) {
