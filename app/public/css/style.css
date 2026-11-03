@@ -10392,3 +10392,38 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 }
 .sheet-edit-link:hover { opacity: 1; text-decoration: underline; }
 .sheet-empty-hint { font-size: 0.75rem; color: var(--text-faint); font-style: italic; text-align: center; margin-bottom: 0.4rem; }
+
+/* ── Sorcerer (M20 Sorcerer) wizard ─────────────────────────────────────── */
+.sorc-favored { display:flex; flex-direction:column; gap:0.2rem; font-size:0.82rem; color:var(--text-mid); margin:0.4rem 0; }
+.sorc-favored-label { font-family:var(--font-ui); font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold-mid); margin-right:0.4rem; }
+.sorc-affil-desc { margin-top:0.4rem; font-size:0.82rem; }
+.sorc-affil-desc summary { cursor:pointer; color:var(--gold-mid); font-family:var(--font-ui); font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase; }
+.sorc-affil-text p, .sorc-detail p { margin:0.4rem 0; line-height:1.5; }
+.sorc-affil-text { max-height:22rem; overflow:auto; padding-right:0.5rem; color:var(--text-mid); }
+.sorc-path-list { display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem; }
+.sorc-path-config { display:flex; gap:0.8rem; flex-wrap:wrap; align-items:center; margin:0.35rem 0; font-size:0.78rem; color:var(--text-dim); }
+.sorc-path-config label { display:flex; align-items:center; gap:0.3rem; }
+.sorc-path-config select { max-width:14rem; }
+.sorc-rituals { margin-top:0.3rem; }
+.sorc-rituals-label, .sorc-rituals-ref .sorc-rituals-label { font-family:var(--font-ui); font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:0.2rem; }
+.sorc-dots-inline { color:var(--gold-mid); letter-spacing:0.05em; font-size:0.7rem; }
+.sorc-path-name, .sorc-phen-name, .sorc-artifact-name { cursor:pointer; }
+.sorc-path-name:hover, .sorc-phen-name:hover, .sorc-artifact-name:hover { text-decoration:underline dotted; }
+.sorc-detail { margin-top:0.8rem; padding:0.6rem 0.8rem; background:var(--bg-elevated); border:1px solid var(--gold-faint); border-radius:4px; font-size:0.83rem; color:var(--text-mid); }
+.sorc-detail:empty { display:none; }
+.sorc-detail h4 { margin:0 0 0.3rem; color:var(--gold-bright); font-family:var(--font-heading); }
+.sorc-detail details { margin:0.4rem 0; }
+.sorc-detail summary { cursor:pointer; color:var(--gold-mid); }
+.sorc-level { margin:0.25rem 0; padding-left:0.4rem; border-left:2px solid var(--gold-faint); }
+.sorc-ritual-detail { padding-left:0.3rem; }
+.sorc-artifact-row { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0.25rem 0; }
+.sorc-artifact-notes { flex:1; min-width:12rem; font-size:0.8rem; }
+.sorc-style-btn.active { border-color:var(--gold-mid); }
+.sorc-path-row .attr-row-main, .sorc-phen-row .attr-row-main { align-items:center; }
+.sorc-path-row .dots .dot, .sorc-phen-row .dots .dot { cursor:pointer; }
+.sorc-rituals .practice-adder-row select.sorc-ritual-add { flex:1 1 12rem; width:auto; }
+.sorc-rituals .practice-adder-row input.sorc-ritual-custom { flex:1 1 10rem; width:auto; }
+.sorc-rituals .practice-adder-row select.sorc-ritual-custom-level { flex:0 0 6.5rem; width:6.5rem; }
+#sorc-artifacts .practice-adder-row select, #sorc-artifacts .practice-adder-row input { width:auto; }
+#sorc-artifacts #sorc-artifact-add { flex:1 1 14rem; }
+#sorc-artifacts #sorc-artifact-custom-rating { flex:0 0 6.5rem; }
