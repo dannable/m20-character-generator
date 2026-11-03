@@ -2,15 +2,17 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { PRISM, normalizeCharacterFocus } = require('../prism');
+const { normalizeCharacterSorcerer } = require('../sorcerer');
 const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
   'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
   'creation_baselines','wonders','gear','weapons','virtues','numina',
+  'rituals','artifacts',
   'tenets','practice_ratings','practice_specialties'];
 
-const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons']);
+const ARRAY_JSON_FIELDS = new Set(['instruments','wonders','gear','weapons','rituals','artifacts']);
 
 function parseCharacter(row) {
   if (!row) return null;
@@ -59,6 +61,8 @@ const EDITABLE_FIELDS = new Set([
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
   'age','gender','hair','eyes','height','weight','ethnicity','gear','weapons',
   'character_type','virtues','humanity','numina',
+  // Sorcerer (see server/sorcerer.js)
+  'numina_style','numina_secondary','casting_attribute','affinity_path','rituals','artifacts',
   // Prism of Focus (see server/prism.js)
   'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
 ]);
@@ -343,6 +347,7 @@ router.post('/', (req, res) => {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Character name is required' });
     const { join_code, chronicle_id: _cid, _join_code: _jc, override: _ov, ...bodyRest } = req.body;
     normalizeCharacterFocus(bodyRest, null);
+    normalizeCharacterSorcerer(bodyRest, null);
     // Resolve the chronicle up front so the creation rules can be checked before the insert
     let joinChronicleId = null;
     if (join_code && req.session.role !== 'guest') {
@@ -391,6 +396,7 @@ router.put('/:id', (req, res) => {
     }
 
     normalizeCharacterFocus(rest, existing);
+    normalizeCharacterSorcerer(rest, existing);
     const willBeDraft = rest.is_draft !== undefined ? !!rest.is_draft : !!existing.is_draft;
     const check = Rules.check({ ...parseCharacter(existing), ...rest }, targetChronicleId, { creation: !!existing.is_draft });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: willBeDraft, canOverride: isAdmin || (targetChronicleId && isChronicleST(req, targetChronicleId)) });
@@ -479,6 +485,7 @@ router.post('/:id/edit-request', (req, res) => {
     const { proposed, reason } = req.body;
     if (!proposed || !proposed.name) return res.status(400).json({ error: 'proposed character data required' });
     normalizeCharacterFocus(proposed, existing);
+    normalizeCharacterSorcerer(proposed, existing);
     const check = Rules.check({ ...parseCharacter(existing), ...proposed }, existing.chronicle_id, { creation: false });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: false, canOverride: req.session.role === 'admin' || isChronicleST(req, existing.chronicle_id) });
     if (rejected) return res.status(400).json(rejected);

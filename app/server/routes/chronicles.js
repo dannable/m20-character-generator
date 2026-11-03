@@ -1,6 +1,13 @@
 const express = require('express');
 const db      = require('../db');
-const { sanitizeChronicleRules } = require('../prism');
+const { sanitizeChronicleRules: sanitizePrismRules } = require('../prism');
+const { sanitizeSorcererRules } = require('../sorcerer');
+// Chronicle rules pass through every rule-set sanitiser (Prism of Focus, Sorcerer)
+function sanitizeChronicleRules(rules) {
+  const r = sanitizePrismRules(rules);
+  if (r && typeof r === 'object' && r.sorcerer !== undefined) r.sorcerer = sanitizeSorcererRules(r.sorcerer);
+  return r;
+}
 const Rules = require('../validate');
 const router  = express.Router();
 
@@ -240,8 +247,8 @@ router.get('/:id/members/:charId', (req, res) => {
     const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
       'instruments','freebie_spent','attr_priority','ability_priority','merits','flaws','specialties',
       'customArchetypes','custom_ability_names','health_track','merit_labels','resonance','rotes','xp_log',
-      'creation_baselines','wonders','gear','weapons','virtues','numina'];
-    const ARRAY_FIELDS = new Set(['instruments','wonders','gear','weapons']);
+      'creation_baselines','wonders','gear','weapons','virtues','numina','rituals','artifacts'];
+    const ARRAY_FIELDS = new Set(['instruments','wonders','gear','weapons','rituals','artifacts']);
     const parsed = { ...char };
     JSON_FIELDS.forEach(f => {
       if (typeof parsed[f] === 'string') {
@@ -389,6 +396,7 @@ router.post('/:id/pending-edits/:editId/review', (req, res) => {
         'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
         'freebie_spent','attr_priority','ability_priority','description','notes',
         'character_type','virtues','humanity','numina',
+        'numina_style','numina_secondary','casting_attribute','affinity_path','rituals','artifacts',
         'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
       ]);
       const snapshot = JSON.parse(edit.char_snapshot);

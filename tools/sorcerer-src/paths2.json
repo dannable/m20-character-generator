@@ -1,0 +1,345 @@
+[
+  {
+    "id": "illusion",
+    "name": "Illusion",
+    "page": 35,
+    "description": "One of the most fundamental magics is the power to deceive others into believing what the magician wants. The Path of Illusion confounds the senses, making its targets perceive things that aren’t there or altering their perception of what is there. Most people trust their senses. “Seeing is believing,” but when an illusionist is nearby, this old adage can kill you.\n\nThe Path of Illusion is much less direct in most of its applications than some of the other Paths. Illusionists tend to be clever manipulators, at the least in order to choose just the right false vision for whatever task must be completed. This often requires strange patterns of thought and lateral thinking, leading illusionists to become eccentric over time.\n\nWhen targeted with the Path of Illusion, avoiding the deception is always a possibility. A Perception + Alertness roll at difficulty (4 + Realism Aspect) for spells, and difficulty (4 + Rank) for rituals reveals the slight imperfections in the illusion. This requires one success for each sense covered by the illusion, though in cases where an essential sense, as determined by the Storyteller, is left out, the number of successes required may decrease. Anyone who makes this roll can tell that what they are perceiving isn’t real, though they perceive both it and the truth. If they alert others to this fact, they can reroll once.",
+    "system": {
+      "text": "Modifiers: –1 to –3 difficulty if using a base similar to the goal (making a table appear differently is easier than making a table appear from nothing)\n\nAspects: Duration, Number of Targets, and the following:\n\nSenses\n• Affects one sense\n•• Affects two senses\n••• Affects three senses\n•••• Affects four senses\n••••• Full sensory range\n\nRealism\n• Completely immobile and fixed; if visual, flat\n•• Changes with perspective so the viewer moving doesn’t disrupt it immediately\n••• Illusions can have moving parts, but only large ones\n•••• Smaller motions and variations are possible, but there are still subtle tells\n••••• Fully immersive, this level completely fools all targeted senses\n\nPrice of Failure: Naive magicians think botching an illusion must be no big deal. The spell did nothing real, so nothing real should happen when it goes awry. On the contrary, the caster’s perceptions are altered. Worse, most of the alterations are subtle and easily missed. For larger spells, though, there will eventually be a substantial change, likely when most dangerous for the caster to be caught unaware.",
+      "aspects": [
+        "Duration",
+        "Number of Targets",
+        "Senses",
+        "Realism"
+      ],
+      "modifiers": "Modifiers: –1 to –3 difficulty if using a base similar to the goal (making a table appear differently is easier than making a table appear from nothing)",
+      "priceOfFailure": "Price of Failure: Naive magicians think botching an illusion must be no big deal. The spell did nothing real, so nothing real should happen when it goes awry. On the contrary, the caster’s perceptions are altered. Worse, most of the alterations are subtle and easily missed. For larger spells, though, there will eventually be a substantial change, likely when most dangerous for the caster to be caught unaware."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Senses: Affects one sense"
+      },
+      {
+        "level": 2,
+        "text": "Senses: Affects two senses"
+      },
+      {
+        "level": 3,
+        "text": "Senses: Affects three senses"
+      },
+      {
+        "level": 4,
+        "text": "Senses: Affects four senses"
+      },
+      {
+        "level": 5,
+        "text": "Senses: Full sensory range"
+      },
+      {
+        "level": 1,
+        "text": "Realism: Completely immobile and fixed; if visual, flat"
+      },
+      {
+        "level": 2,
+        "text": "Realism: Changes with perspective so the viewer moving doesn’t disrupt it immediately"
+      },
+      {
+        "level": 3,
+        "text": "Realism: Illusions can have moving parts, but only large ones"
+      },
+      {
+        "level": 4,
+        "text": "Realism: Smaller motions and variations are possible, but there are still subtle tells"
+      },
+      {
+        "level": 5,
+        "text": "Realism: Fully immersive, this level completely fools all targeted senses"
+      }
+    ],
+    "rituals": [
+      {
+        "id": "cruel_whispers",
+        "name": "Cruel Whispers",
+        "level": 2,
+        "text": "Illusionists must often be masters of psychological warfare. They can’t create anything truly real, so they play on the fears and anxieties of their targets to control them. One of the key rituals for this is Cruel Whispers. A purely auditory illusion, Cruel Whispers follows its target around for twenty-four hours. Though the magician may never know what the whispers are saying, the victim hears voices, just barely audible, pointing out every flaw, every insecurity, and ever misstep they make during the day. This distracts them, giving them +1 difficulty on all rolls for the day, and whenever they botch they must make a Willpower roll (difficulty 6) or else suffer the effects of the Chronic Depression Flaw (BoS p. 51) for one week."
+      },
+      {
+        "id": "hard_light_constructs",
+        "name": "Hard-Light Constructs",
+        "level": 3,
+        "text": "A popular ritual among technosorcerers, Hard-Light Constructs are illusions everyone involved knows are fake. This creates scenery, furniture, etc., that looks and feels real, though putting your weight onto it wouldn’t be the best idea. It’s often used to simulate visuals where every single detail isn’t needed, but which have moving parts. It creates the illusion for all onlookers, rather than a fixed set of targets. At least one Extraordinary Citizen has been reprimanded for using Hard-Light Constructs to run their World of Shadows game."
+      },
+      {
+        "id": "instant_feast",
+        "name": "Instant Feast",
+        "level": 4,
+        "text": "Illusory food is deceptively hard to create. Taste, smell, image, and texture all need to be just right to fool someone into thinking they’re eating a real meal. The target rolls Perception + Alertness (difficulty 7). On failure, they believe they are eating real food for the duration of the meal, whatever food the magician can imagine. However, they’re still hungry. This provides no sustenance (unless the illusion is covering up some other food), though if six or more successes are rolled on the casting, hunger cues are suppressed for a number of hours equal to the target’s Stamina, before they feel hungry again. This can’t alleviate the effects of starvation."
+      },
+      {
+        "id": "oubliette",
+        "name": "Oubliette",
+        "level": 5,
+        "text": "One of the most terrifying rituals of the Path of Illusion, Oubliette has broken some of the strongest people in the world. The magician must be within a few feet of their target for the entirety of a three-hour ritual, which requires at least 5 successes. If they can accomplish this, then the ritual removes all five senses from the victim. They are trapped in a world without any sensation until either the magician releases them or they accumulate 5 successes on Perception rolls at difficulty 9, making one every hour. The victim must start over on a botch. Often, the victims of this ritual are being punished for heinous crimes, and have it cast on them before they are thrown into a hole and forgotten, left to starve without even knowing they are starving."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Senses and Realism tables are Path-specific Aspect ratings; they are reproduced in system.text and also as levels entries prefixed with the Aspect name."
+  },
+  {
+    "id": "maelstroms",
+    "name": "Maelstroms",
+    "page": 37,
+    "description": "Discovered by accident, the Path of Maelstroms was originally an attempt to rediscover Weather Control. Traditionally referred to as “Whistle” (as in, “whistling up a storm”), the magicians using it sought to conjure intense gales of wind and rain in the world of the living. It took until the 19th century to discover that these tempests were stolen from the Shadowlands.\n\nMaelstrom pulls the energy to create its storms from two sources. The first is the caster’s force of will. Spells and rituals of this Path cost one Willpower point per level rather than the usual flat one point for most Paths. The other source of power is the Shadowlands itself, pulling its energy out and rendering ghosts in the area calm or forcibly driving the dead from the area depending on the size of the storm.\n\nThe most common instrument for this Path is, by far, music. Most users say that from the moment they learned it, they could hear music in their head, and some believe it grows louder when the storms they can draw from are stronger. For these people, their Alertness is capped at 3, due to the distraction of the music. Others, however, don’t experience this effect and suffer no penalty.",
+    "system": {
+      "text": "Aspects: Area, Duration, and Intensity\n\nIntensity\n• Drawing a breeze and fog from the underworld into the world of the living pacifies the local Shadowlands. Ghosts in the area are calmed. They’ll defend themselves, but otherwise they won’t attack anyone in the area for the duration without succeeding on a Willpower roll (difficulty 6).\n•• A rainstorm is summoned, and it drains so much energy from the underworld that ghosts are frozen in place unless they make a Willpower roll (difficulty 7). They’re made just corporeal enough that the magician can physically move them. Usually, they remove the ghosts from an area where they are unwelcome.\n••• Calling a full-scale thunderstorm does even more to quiet the Shadowlands. This drains the power of Oblivion from the area. Ghosts are sedated as in the first rank, but those under control of their Shadows are restored to reason. Results vary with spectres, but legends exist of hedge magicians with this Path pulling a spectre away from Oblivion.\n•••• Powerful storms in the world of the living, with gale-force winds, hail, and plenty of property damage can truly sap the power of Oblivion in the Shadowlands. Spectres and other deeply malicious ghosts who fail a Willpower roll (difficulty 8) disappear within the barrage of wind and hail. No hedge magician knows for sure what happens to these spirits, but they are never seen in the location where the power was evoked for a year and a day.\n••••• A massive storm draining all energy from the corresponding region of the Shadowlands. Both the area and its reflection in the Shadowlands becomes utterly uninhabitable for ghosts. The Restless Dead must flee the area, or else suffer five dice of damage per round until they do so.\n\nPrice of Failure: The magician’s control over these storms is tenuous at best. On a failure, the Willpower is still expended but nothing happens. Botches, however, result in storms that go out of control, both in the world of the living and the Shadowlands. When a hedge magician loses control of the energies of this Path, they call forth a piece of the Tempest. This causes normal ghosts to become disoriented and have difficulty moving around. Spectres, on the other hand, thrive in this environment. These most malicious of spirits ride the Tempest directly up to the Shadowlands and have an easier time manifesting in the area for the duration the spell would have had.",
+      "aspects": [
+        "Area",
+        "Duration",
+        "Intensity"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: The magician’s control over these storms is tenuous at best. On a failure, the Willpower is still expended but nothing happens. Botches, however, result in storms that go out of control, both in the world of the living and the Shadowlands. When a hedge magician loses control of the energies of this Path, they call forth a piece of the Tempest. This causes normal ghosts to become disoriented and have difficulty moving around. Spectres, on the other hand, thrive in this environment. These most malicious of spirits ride the Tempest directly up to the Shadowlands and have an easier time manifesting in the area for the duration the spell would have had."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Intensity: Drawing a breeze and fog from the underworld into the world of the living pacifies the local Shadowlands. Ghosts in the area are calmed. They’ll defend themselves, but otherwise they won’t attack anyone in the area for the duration without succeeding on a Willpower roll (difficulty 6)."
+      },
+      {
+        "level": 2,
+        "text": "Intensity: A rainstorm is summoned, and it drains so much energy from the underworld that ghosts are frozen in place unless they make a Willpower roll (difficulty 7). They’re made just corporeal enough that the magician can physically move them. Usually, they remove the ghosts from an area where they are unwelcome."
+      },
+      {
+        "level": 3,
+        "text": "Intensity: Calling a full-scale thunderstorm does even more to quiet the Shadowlands. This drains the power of Oblivion from the area. Ghosts are sedated as in the first rank, but those under control of their Shadows are restored to reason. Results vary with spectres, but legends exist of hedge magicians with this Path pulling a spectre away from Oblivion."
+      },
+      {
+        "level": 4,
+        "text": "Intensity: Powerful storms in the world of the living, with gale-force winds, hail, and plenty of property damage can truly sap the power of Oblivion in the Shadowlands. Spectres and other deeply malicious ghosts who fail a Willpower roll (difficulty 8) disappear within the barrage of wind and hail. No hedge magician knows for sure what happens to these spirits, but they are never seen in the location where the power was evoked for a year and a day."
+      },
+      {
+        "level": 5,
+        "text": "Intensity: A massive storm draining all energy from the corresponding region of the Shadowlands. Both the area and its reflection in the Shadowlands becomes utterly uninhabitable for ghosts. The Restless Dead must flee the area, or else suffer five dice of damage per round until they do so."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "rest_in_peace",
+        "name": "Rest in Peace",
+        "level": 2,
+        "text": "By summoning a thunderstorm from the underworld, the magician can place nearby ghosts into a state of Slumber. Slumber is similar in many ways to sleep for the living. It is restorative for the ghost’s ephemeral form and restful for their minds and personalities. While in Slumber, the ghost loses awareness of their surroundings, instead experiencing vivid dreams. Usually those dreams are lively and colorful, focused on the ghost’s passions, but with a darkness overlaying them due to the Shadow. The Slumber created by this ritual brings better, more peaceful dreams. The Shadow’s influence over them is diminished to nothing, and even Spectres find themselves having positive dreams for the first time since they fell to their Shadows. A single success always puts a willing target into Slumber, but unwilling targets (like most Spectres) roll Willpower (difficulty 6) and must achieve more successes than the ritual in order to stay awake."
+      },
+      {
+        "id": "calm_above_hell_below",
+        "name": "Calm Above, Hell Below",
+        "level": 3,
+        "text": "Spells for the Path of Maelstroms generally bring Tempest energy from the Underworld into the physical world. This creates the storms above and calms the below. This ritual reverses that. It can only be performed during a storm, and when complete, any normal storm in the area dies down. Extreme weather events are largely unaffected and can be used to perform this ritual several times, even decreasing the difficulty by one. However, it is rarely a good idea to sit outside in a hurricane for several hours. The storm’s energy enrages the ghosts in the area. On a single success, they must make Willpower rolls (difficulty 6), or they begin lashing out, attacking each other and even the living if they have the power to do so. If the caster achieves five or more successes, this additionally creates a Maelstrom, causing most ghosts to attempt to flee the area, before being attacked by the spectres such disturbances inevitably attract."
+      },
+      {
+        "id": "shelter_for_the_dead",
+        "name": "Shelter for the Dead",
+        "level": 5,
+        "text": "A powerful but only situationally useful ritual, Shelter for the Dead can only be performed with the largest storms from the Underworld: The Great Maelstroms. No one knows how or when it was developed, but it was first used to protect the ghosts of Constantinople during the Great Maelstrom caused by the Black Death. The ritual is passed down by those few who know it to their students, hoping that it will never be necessary but knowing how valuable it can be if the worst happens. At the cost of risking an extreme storm battering the lands of the living, Shelter for the Dead creates a region, no more than the size of a modern city block, where the Maelstrom cannot enter. Rather, if the pieces of the Great Maelstrom do enter, they immediately are transformed into brutal storms, with extreme wind, hailstones the size of fists, and other strange things, regardless of the usual weather in the area. The ritual requires ten successes, almost always necessitating a group, and lasts for one day, plus one for each additional success beyond the minimal ten."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Intensity table is a Path-specific Aspect rating; reproduced in system.text and as levels entries."
+  },
+  {
+    "id": "necromancy",
+    "name": "Necromancy",
+    "page": 39,
+    "description": "Some things should stay buried. Chief among them: the dead. But those who follow the Path of Necromancy see things a bit differently. Like Hellfire, Necromancy has a reputation for being foul, practiced only by the worst of the worst. Unlike Hellfire, this reputation is at least somewhat deserved. Even the simplest of Necromancy spells involve forcibly bending the dead to the magician’s will, and the most powerful of them can manipulate the powers of the Shadowlands to affect the living as well.\n\nThough methods vary wildly with practice, Necromancy always requires that the magician’s first instruments include the preserved piece of the corpse of someone they cared for, almost always a family member. This creates the link between the magician and the underworld, allowing them to become a conduit for the energies of death itself. While for mystical magicians, crafting such an instrument often feels natural, technomagicians tend to find themselves with unique, grisly objects, like keyboards with keys made of bone or computer chips with brain neurons embedded in the circuitry.\n\nUsing this Path is difficult. Not in the sense of technique — it is no more complex to use than any other Path. Rather, it takes an emotional toll on the magician. The living are not meant to channel the energies of death so directly. They feel the grief of their ancestors, back for centuries, perhaps millennia. This overwhelming despair at the loss of countless generations leads to complications, particularly for magicians who are low on Willpower. Finally, those energies cause harm to the user, and each spell or ritual causes the caster to take one level of bashing damage per level of the power being invoked, unless otherwise mentioned in the description.",
+    "system": {
+      "text": "Aspects: Duration along with Ghost Binding:\n\nGhost Binding\n• The caster can see, hear, and speak to ghosts in their vicinity, whichever side of the Shroud they are on.\n•• The magician can now terrify the restless dead. Filling themself with the necrotic energy of the Shadowlands, the dead can see them as alive but infused with the power of death. This results in a –2 difficulty on all Intimidation and Subterfuge rolls against the dead.\n••• The caster forces a ghost to take on a corporeal form, whether they could do so on their own or not. For the duration, the ghost is for all intents and purposes a living person again, including the usual seven Health levels. If killed, however, they don’t simply return to being a ghost. Instead, the experience transforms the ghost into a spectre, a ghost consumed by and subservient to the powers of Oblivion. And this spectre has a grudge against the caster.\n•••• Any ghost can be summoned to the caster at this level. All the magician needs is the ghost’s True Name and to win a contested Willpower roll. If the necromancer is successful, the ghost must then immediately arrive. Keep in mind that most dead people do not become ghosts, and most ghosts do not appreciate being summoned.\n••••• Masters of Necromancy can compel obedience from the dead. In addition to the Path roll, they must win a contested Willpower roll. If they do so, they can demand the ghost perform one simple task or answer one simple question to the best of their ability. For tasks, the Duration Aspect covers how long the ghost must attempt to accomplish it.\n\nPrice of Failure: Failure for most Paths simply results in nothing happening. For Necromancy, the despair of generations overwhelms them, resulting in a derangement, usually severe depression, for an hour. If they have less than three temporary Willpower points, then the derangement instead lasts a week. Botches are truly dangerous, with not only the derangements lasting longer (a full month) and the near certainty of very angry ghosts, but the magician runs the risk of being pulled out of his body, leaving it apparently comatose while their mind spends the month “living” as one of the restless dead.",
+      "aspects": [
+        "Duration",
+        "Ghost Binding"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: Failure for most Paths simply results in nothing happening. For Necromancy, the despair of generations overwhelms them, resulting in a derangement, usually severe depression, for an hour. If they have less than three temporary Willpower points, then the derangement instead lasts a week. Botches are truly dangerous, with not only the derangements lasting longer (a full month) and the near certainty of very angry ghosts, but the magician runs the risk of being pulled out of his body, leaving it apparently comatose while their mind spends the month “living” as one of the restless dead."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Ghost Binding: The caster can see, hear, and speak to ghosts in their vicinity, whichever side of the Shroud they are on."
+      },
+      {
+        "level": 2,
+        "text": "Ghost Binding: The magician can now terrify the restless dead. Filling themself with the necrotic energy of the Shadowlands, the dead can see them as alive but infused with the power of death. This results in a –2 difficulty on all Intimidation and Subterfuge rolls against the dead."
+      },
+      {
+        "level": 3,
+        "text": "Ghost Binding: The caster forces a ghost to take on a corporeal form, whether they could do so on their own or not. For the duration, the ghost is for all intents and purposes a living person again, including the usual seven Health levels. If killed, however, they don’t simply return to being a ghost. Instead, the experience transforms the ghost into a spectre, a ghost consumed by and subservient to the powers of Oblivion. And this spectre has a grudge against the caster."
+      },
+      {
+        "level": 4,
+        "text": "Ghost Binding: Any ghost can be summoned to the caster at this level. All the magician needs is the ghost’s True Name and to win a contested Willpower roll. If the necromancer is successful, the ghost must then immediately arrive. Keep in mind that most dead people do not become ghosts, and most ghosts do not appreciate being summoned."
+      },
+      {
+        "level": 5,
+        "text": "Ghost Binding: Masters of Necromancy can compel obedience from the dead. In addition to the Path roll, they must win a contested Willpower roll. If they do so, they can demand the ghost perform one simple task or answer one simple question to the best of their ability. For tasks, the Duration Aspect covers how long the ghost must attempt to accomplish it."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "deathsight",
+        "name": "Deathsight",
+        "level": 1,
+        "text": "Normally, a necromancer can only see the ghosts around them. They can’t see the environment the ghosts call home. This ritual changes that. With it, a magician not only sees the Restless Dead, but can actually peer into the Shadowlands. This effect lasts for one minute per success on the ritual. While under the influence of this ritual, the necromancer cannot perceive the normal world; only the Shadowlands are visible to them."
+      },
+      {
+        "id": "wrapped_in_a_shroud",
+        "name": "Wrapped in a Shroud",
+        "level": 3,
+        "text": "The Shroud separates the world of the living from the world of the dead. It can be difficult to cross this barrier, a fact which protects the living and the dead both from each other. Usually, either a necromancer must reach across from the land of the living to the world of the dead, or a ghost must have crossed to accomplish something among the living, in order for them to interact. For one minute per success on this ritual, the necromancer manages to actually stand between worlds, able to interact directly with both without further magic. Both human beings and ghosts can interact freely with the magician, for better or for worse."
+      },
+      {
+        "id": "forced_medium",
+        "name": "Forced Medium",
+        "level": 4,
+        "text": "Some people are naturally easier for ghosts to possess. These mediums may view this as a gift or a curse, but it marks them apart. These are the people who deal with the spirit worlds, and who ghosts will come to in order to either ask them to solve a problem or else take over their body to compel them do so. This ritual gives the target the merit Medium (BoS p. 69) for a week, along with a –2 difficulty on attempts by ghosts to possess them."
+      },
+      {
+        "id": "steal_life",
+        "name": "Steal Life",
+        "level": 5,
+        "text": "One of the darkest arts of Necromancy, masters of the Path can steal the life energy from another living person. The caster first fills themself with death energy but doesn’t shape it directly into a spell. Instead, before it can absorb their own life force, they push it into their victim. This transfer takes with it the most recent five health levels of damage the caster currently suffers from. The caster heals those injuries. Most versions of this ritual involve carving sigils into the victim (or piercing them with electrical wires, or any number of other techniques) causing additional harm. Needless to say, very few survive this process, and those who do often hunt the necromancer until the end of their days."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Ghost Binding table is a Path-specific Aspect rating; reproduced in system.text and as levels entries."
+  },
+  {
+    "id": "necronics",
+    "name": "Necronics",
+    "page": 41,
+    "description": "One of the newest Paths, only discovered by ghost hunters in the late 1990s, the Path of Necronics was first studied by “Black Hat” hackers attempting to combine their understanding of electronics with the world of the dead. They use various techniques to manipulate their own bioelectricity, or life energy, to affect the world of the dead in some way. Because living energy is antithetical to the Shadowlands, this tends to result in impeding ghosts’ efforts to manage their hauntings.\n\nAs a new Path, there’s a lot not yet understood about Necronics. Almost all current practitioners use electronic devices — usually computers, phones, and tablets — to cast Necronics spells. Though analogues in traditional cultures exist, those Paths may or may not be the same as Necronics, using lower-tech and more traditional methods. Ghost hunters investigating Necronics tend to be fascinated by these practices. They think studying them will provide new techniques they can apply to handle hauntings.\n\nIn addition to the consequences of botching noted below, Necronics holds one other great danger for the magician. Because users are manipulating their bioelectricity so strongly, touching them while they are working is dangerous. Even the lightest touch by another living thing throws off the magician’s focus and control of bioelecticity, causing a feedback loop to form. This feedback causes them to take a level of aggravated damage and fail the spell or ritual. The magician needs immediate medical attention to stabilize them and is left weakened (–1 die to all actions) for one week per level of the spell or ritual disrupted.",
+    "system": {
+      "text": "Aspects: Area, Duration, and Impedance:\n\nImpedance\n• The magician floods the local underworld with electrical energy, shutting down all active ghostly powers. Ghosts may ignore this, continuing as they were, if they succeed on a Willpower roll (difficulty 8).\n•• At this level, instead of merely stopping a haunting, the magician can increase the Shroud rating. This costs one success per rank increased, with the first rank included in the base cost of the spell (so in addition to the regular requirements, 2 successes are needed to increase the Shroud from 6 to 9).\n••• Places can be defended from haunting by the simple technique of tricking the ghost into haunting somewhere else. At this rank, the magician can create a trap, a fake realm the ghost can haunt instead of the real location. A ghost can realize they’ve been tricked with a Wits + Enigmas roll (difficulty 8) and can escape with another one.\n•••• At this level, the magician may directly use their bioelectricity as an attack against a ghost. When using this rank of Necronics, the Area and Duration Aspects are replaced by Damage and Range.\n••••• Masters of this Path are capable of devastating a region of the Shadowlands and its inhabitants. They call it “creating a zero,” and they “format” the space to a default pattern. When successful, there’s nothing left. For the duration of the spell, the region becomes uninhabitable to ghosts, causing the Restless Dead to lose Corpus at a rate of 3 per turn until they can escape the area. If they fail to escape before running out of Corpus levels, they disappear. Magicians generally believe these ghosts have been destroyed completely, rather than the usual consequences of running out of Corpus. As no Necronics expert has ever seen one that survived being “zeroed out,” this seems to be the best guess.\n\nPrice of Failure: Because the Necronics magician uses their own bioelectricity to interact with the dead, botches are particularly risky. They aren’t just extending mystical senses, but rather a very real and physical part of themself. On a botch, the intended effect doesn’t happen. Instead, all ghosts in the area gain Pathos and Angst equal to the level of the spell or ritual being performed. They also become acutely aware of the magician trying to control or banish them and can affect the magician directly with their powers as though they were a ghost, rather than having to work through the Shroud or specific powers allowing them to touch the living.",
+      "aspects": [
+        "Area",
+        "Duration",
+        "Impedance"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: Because the Necronics magician uses their own bioelectricity to interact with the dead, botches are particularly risky. They aren’t just extending mystical senses, but rather a very real and physical part of themself. On a botch, the intended effect doesn’t happen. Instead, all ghosts in the area gain Pathos and Angst equal to the level of the spell or ritual being performed. They also become acutely aware of the magician trying to control or banish them and can affect the magician directly with their powers as though they were a ghost, rather than having to work through the Shroud or specific powers allowing them to touch the living."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Impedance: The magician floods the local underworld with electrical energy, shutting down all active ghostly powers. Ghosts may ignore this, continuing as they were, if they succeed on a Willpower roll (difficulty 8)."
+      },
+      {
+        "level": 2,
+        "text": "Impedance: At this level, instead of merely stopping a haunting, the magician can increase the Shroud rating. This costs one success per rank increased, with the first rank included in the base cost of the spell (so in addition to the regular requirements, 2 successes are needed to increase the Shroud from 6 to 9)."
+      },
+      {
+        "level": 3,
+        "text": "Impedance: Places can be defended from haunting by the simple technique of tricking the ghost into haunting somewhere else. At this rank, the magician can create a trap, a fake realm the ghost can haunt instead of the real location. A ghost can realize they’ve been tricked with a Wits + Enigmas roll (difficulty 8) and can escape with another one."
+      },
+      {
+        "level": 4,
+        "text": "Impedance: At this level, the magician may directly use their bioelectricity as an attack against a ghost. When using this rank of Necronics, the Area and Duration Aspects are replaced by Damage and Range."
+      },
+      {
+        "level": 5,
+        "text": "Impedance: Masters of this Path are capable of devastating a region of the Shadowlands and its inhabitants. They call it “creating a zero,” and they “format” the space to a default pattern. When successful, there’s nothing left. For the duration of the spell, the region becomes uninhabitable to ghosts, causing the Restless Dead to lose Corpus at a rate of 3 per turn until they can escape the area. If they fail to escape before running out of Corpus levels, they disappear. Magicians generally believe these ghosts have been destroyed completely, rather than the usual consequences of running out of Corpus. As no Necronics expert has ever seen one that survived being “zeroed out,” this seems to be the best guess."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "shroud_bubble",
+        "name": "Shroud Bubble",
+        "level": 3,
+        "text": "Sometimes, when all else fails, the best thing a magician can do when faced with a troublesome haunting is to hide and wait it out. The problem being that ghosts have a nasty tendency to walk through walls and most other protective barriers. They also tend to be relentless, often obsessed when their minds are turned to a task. Desperate magicians being haunted by perseverant ghosts invented the concept of the Shroud Bubble to protect themselves, especially when waiting for backup to arrive to handle the ghost more directly. The ritual requires three successes but increases the Shroud to 10 near the magician. In fact, the Shroud rating increases in a sphere just large enough to contain them. The effect remains stationary, so the magician can’t leave the area without increasing their risk from ghosts and lasts for 8 hours."
+      },
+      {
+        "id": "shut_it_down",
+        "name": "Shut It Down",
+        "level": 3,
+        "text": "Hauntings can vary in scale. For ones confined to a room or two, it’s fairly simple to shut down the powers the ghosts are using to interact with the physical world. More often, though, there’s a whole building or larger area being haunted, and if the ghost is denied one room, they’ll just go to another. With Shut It Down, a much larger area than usual can be quieted, such that ghostly powers are impossible to use. The magician must mark the corners of the building or area, which can be as large as a full city block of empty land or a single building. The ritual requires at least 3 successes, and ghosts inside can only use their powers if they succeed on a Willpower roll at difficulty 8."
+      },
+      {
+        "id": "doxxing",
+        "name": "Doxxing",
+        "level": 4,
+        "text": "By reading the currents generated by a ghost and its movements, the magician can glean information from it. Each piece of information comes with a cost and must be declared and paid for before the casting. Any resources spent in this way are not refunded if the ritual fails. No information is gained if the ritual fails to achieve the number of successes required for the information being sought out:\n• Identifying a Passion — One success each. This identifies both the Passion and the emotion it is tied to.\n• Nature, Demeanor, and Shadow Archetype — One success and one point of Willpower each.\n• Identifying a Fetter — Much more difficult, this requires two successes and a point of Willpower.\n• The True Name of the ghost — This requires five successes and two points of Willpower."
+      },
+      {
+        "id": "overwrite",
+        "name": "Overwrite",
+        "level": 5,
+        "text": "The ultimate expression of the Path of Necronics, the practitioner concludes that all ghosts are electromagnetic signals trapped in the matrix of a formerly living person’s personality. This explains why they’re so malleable, for good or ill. With this ritual, the magician can rewrite the nature of the ghost on a fundamental level. To do so, they must know the ghost’s True Name and possess one of the ghost’s Fetters. The ritual takes 12 hours and requires two Stamina rolls (at difficulty 6) to complete. For this entire time, the ghost must be held within the same room as the caster, roughly a 10-foot by 10-foot space. Upon completion of the ritual, significant changes can be made to the ghost, but each has a cost. They last for one lunar cycle by default but become permanent if the costs are doubled. Some of the possible changes are:\n• 1 success and 1 Willpower point per level to change Passions, and an extra Willpower to change to a different emotion.\n• 2 successes and 1 Health Level — not damage, the Health Level itself disappears for the duration — to add or remove a point of Angst.\n• 5 successes and 5 Willpower to overwrite the ghost entirely with another specific personality."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Impedance table is a Path-specific Aspect rating; reproduced in system.text and as levels entries."
+  },
+  {
+    "id": "oneiromancy",
+    "name": "Oneiromancy",
+    "page": 42,
+    "description": "The Realm of Dreams is a fluid place that responds to the mood and imagination of the dreamer. Some people, particularly those with the Lucid Dreaming Talent (Mage 20 p. 294), can take control of their own dreams, rendering normal bad dreams controllable, good dreams fun experiences, and other dreams possible sources of insight into themselves. Without magic, though, the greater Realm of Dreams is still locked away, with each dreamer confined to their own psyche.\n\nMagicians who learn the Path of Oneiromancy learn to walk into the dreams of others. Once there, they try to take control, and can glean information or alter dreams to the benefit or harm of the dreamer. At the peak of their power, oneiromancers can even bring several people together in a shared dream. According to legend, some can even make dreams real or become capable of physically entering dreams.",
+    "system": {
+      "text": "Aspects: The Path of Oneiromancy has two Aspects: Sympathetic Connection and Dreamwalking\n\nDreamwalking\n• Basic Oneiromancy allows the magician to touch the dreams of others, seeing flashes of imagery that could be interpreted to get insights into their target’s nature and history.\n•• The oneiromancer can now enter the dreams of others, not merely see them. They become a part of the dream, forced to take on a role appropriate to the dream itself. Once in the dream, changes can be made. The magnitude of the changes determines the difficulty of an additional Oneiromancy roll, with creating small items being difficulty 6 but violating the theme of the dream being difficulty 8, perhaps with a Threshold.\n••• Dreamwalkers can now watch dreams from the outside, seeing them clearly but not being pulled into them. They can now truly transform the dreams they encounter. With this rank, they can create terrors mimicking the Nightmares Flaw or soothe a dream to the point of helping the dreamer regain an additional point of temporary Willpower.\n•••• Dream Sendings become available to the caster at this level. They can craft specific and detailed dream sequences for their target that repeat once per success. If they repeat more than once or twice per night, the target can become suspicious that their dreams are being manipulated.\n••••• Masters of Oneiromancy can create shared dreams, bringing one person into the dream for each success on the casting roll. The environment begins as a mixture of their subconscious influences, but the oneiromancer can manipulate it further using lower levels of the Path.\n\nPrice of Failure: Botching on Oneiromancy tends to be psychologically harmful. Many oneiromancers get tossed into a Nightmare Realm, which torments them in a way similar to the Paradox Realms (Mage 20 p. 102-103) feared by mages. At best, they lose control of any dream they’re interacting with. Of course, even if they succeed, interacting with the dreams of someone with the Nightmares Flaw can be its own sort of hell.",
+      "aspects": [
+        "Sympathetic Connection",
+        "Dreamwalking"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: Botching on Oneiromancy tends to be psychologically harmful. Many oneiromancers get tossed into a Nightmare Realm, which torments them in a way similar to the Paradox Realms (Mage 20 p. 102-103) feared by mages. At best, they lose control of any dream they’re interacting with. Of course, even if they succeed, interacting with the dreams of someone with the Nightmares Flaw can be its own sort of hell."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Dreamwalking: Basic Oneiromancy allows the magician to touch the dreams of others, seeing flashes of imagery that could be interpreted to get insights into their target’s nature and history."
+      },
+      {
+        "level": 2,
+        "text": "Dreamwalking: The oneiromancer can now enter the dreams of others, not merely see them. They become a part of the dream, forced to take on a role appropriate to the dream itself. Once in the dream, changes can be made. The magnitude of the changes determines the difficulty of an additional Oneiromancy roll, with creating small items being difficulty 6 but violating the theme of the dream being difficulty 8, perhaps with a Threshold."
+      },
+      {
+        "level": 3,
+        "text": "Dreamwalking: Dreamwalkers can now watch dreams from the outside, seeing them clearly but not being pulled into them. They can now truly transform the dreams they encounter. With this rank, they can create terrors mimicking the Nightmares Flaw or soothe a dream to the point of helping the dreamer regain an additional point of temporary Willpower."
+      },
+      {
+        "level": 4,
+        "text": "Dreamwalking: Dream Sendings become available to the caster at this level. They can craft specific and detailed dream sequences for their target that repeat once per success. If they repeat more than once or twice per night, the target can become suspicious that their dreams are being manipulated."
+      },
+      {
+        "level": 5,
+        "text": "Dreamwalking: Masters of Oneiromancy can create shared dreams, bringing one person into the dream for each success on the casting roll. The environment begins as a mixture of their subconscious influences, but the oneiromancer can manipulate it further using lower levels of the Path."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "symbol_interpretation",
+        "name": "Symbol Interpretation",
+        "level": 1,
+        "text": "In their rush to control the dreams of others, many oneiromancers forget even the meaning of the name of their Path. Though none forget that oneiros means dream, they think “mancy” simply refers to magic, rather than being derived from manteia, or divination. A growing movement among oneiromancers across Fellowships — spearheaded by Prof. Jeremiah Marquette, who specializes in using dreams to access blocked or forgotten memories — is reviving lost information by gathering aspects of the Path forgotten by many practitioners. He’s popularized a new ritual allowing an oneiromancer to find the answer to any one yes/no question the dreamer has ever known the answer to by reading the symbols of their dreams. The magician must have something of the target’s in their possession. They then must succeed at a Path roll and spend the night observing their target’s dreams with a specific yes or no question in mind. At the end, they must make an Intelligence + Enigmas or Intelligence + Esoterica (Dream Interpretation) roll. If they succeed, they find the answer to their question in the target’s dreams."
+      },
+      {
+        "id": "bedtime_story",
+        "name": "Bedtime Story",
+        "level": 2,
+        "text": "The most dangerous moment for an oneiromancer is that first step into a dream. The narrative of the dream is in effect, and they are forcibly adapted to it, sometimes losing themselves to it. Enterprising oneiromancers developed a ritual to take control of the dream as it forms, mitigating the risk that they’ll lose control. This ritual must be completed as the subject goes to sleep and requires the oneiromancer be in the room with them. However, a single success allows the oneiromancer to direct the forming dream, broadly guiding its narrative and themes."
+      },
+      {
+        "id": "invade_demesne",
+        "name": "Invade Demesne",
+        "level": 3,
+        "text": "Normally, the space created by the Demesne background is inviolate. Only powerful mages capable of finding them through astral travel can reach them. oneiromancers, however, have tricks few others can reproduce. This ritual lets the oneiromancer enter the Demesne of their target. Once there, they can try to seize control, though this requires a Path roll at difficulty 9, opposed by the Demesne’s owner rolling Wits + Demesne (difficulty 6). This is highly risky, and only the most well-prepared oneiromancers should try it."
+      },
+      {
+        "id": "dream_scream",
+        "name": "Dream Scream",
+        "level": 4,
+        "text": "While powerful oneiromancers can simply send dreams to people as spells, with this ritual, they can send a message to several people at once through their dreams. The magician chooses a message consisting of a single sentence, fixes it in their mind, and performs the ritual. At completion, they can send the message to one person per success within a 10-mile radius."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Dreamwalking table is a Path-specific Aspect rating; reproduced in system.text and as levels entries. Sympathetic Connection has no table in this section (presumably the general Aspect from chapter four)."
+  }
+]

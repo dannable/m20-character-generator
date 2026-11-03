@@ -1,0 +1,326 @@
+[
+  {
+    "id": "enchantment",
+    "name": "Enchantment",
+    "page": 26,
+    "description": "The Path of Enchantment rewards patience and forethought more than any other Path. There are no spells in this Path, only rituals, causing the hedge wizard to need to learn — or invent — a new ritual each time they want to make an Artifact they haven’t made before. Each of these Artifacts must be carefully crafted by the Enchanter. The first step is to create the mundane base item. Usually these are hand-crafted by the Enchanter, pushing their mundane skills to their limits to make just the right vessel for their magic. Sometimes, however, the right vessel can be found in the form of a rare or ancient object. Once the vessel has been made or found, the Enchanter can get to the process of infusing the object with magical energy to be used later. The first stage is usually accomplished through Crafts rolls (or, for technosorcerers, Technology or Hypertech rolls), while the latter is a Path roll.\n\nThe Artifacts created through Enchantment differ in several key ways from the recipes of Alchemy. Artifacts are usually persistent, or at least can be used many times. Some may be permanent, or nearly so, while others can be used a fixed number of times before their magic dissipates. Additionally, they tend to be weaker than the Wonders created by mages, and more focused. An Artifact can only have a single power, a restriction Wonders don’t have.\n\nEnchanters tend to spend a lot of time and effort on their workshops. Whatever sort of crafting they do to make their Artifacts defines them. They often see themselves as blacksmiths, jewelers, electronics engineers, or woodworkers first, and the magic they can do comes later. This leads Enchanters to pursue high levels of the Resources Background, as well as others representing a safe and secure space to do their work and the ability to acquire high quality and often exotic raw materials.",
+    "system": {
+      "text": "Modifiers: Once a magician creates a Talisman three times, the difficulty is reduced by 1.\n\nTime: Crafting time for the object, plus 1-3 days per level of the enchantment\n\nEffects: Enchantment doesn’t have Aspects, instead it has the following Effects:\n\n• The Enchanter can create minor items that are rarely noticeably magical to those who aren’t already aware of their powers. This can add one (or, for restricted circumstances, two) dice to an Attribute or Ability roll or decrease the difficulty by 1 for an attack or skill. Other small boons are also possible.\n\n•• More powerful versions of already possible Artifacts offer two additional dice or a –2 difficulty on a task. Some of the objects created at this level can change reality in a subtle way, being more magical than previously possible.\n\n••• Obviously magical items are now possible, though they’ll still seem merely “very weird” to the magically unaware. These include items that offer two additional dice on up to three different Attribute or Ability rolls, and those that confer supernatural perceptions to the user by replicating supernatural powers of no greater than a single dot.\n\n•••• Objects of truly superhuman power. These can raise Attributes above 5, duplicate powers (up to the second dot) of other supernatural beings, and otherwise warp reality in significant ways.\n\n••••• Extremely powerful items often bordering on the mythic. Minor miracles are possible, and often these powers are quite blatant. Items created at this level can reproduce up to three dots worth of supernatural powers. Each dot reproduced this way mimics a single effect — chosen when the item is crafted — even if the replicated power offers multiple effects.\n\nPrice of Failure: Failure usually means the magician has wasted days or weeks of their time, possibly ruining the item they were trying to enchant, but nothing worse. Botches tend to be more varied. They can result in explosions that destroy the workshop. Worse, though, they can result in objects that seem to work, but have some sort of unanticipated side effect. These cursed items tend to be hard to destroy or get rid of, often lingering long after the Enchanter is gone and even finding their way into Sleeper hands.",
+      "aspects": [],
+      "modifiers": "Modifiers: Once a magician creates a Talisman three times, the difficulty is reduced by 1.",
+      "priceOfFailure": "Price of Failure: Failure usually means the magician has wasted days or weeks of their time, possibly ruining the item they were trying to enchant, but nothing worse. Botches tend to be more varied. They can result in explosions that destroy the workshop. Worse, though, they can result in objects that seem to work, but have some sort of unanticipated side effect. These cursed items tend to be hard to destroy or get rid of, often lingering long after the Enchanter is gone and even finding their way into Sleeper hands."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "text": "Army surplus jacket granting two dots of Arcane when worn."
+      },
+      {
+        "level": 1,
+        "text": "A custom handgun subtracting one from the difficulty of all aimed shots."
+      },
+      {
+        "level": 1,
+        "text": "A stuffed animal guaranteeing restful sleep to anyone sleeping in the same bed as it."
+      },
+      {
+        "level": 1,
+        "text": "A silver chain bearing a hawk’s eye medallion with a chrysoprase in that can, once per day, add 2 dice to a long-distance sight-based Perception roll."
+      },
+      {
+        "level": 1,
+        "text": "A silver toe-ring that, when worn on otherwise bare feet, protects from projectiles, adding 2 dice to all attempts to dodge them."
+      },
+      {
+        "level": 1,
+        "text": "A colored candle that, when burned, grants two dots of a Background for the purposes of a one-time favor."
+      },
+      {
+        "level": 1,
+        "text": "An oak frame that preserves anything placed in it for as long as it remains intact. It can only hold flat things, like documents and photographs, and must be sealed with almond oil and sprinkled with pure water."
+      },
+      {
+        "level": 2,
+        "text": "A pocket flask that attracts bullets when carried in a breast pocket. It can only take one impact, but it provides three dice of lethal soak before being destroyed. This enchantment is very popular among soldiers heading onto a battlefield and may have originated during World War II."
+      },
+      {
+        "level": 2,
+        "text": "Enhanced bullets dealing 2 additional dice of damage on hits. Each success on the Enchantment roll creates one bullet."
+      },
+      {
+        "level": 2,
+        "text": "A silver dancer’s anklet adding to dice to rolls involving dance when worn and visible."
+      },
+      {
+        "level": 2,
+        "text": "An iron nail that, when driven into someone’s footprint, causes them to painfully stub their toe."
+      },
+      {
+        "level": 2,
+        "text": "A small golden charm alerting the wearer when a single person it is attuned to is in danger. It must be reset each time by sprinkling it with wine. The charm works once per success on the Enchantment roll."
+      },
+      {
+        "level": 2,
+        "text": "A rowan ring which counteracts fae magic used on the wearer. This cancels one instance of fae magic per success on the Enchantment roll."
+      },
+      {
+        "level": 3,
+        "text": "Running shoes doubling the speed of the wearer when trying to outrun pursuit."
+      },
+      {
+        "level": 3,
+        "text": "A sword for ghost-slaying. It has a core of liquid mercury and does aggravated damage to the Risen and lethal damage to wraiths. It must be blessed by a priest every fortnight or the magic ends."
+      },
+      {
+        "level": 3,
+        "text": "A salve that heals three non-aggravated health levels in minutes. It must be applied under the light of the moon by someone who loves the wounded. Each success on the Enchantment roll creates one application."
+      },
+      {
+        "level": 3,
+        "text": "A bull torque made of pure obsidian. When smeared with blood it grants three dots of Strength to the wearer for one scene per success on the Enchantment roll."
+      },
+      {
+        "level": 3,
+        "text": "A handkerchief which can clean any mundane spill or stain. It requires the user to hum while mopping with it and works once per success on the Enchantment roll."
+      },
+      {
+        "level": 4,
+        "text": "An amulet warding against sorcery. Three times a day it subtracts dice equal to the successes on the Enchantment roll from spells targeting the wearer. It must be kept in a special jewelry box carved from a single crystal when not worn, or it loses one success permanently per night until it stops working."
+      },
+      {
+        "level": 4,
+        "text": "A silver torc granting superhuman Strength. The wearer has Strength 5 when using it, and once per day for each success on the Enchantment roll, may gain 3 automatic successes on a task involving Strength. When not worn, it must be kept exposed to the moon whenever the moon is visible."
+      },
+      {
+        "level": 4,
+        "text": "A silvered mail tunic that automatically converts up to 4 dice of lethal damage per turn to bashing. Upon each use, a few links fall out, and eventually it falls apart (after one use per success on the Enchantment roll). If any attempt at cleaning or repair is made, the magic is lost."
+      },
+      {
+        "level": 4,
+        "text": "A book that will, once per success on the Enchantment roll, translate anything written in it into the reader’s native language. To activate it, the page must be sprinkled with paper ash. When set down, the writing reverts to the original language."
+      },
+      {
+        "level": 4,
+        "text": "Heartseeker, a stiletto which unerringly aims for the heart when wielded in rage. It deals Strength + 5 dice of lethal damage. It must be bathed in the blood of each kill it makes or else it loses its potency."
+      },
+      {
+        "level": 4,
+        "text": "The skull of a dead wizard allowing the user to contact them for assistance. The user “donates” a pint of blood to the skull and can ask one question per success on the Enchantment roll. These questions need not be yes/no, and follow-ups (as determined by the Storyteller) do not count as additional questions. It may only be used during the new moon and requires a Willpower roll at difficulty equal to 4 plus the number of times the skull has been used. The skull crumbles to dust after the last question if the Willpower roll fails. Recently, rumors have begun to surface suggesting the skull of Porthos Fitz-Empress was recovered and enchanted in this way, though everyone has heard it from a friend of a friend."
+      },
+      {
+        "level": 5,
+        "text": "A money pouch that never quite empties. So long as at least one quarter (or other medium denomination coin for other currencies) remains in it, up to four times a day it will contain about five dollars (or equivalent) in quarters. If ever used a fifth time in one day, the magic is lost forever."
+      },
+      {
+        "level": 5,
+        "text": "An amulet of protection from physical harm. When worn, it grants five dice of soak against all damage, including aggravated. However, each use subtracts five years from the user’s life, visible on their organs, but not on the outside."
+      },
+      {
+        "level": 5,
+        "text": "An amulet hiding the user from magical detection. When worn, it adds 4 successes to the total required to find the wearer with any sort of supernatural power. Each use requires the wearer to solve a new riddle, puzzle, or enigma, activating it for one week per success on the Enchantment roll."
+      },
+      {
+        "level": 5,
+        "text": "A cloak that hides the movements of the user. It allows them to move silently and undetected even across squeaky floors. Legends say it was developed to defeat the Nightingale floors of Nijo Castle. The wearer is perfectly silent until they speak aloud. When created, one silver thread per success on the Enchantment roll is woven into the cloak, and each use breaks one of those threads. When the last one breaks, the magic is lost forever."
+      },
+      {
+        "level": 5,
+        "text": "A piano anyone can play like a master once they give a prayer to the nine Muses (by name)."
+      },
+      {
+        "level": 5,
+        "text": "An animated servant, such as a homunculus or robot. It has 10 dots of Attributes and 7 dots of Abilities, with human senses and Health levels (though no wound penalties). It doesn’t need to eat or sleep, though most robots require some sort of recharging."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "eldritch_mark",
+        "name": "Eldritch Mark",
+        "level": 1,
+        "text": "By inscribing a symbol or mark onto an object or the forehead of a person, the magicians marks them as theirs. The mark is invisible to the naked eye, but obvious to anyone with magically enhanced perceptions of any sort. The mark informs anyone looking at it of the name of the magician who created the mark. This ritual takes five minutes to cast and has no Willpower cost. The mark lasts until the next new moon."
+      },
+      {
+        "id": "enhance_craftsmanship",
+        "name": "Enhance Craftsmanship",
+        "level": 2,
+        "text": "Sometimes, instead of a magic item, what a magician needs is an otherwise normal but perfectly crafted object. This ritual creates unbreakable blades, sweaters that don’t unravel, and similar objects whose only enhancement is in the extreme quality of their crafting. These objects cannot be enchanted further, however. Enhanced items are not magical, but an Enchanter or Alchemist can roll Perception + Occult (difficulty 6) to recognize that they were created in this manner. This ritual must be cast during the creation of the object, or takes 15-20 minutes after the fact, and costs no Willpower."
+      }
+    ],
+    "sidebars": [],
+    "notes": "Enchantment has no Aspects; its dot-rated Effects (1-5) are kept in system.text. The 'levels' array holds the book's 'Sample Creations' list, one entry per item at its printed dot rating. The silver torc entry had no dot marker in the extraction (sandwiched between •••• entries); it is placed at level 4 based on position and its 'Strength 5' effect. Both rituals are listed under 'Sample Rituals' although the Path has only rituals."
+  },
+  {
+    "id": "fascination",
+    "name": "Fascination",
+    "page": 28,
+    "description": "Stories of the enthralling sorcerer or the bewitching magician are found in folktales across the world. Devious enchanters bring the innocent under their sway, and deals struck for power entrap the hearts and minds of those so foolish as to sign away their souls to such bargains. The kernel of truth to this old trope is solid as diamond. Unscrupulous magicians bending the minds of others to their will have practiced this Path as long as anyone has wished another would just act or think in an agreeable manner.\n\nThe methods vary, but the result is the same: Break the subject’s will and enthrall them. A sorcerer employing a mystical practice may apply makeup that makes their eyes sparkle with entrancing radiance. They may spritz themselves with an alluring fragrance, drawing the attention of anyone within wafting distance. Others may simply hone their confidence into a razor’s edge, impossible to resist. Extraordinary Citizens carry tested and approved harmonic resonators that emit a subsonic frequency that rebalances neurotransmitters to facilitate compliance.\n\nThose with mind-altering powers already can resist with powers of their own if they are the specific target of a power. This goes both ways, as a student of this Path may recognize other uses of mind-altering effects and prepare themselves to resist or overcome them.",
+    "system": {
+      "text": "Modifiers: +1 difficulty for being disliked by the target, +2 difficulty for being hated by the target\n\nAspects: In addition to the Aspects of Number of Targets, Range, and Sympathetic Connection, Fascination uses the Allure and Willbending Aspects:\n\nAllure\n\n• Add 1 die to social die pools\n\n•• Add 2 dice to social die pools\n\n••• Add 3 dice to social die pools\n\n•••• Add 4 dice to social die pools\n\n••••• Add 5 dice to social die pools\n\nWillbending\n\n• Intriguing: You draw attention even in a crowd, and individuals find you interesting in one-on-one conversation. You may make mild suggestions that align with the target’s personality and situation such as getting another drunk if they are at a bar.\n\n•• Alluring: Almost everyone at the gathering knows you were there, and individuals will try to find a way to see you again. You may make strong suggestions that align with the target’s personality and situation, such as heading home with the hedge wizard after a fun night.\n\n••• Beguiling: Everyone assumes that you had a hand in setting up the party, and individuals around you will vie for your attention. You may make suggestions that don’t necessarily align with the target’s personality and situation, such as suggesting they break up with their long-term partner to give the caster of the spell a one-off chance.\n\n•••• Entrancing: Invitations or not, the party is held for you by everyone’s estimation. Individuals no longer just want your attention, they crave your approval, possibly making fools of themselves in the process. You may make strong suggestions that don’t align with the target’s personality or interests, such as suggesting that the target fight another to defend the magician’s honor.\n\n••••• Enthralling: If you started throwing things, this place would become a full-scale riot; those present find themselves hard-pressed to resist your requests, doing almost anything you might request. Hell, they may even kill for you or put their life on the line for you if you ask the right way. You may make strong suggestions that wildly defy the target’s character and circumstances, such as suggesting that the spell’s victim burns down a bar for daring to announce last call.\n\nPrice of Failure: The consequences of failure when manipulating hearts and minds tend to be based on the context of the situation. A simple failure at a party may go largely unnoticed after a moment of minor embarrassment, such as a spilled drink during an attempt at a grand flourish or stepping on others’ toes while making tracks across the dance floor. A botch, however, inevitably leads to humiliation, or worse. This can be represented by reversing any bonus into a penalty for the duration. The target of enchantment becomes a sworn enemy instead of a paramour or may lose the ability to feel emotions at all. The subject of the latter effect becomes numb to all forms of empathy and sympathy and requires great lengths or the passage of time to return to normal. The converse may see the victim become unhinged, transforming into a violently jealous abuser that will harm anyone they perceive as encroaching upon their claim.",
+      "aspects": [
+        "Number of Targets",
+        "Range",
+        "Sympathetic Connection",
+        "Allure",
+        "Willbending"
+      ],
+      "modifiers": "Modifiers: +1 difficulty for being disliked by the target, +2 difficulty for being hated by the target",
+      "priceOfFailure": "Price of Failure: The consequences of failure when manipulating hearts and minds tend to be based on the context of the situation. A simple failure at a party may go largely unnoticed after a moment of minor embarrassment, such as a spilled drink during an attempt at a grand flourish or stepping on others’ toes while making tracks across the dance floor. A botch, however, inevitably leads to humiliation, or worse. This can be represented by reversing any bonus into a penalty for the duration. The target of enchantment becomes a sworn enemy instead of a paramour or may lose the ability to feel emotions at all. The subject of the latter effect becomes numb to all forms of empathy and sympathy and requires great lengths or the passage of time to return to normal. The converse may see the victim become unhinged, transforming into a violently jealous abuser that will harm anyone they perceive as encroaching upon their claim."
+    },
+    "levels": [],
+    "rituals": [
+      {
+        "id": "belle_of_the_ball",
+        "name": "Belle/Beau/Bright of the Ball",
+        "level": 3,
+        "text": "With knowledge of an upcoming social event and proper preparation, a sorcerer can make themselves quite the sensation. With an invitation in hand, whether intended for them or not, the magician infuses their presence into the upcoming gathering. For the duration of the specified party, they receive VIP treatment from all attendees and hired staff. The organizers give their blessing and offer a hearty “have a great night” without second-guessing their guest list."
+      },
+      {
+        "id": "love_potion_number_9",
+        "name": "Love Potion Number 9",
+        "level": 4,
+        "text": "Regardless of its classic and iconic nature, usage of the “love potion” has fallen out of fashion for obvious reasons. As societies have become more insistent on the importance of consent, sorcerers have had less call to take the time and resources required to perform this ritual. Those that are still willing to make the potent mixture of love and loyalty do so with hesitancy and charge a premium price.\n\nA lock of hair, a dram of blood, or a sentimental personal effect is required to create the right connection to the heart in question. When performed for an individual other than the sorcerer themselves, some part of the client is usually required as well. The ritual takes the form of the traditional potion in some practices; in others it is a sort of ritualized binding with a knotted cord. In all cases, the victim is tied to the anchor point of the sorcerer or their client.\n\nOnce performed, the victim finds themselves uneasy and sick to their stomach. The lingering nausea vanishes when the anchor is near, or when they are performing a task that they know would please the anchor."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Allure and Willbending Aspect tables (1-5 each) are kept in system.text. The extraction interleaved this Path's System and description paragraphs with the Enchantment rituals; the paragraphs were reassembled by content."
+  },
+  {
+    "id": "fortune",
+    "name": "Fortune",
+    "page": 30,
+    "description": "Fate is fickle, even before accounting for the manipulations of magicians. The Path of Fortune allows them to wield luck like a weapon, cutting down their enemies with curses or fortifying their allies with blessings. While methods and explanations may vary, from the Evil Eye, to the Hand of God, to probability manipulation, the Path of Fortune never makes the truly impossible happen, only the exceedingly unlikely. It’s also one of the least precise Paths: While the hedge magician sets Fortune in motion and controls the magnitude and general range of potential outcomes, the effects of this Path often surprise them or disappear into the noise of daily life.\n\nNight-Folk are harder to curse with this Path than Sleepers are. They make a Willpower roll against 4 + the magician’s Path rating, and effects without an Aspect at 5 require only a single success to negate. Those extremely powerful curses can be ignored with only two successes, though the difficulty will be 9, making it quite challenging. To resist, the victim must be aware of the magician’s curse and actively attempt to resist it. Discovering an unannounced curse can be difficult, but is possible through supernatural perceptions, such as aura reading. Mages with Prime or Entropy might notice it, and magicians with the Path of Fortune can usually recognize the work of one of their own.\n\nThe Arcane/Cloaking Background provides an additional layer of protection against curses. Targeting anyone with that Background without their explicit permission subtracts a success from the roll for each dot of Arcane they have.",
+    "system": {
+      "text": "Modifiers: –1 difficulty with a weak sympathetic connection (object owned by the target), –2 difficulty for a strong sympathetic connection (prized possession of target, piece of the target such as hair or nail clippings)\n\nAspects: Fortune uses the Duration Aspect, but treats all durations as one higher, with Duration 5 consisting of spells lasting for several years. Additionally, it uses the Number of Targets Aspect, but all targets must be related (members of a family, the population of a small town, etc.). The Fortune Path also uses an Aspect called Severity, as follows:\n\nSeverity\n\n• A minor blessing or curse, generally something simple, such as a Freudian slip or managing to just barely catch a bus the target needs.\n\n•• A lasting but non-permanent inconvenience, injury, or small benefit. Sprains, non-life-threatening illness, and broken objects are standard bad luck, whereas good luck might be as simple as avoiding the flu for a season, a minor combat advantage, or the resolution of a minor obstacle.\n\n••• A major setback or bonus. Temporary but grave illnesses and serious social faux pas are the most common curses, while finding helpful bureaucrats, success with gambling or relationships, or an additional die to combat pools are the most common blessings.\n\n•••• Now the blessings and curses can have serious and permanent effects. Debilitating injuries, bankruptcy, a social tragedy that leaves the target a pariah, winning the lottery, surviving almost certain death, or just a chance encounter that changes the target’s social standing are all possible.\n\n••••• Curses at this level almost always result in a painful and unusual death. Targets get decapitated, suffer incurable wasting illnesses, experience horrific car accidents, and more. Blessings are similarly dramatic, such as being rescued from state execution by a call from the governor. Other last-minute saves from certain death are possible, but also victories far rarer than one in a million: An enemy in combat may trip and break their neck, the beneficiary might find a lost tome in a used bookstore bargain bin, or they could win political office with no name recognition.\n\nPrice of Failure: Some failed Fortune spells are undetectable. The target is either lucky or unlucky naturally, resulting in the appearance of a success. Botches are a more serious matter. A twisted blessing or curse still results. Blessings first appear beneficial but every time it helps the target there are horrible consequences. Curses likewise appear to be harmful but turn out to benefit the target of the magician’s ire. This is especially dangerous for a magician who attempts to use the Path of Fortune on themself. Instead of twisted blessings, the full force of a more powerful curse, often the most powerful the magician can cause, targets them. Worst of all, the magician cannot unweave the spell they botched on themself, though they can on others.",
+      "aspects": [
+        "Duration",
+        "Number of Targets",
+        "Severity"
+      ],
+      "modifiers": "Modifiers: –1 difficulty with a weak sympathetic connection (object owned by the target), –2 difficulty for a strong sympathetic connection (prized possession of target, piece of the target such as hair or nail clippings)",
+      "priceOfFailure": "Price of Failure: Some failed Fortune spells are undetectable. The target is either lucky or unlucky naturally, resulting in the appearance of a success. Botches are a more serious matter. A twisted blessing or curse still results. Blessings first appear beneficial but every time it helps the target there are horrible consequences. Curses likewise appear to be harmful but turn out to benefit the target of the magician’s ire. This is especially dangerous for a magician who attempts to use the Path of Fortune on themself. Instead of twisted blessings, the full force of a more powerful curse, often the most powerful the magician can cause, targets them. Worst of all, the magician cannot unweave the spell they botched on themself, though they can on others."
+    },
+    "levels": [],
+    "rituals": [
+      {
+        "id": "death_curse",
+        "name": "Death Curse",
+        "level": 1,
+        "text": "One of the most extreme rituals a magician can perform, the Death Curse always results in their death, and usually the destruction of their enemies. The magician spends all of their permanent Willpower, gaining a pool of successes equal to their value for the final spell. This ritual allows them to increase the level of Aspects to 2 higher than their Path rating, allowing relatively powerful magicians to sacrifice themselves for legendary curses (or, more rarely, blessings). Curses that resound for generations with fates worse than death for entire towns aren’t unheard of for the most powerful of magicians who find themselves willing to make the sacrifice. They make their Path roll at a difficulty determined by the Aspects as usual, but with that additional pool of automatic successes. Upon completing the ritual, the magician collapses, having spent their life in the casting; they’re often dead before they even hit the floor."
+      },
+      {
+        "id": "step_on_a_crack",
+        "name": "Step on a Crack",
+        "level": 2,
+        "text": "A common rhyme among children says, “If you step on a crack, you break your mother’s back.” It’s just a childish version of an ancient belief that touching cracks brings misfortune. This belief is made manifest in this ritual. Unlike most curses, the magician must inform their target of the curse for it to take effect, and the curse doesn’t automatically occur. Instead, the victim can attempt to evade the curse by not touching cracks. This, of course, inevitably proves to be impossible, triggering a curse bringing some non-life-threatening but potentially permanent harm to the victim or to their loved ones. If they can unweave (see p. 15) this curse before stepping on a crack, it is done at –2 difficulty. However, once the curse is triggered, any attempt to rid the victim of it is at +2 difficulty instead, as their actions were the direct cause of their misfortune, unfair as that may be."
+      },
+      {
+        "id": "bashert",
+        "name": "Bashert",
+        "level": 3,
+        "text": "Though this ritual existed in ancient times in one form or another, it has been popularized in its current form by Anne Richard and Judith Marquette. Fate may be fickle, but some matches are almost impossible to keep apart. With even a single success, the target of this ritual is nearly guaranteed to meet a perfect match, someone with the potential to be their True Love (as per the Merit on Book of Secrets p. 59), within the next year. Each additional success divides the time: two successes brings them together within six months, three decreases the wait to four months, and so on."
+      },
+      {
+        "id": "freudian_slip",
+        "name": "Freudian Slip",
+        "level": 4,
+        "text": "Speaking your thoughts at the wrong time can be social suicide. It can end friendships, destroy careers, and create lifelong hatreds with other consequences down the line. Magicians who study the Path of Fortune have refined this this ritual to take advantage of this knowledge. Freudian Slip curses its victim to say the worst possible thing they actually believe at their next important social event or encounter. This can include political speeches, job interviews, dates, family events, and more. Whatever the context, the next time they are trying to conceal their true feelings in a situation where revealing them would cause significant and lasting harm, they must make a Willpower roll (difficulty 8) to avoid simply blurting them out. If they avoid significant social events for a year and a day, the curse dies off, leaving them safe."
+      },
+      {
+        "id": "generational_wealth",
+        "name": "Generational Wealth",
+        "level": 5,
+        "text": "There are only so many ways to become wealthy enough to last for generations. Other than simple luck, all of them require a substantial sacrifice. For most, this sacrifice is borne by others, through exploitative labor practices or criminal enterprise. In fact, due to the fickle nature of luck, exploitation has always been the easier and more reliable path to wealth. This ritual allows luck to be tamed and guaranteed. It still requires a sacrifice; after all, nothing comes for free. But rather than sacrificing others, taking advantage of their desperation, the parent who seeks security for their family voluntarily sacrifices themself. Though the sacrifice must be willing, few magicians are willing to perform this ritual. Those who are willing must perform the sacrifice in some way appropriate to their practice. The beneficiaries of the sacrifice find themselves suddenly extremely lucky, able to win enough money gambling so they, their children, and their children’s children, will never have to work another day in their lives. Even if they somehow manage to throw away this vast wealth, the next generation will be just as lucky and regain it. The blessing lasts for seven generations, after which the descendants are on their own."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Severity Aspect table (1-5) is kept in system.text."
+  },
+  {
+    "id": "healing",
+    "name": "Healing",
+    "page": 32,
+    "description": "Wherever humanity thrives, there’s a need for healing. Since the dawn of civilization, healers sprung up out of empathy and community need. Long before science knew what germ theory was, healers learned how to serve their people from tradition, communing with spirits, trial and error, and a host of other ways. Now, even when science can prevent and cure horrifying diseases, many remain without access to such techniques. In medical deserts and communities who have historically been wronged by the medical establishment, there’s still need. People still desperately seek healers. They may not fully believe in magic or miracles, but between the choice of assured agony and a sliver of hope, many take the chance.\n\nHedge magic can achieve miraculous results. A master healer can cure cancers and speed up the healing of grievous injury beyond what should be possible, but they don’t advertise this. Even when so many are ignored and failed by the medical establishment, it’s illegal to practice medicine without a license. Beyond that, fame can be a heavy burden to carry. Many eager and empathetic hedge magicians begin learning the path of Healing, but few master it — they often burn out early from the cold and thankless world, switching to other Arts if they continue practicing magic at all.\n\nThough not always required by their Practice, many hedge magician Healers do learn some form of medicine. Those who don’t rely on extraordinary science often learn forms of healing not based on modern medicine. At the very least, in instances they do learn the basics of modern medical science, their approach to treatment can be wildly different in philosophy and technique.\n\nA healer might heal mild to moderate congenital illnesses or deformities, but more extreme examples such as regenerating limbs or raising the recently dead are the realm of legend.",
+    "system": {
+      "text": "Modifiers: Fast casting may only be used to stabilize lethal or aggravated damage or reduce wound penalties. All other uses must use regular spells, extended roll spells, or rituals.\n\n• 1 additional success to fix a badly healed wound\n\n• +1 difficulty to heal an uncooperative patient\n\nAspects: This path uses the Damage/Healing Aspect. Bashing damage can be healed with one success per damage level. Additionally, each success can reduce a toxin, disease, or wound penalty (caused by pain rather than a missing limb, for example) by one level. See Mage 20 p. 406 for information on wound penalties and p. 442 for the toxin and disease chart.\n\nPrice of Failure: A failure simply means the magic didn’t work; the damage was beyond the sorcerer’s ability to heal. A botch can turn horrific quickly. A Healer might make the person more susceptible to the toxin they’re trying to fight off, increasing the effective Toxin Rating. They might outright cause damage or heal something incorrectly, such as fusing eyelids shut or setting a bone crooked, so that it needs to be re-broken later. The healer might also infect themself with the disease they were trying to heal.",
+      "aspects": [
+        "Damage/Healing"
+      ],
+      "modifiers": "Modifiers: Fast casting may only be used to stabilize lethal or aggravated damage or reduce wound penalties. All other uses must use regular spells, extended roll spells, or rituals.\n\n• 1 additional success to fix a badly healed wound\n\n• +1 difficulty to heal an uncooperative patient",
+      "priceOfFailure": "Price of Failure: A failure simply means the magic didn’t work; the damage was beyond the sorcerer’s ability to heal. A botch can turn horrific quickly. A Healer might make the person more susceptible to the toxin they’re trying to fight off, increasing the effective Toxin Rating. They might outright cause damage or heal something incorrectly, such as fusing eyelids shut or setting a bone crooked, so that it needs to be re-broken later. The healer might also infect themself with the disease they were trying to heal."
+    },
+    "levels": [],
+    "rituals": [
+      {
+        "id": "healing_slumber",
+        "name": "Healing Slumber",
+        "level": 1,
+        "text": "The healer treats a willing (or unconscious) patient and sends them into a deep, energizing sleep. On success, the patient remains asleep for 9 hours; when they awake, all bashing damage is healed, and the patient regains a point of Willpower. For every success above one, subtract one hour from the required sleep time. The healer cannot treat lethal or aggravated wounds in this way."
+      },
+      {
+        "id": "jolt",
+        "name": "Jolt",
+        "level": 2,
+        "text": "The sorcerer spends a point of Willpower and magically awakens a person who is sleeping, unconscious, or comatose. This normally requires one success but requires the toxin’s rating in successes to wake someone who is drugged, and four successes to wake the comatose. Reversing a magickal effect requires successes equal to the original effect +1 to reverse it. This power doesn’t heal the underlying illness, injury, or poisoning, and the patient falls unconscious again at the end of the scene if the healer doesn’t resolve the underlying issue. This can be used to help identify the patient and gather information about who or what put them in that state."
+      },
+      {
+        "id": "mikes_cure_all",
+        "name": "Mike’s Cure-All",
+        "level": 3,
+        "text": "While similar rituals were performed for centuries, or longer, this version was first recorded in Chicago during Prohibition and was based on Victorian era Cure-Alls. The healer can force a patient’s body to purge all drugs and toxins through any, and sometimes all, possible exits. This includes vomiting, sweat, tears, diarrhea, etc. The process is incredibly unpleasant but can save a poisoning victim or someone who’s overdosed. The sorcerer must get at least as many successes as the Toxin Rating for the most potent toxin in the patient’s system. No damage is healed, but the patient suffers no further ill effects. This can purge magical potions as well."
+      },
+      {
+        "id": "humor_alignment",
+        "name": "Humor Alignment",
+        "level": 4,
+        "text": "This is an old ritual for curing chronic and congenital conditions. It dates back to the Middle Ages when Humorism was in vogue. The healer bleeds the patient with leeches, a ritual knife, or another tool suited to their practice, which deals one level of lethal damage. The healer spends a point of Willpower and must roll at least 5 successes. The healer may perform this ritual as an extended action. The patient rests for three days, after which the lethal damage and the condition are healed. This rest needn’t be solely sleep. The patient may move minimally to perform basic bodily functions but otherwise should be laying down. If the patient is too active during the three days, the ritual fails automatically. The ritual will also fail if the patient suffers significant mental or emotional stress, such as trying to work from bed or having a heated argument."
+      }
+    ],
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "hellfire",
+    "name": "Hellfire",
+    "page": 32,
+    "description": "The Path of Hellfire remains one of the most popular Paths of hedge magic, despite there being something of a bad reputation associated with it. For most people, the allure of throwing elemental power around and destroying your enemies outweighs the belief it may somehow be tainted by evil, if not outright infernal. Despite these sentiments, many hedge magicians specialize in the pyrotechnics this Path makes available to them, being one of the more dramatic Paths of hedge magic.\n\nEven beginning students of Hellfire are often accorded respect, and not a small amount of fear, by their fellows. They learn early that they can summon lightning and fire, cause earthquakes, and drown their enemies should they so choose, even if they don’t personally know how. Apprentices are also given one essential warning: They are not immune to their own powers. This vulnerability is not limited to botched attempts at magic (see the Price of Failure below). Practitioners must be careful not to be within the areas they target, and fire, once unleashed, can be difficult to control.",
+    "system": {
+      "text": "Aspects: Damage, Range, Area, and the following Special Effects can be added:\n\n• Decay: Instead of damaging living targets, the spell breaks down anything they are wearing or carrying. For each point of damage it would inflict, it can turn three pounds of material to junk.\n\n• Dust Storm: The spell summons a storm of dust, scouring the area (which must have at least three dots) and, in addition to damage, causing blindness in the area for one turn per health level inflicted.\n\n• Sleet: A stream of ice and freezing water causes brief blindness and leaves the ground slippery. This cannot be made aggravated.\n\n• Smoke: The caster emits a cloud of poisonous smoke that envelops the area (which must be at least three dots in the Area Aspect). Everyone within the cloud takes one level of damage per turn unless protected. A normal gas mask provides two turns of protection before becoming useless. Beings that do not need to breathe are immune to this damage. Vision, even if enhanced, is completely obscured while in the cloud.\n\n•• Earthquake: the spell causes the ground to split open and engulf, then crush, the target. They can roll Strength at difficulty 6 to try to dig free. They need as many successes as health levels of damage they suffered. This cannot be made aggravated.\n\n•• Lightning: Instead of fire, the spell fires a bolt of electricity. Anyone in contact with the target through a conductive material takes the same damage as the target.\n\n•• Tanglewood: Plants flail and attack the target, throwing thorns, splinters, and other bits of wood at it. With extreme luck (at least three successes beyond the spell’s requirement) this can stake a vampire, but a magician who counts on it will likely be badly disappointed. If the target is standing in dense undergrowth, they are captured by the plants. A creature restrained in this fashion cannot move until they accumulate as many successes on a Strength roll (difficulty 7) as damage dealt by the spell. This cannot be made aggravated.\n\n•••• Drowning Tide: This requires an Olympic sized swimming pool or larger body of water. The target is pulled underwater by a sudden wave or undertow, causing them to start drowning (see M20 page 440-441). Escape from the water requires an extended Strength roll, difficulty 8, with at least two successes necessary, often more. This only does drowning damage.\n\nThe Special Effects above must be purchased with Freebie or Experience Points at a cost of the dot rating + 1.\n\nPrice of Failure: When you play with fire sometimes you get burned. Botching when using the Path of Hellfire typically results in the spell rebounding on the caster. They take whatever damage they were attempting to inflict on their target.",
+      "aspects": [
+        "Damage",
+        "Range",
+        "Area"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: When you play with fire sometimes you get burned. Botching when using the Path of Hellfire typically results in the spell rebounding on the caster. They take whatever damage they were attempting to inflict on their target."
+    },
+    "levels": [],
+    "rituals": [
+      {
+        "id": "fires_weal",
+        "name": "Fire’s Weal",
+        "level": 2,
+        "text": "Fire is one of the most dangerous hazards in the World of Darkness; even natural flames can easily cause permanent damage to powerful supernatural beings. With this ritual, the magician can give protection against fire of all sorts. With two successes, the ritual allows the target to soak fire damage, even supernatural flame, as though it were bashing, regardless of what damage it causes. Successes in excess of two reduce the difficulty on soak rolls against fire (to a maximum modifier of –3), so four total successes result in soaking fire damage at –2 difficulty."
+      },
+      {
+        "id": "hellblade",
+        "name": "Hellblade",
+        "level": 2,
+        "text": "A flashy ritual, Hellblade attunes a weapon, traditionally a sword, to the Path of Hellfire. Once attuned, the magician can spend one Willpower to engulf the weapon in flame. The flame causes the weapon to inflict two additional dice of damage and converts its damage to aggravated. This lasts for a scene, though the ritual ends if the weapon leaves the caster’s hand. This ritual requires a minimum of two successes."
+      },
+      {
+        "id": "purification_of_the_inferno",
+        "name": "Purification of the Inferno",
+        "level": 3,
+        "text": "After an unfortunate encounter with a vampire, Charles Moran developed this ritual to protect himself in the future. Unfortunately, this ritual does not discriminate friend from foe, making it an extremely risky ritual to cast when the magician might be in close quarters with others, such as in an elevator. Purification of the Inferno acts as a defensive failsafe. The first person to touch the magician after the ritual immediately bursts into flames, suffering four dice of aggravated damage. The flames then become entirely mundane, dealing three lethal damage per turn, which can be soaked at difficulty 8 until they are put out. The ritual requires three successes on casting."
+      },
+      {
+        "id": "smoldering_ruin",
+        "name": "Smoldering Ruin",
+        "level": 5,
+        "text": "The most common target of the Hellfire Path is an individual enemy. It’s directly offensive magic, and magicians know it and use it as such. Sometimes, targeting individuals and even groups is too small scale. Sometimes a magician really wants to just cut loose, and hedge magic doesn’t offer very many outlets to do so. Masters of Hellfire, however, developed this ritual in order to do just that: cut loose and cause damage to their enemies all at once. Smoldering Ruin requires a full three hours to cast, and in all its forms a Stamina roll (difficulty 6) must be made just to complete the exhausting ritual. Once completed, the magician spends 3 points of Willpower and must achieve at least 5 successes. Despite the difficulty, success is worth the effort: The ritual lights a building on fire, burning it to the ground. No mundane efforts can extinguish this fire, fueled by the caster’s desire for destruction, though supernatural means are capable of doing so. It can even burn buildings made out of normally fire-resistant and fireproof materials. Notably, the caster must perform the ritual while inside the building, and then hope they can escape before becoming trapped inside."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The Special Effects list (dot-rated, purchased at dot rating + 1 with Freebie or Experience Points) is kept in system.text; there is no Modifiers paragraph for this Path."
+  }
+]

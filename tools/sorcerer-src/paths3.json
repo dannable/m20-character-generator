@@ -1,0 +1,327 @@
+[
+  {
+    "id": "quintessence_manipulation",
+    "name": "Quintessence Manipulation",
+    "page": 43,
+    "description": "Nearly all sorcerers can agree on one fact. There is a flow of power that fuels their works. The name of that power has taken on a multitude of faces and philosophies: mana, qi, gnosis, shakti, sekhem, and many others. Every magician can describe the flow of energy as they work their will on reality. Coursing through them like charge through a powerline, it can be felt, and for some it can be directly harnessed. Through Practices like those of geomancy and feng shui, hedge wizards can sense and redirect the unrefined energy of the universe.\n\nIn contrast, very few sorcerers consider this to be a Path of its own. Most look to Quintessence Manipulation as a standard exercise and refinement of their already defined craft. Each magician’s personal style already informs them how to achieve manipulations to perform all their other spells. Wands direct the energy, drawn patterns on boxes create traps to hold it, while knives cut and disrupt as they perform all their other works. Yet, those who focus on mastering this fundamental skill on its own find their work is never without a source to draw on, and their mystical surroundings are rarely a mystery.",
+    "system": {
+      "text": "Modifiers: –1 to –3 difficulty based on distractions in the surrounding area, with –1 representing a loud sound system playing in the same room and –3 representing Time Square at midnight on New Years.\n\nAspects: Area and Duration as well as Flow listed below:\n\nFlow\n\n• Sense Surroundings: Sensing the energies of the area becomes a routine task. With a moment of meditation or invocation, a sorcerer determines if an area or item is charged with power (whether Quintessence, vampire blood, Gnosis, or another mystic source). With three successes, the sorcerer identifies the Resonance of said energy.\n\n•• Focused Awareness: The ability to sense the ebb and flow of energy transcends local surroundings and the inanimate and crosses into the realm of individuals. Now the sorcerer can perceive another individual using subtle magics and allow them to see obstructed meridians or occluded energy flows. This reveals curses left on individuals or blocked Quintessence flow through the body imposed by malicious disruptions. The ability to gauge magical potential in a subject also becomes available. While especially useful in identifying potential threats, the amount of information gleaned in this way lacks detailed nuance to fully define if the subject is a supernatural creature or a normal human with a certain aptitude.\n\n••• Disrupt: No longer held to observing, now the skilled sorcerer can begin to affect the Quintessence around them. Still unable to bend and gracefully manipulate the energy, the practitioner of this path is at least versed enough to cause disruptions to the flow around them. With their invocation or focus, the sorcerer can quell the flow in the local area, causing a Quintessence source to become dormant for a time. Disruption also can mean diverting. A flow of Quintessence may be turned aside and sent along a new path in much the same way. Alternatively, with some effort a practitioner can trap a mote of Quintessence in a simple object for a limited amount of time.\n\n•••• Control: Mere brute force gives way to nuanced control of the flow of Quintessence within themselves, the world around them, and within the pattern of others. The flows of energy through themselves are now flowing rivers with metered channels and locks allowing the practitioner to harness the Quintessence in a place of power. Each success on an effort of this type allows the sorcerer to channel one point of Quintessence per success, up to the limit of that area’s power. Quintessence drawn this way dissipates unless used within the next turn.\n\nAn enemy’s flow of energy is now a viable target for disruption at this level of understanding. Stripping the energy from another’s pool destroys one Quintessence for every success rolled. More alien energies of other supernatural creatures are still accessible, but doing so is more taxing. The energy of other supernatural creatures is disrupted by one point for every two successes.\n\nThe flow of energy through an individual’s pattern is essential to their health. A sorcerer with this knowledge can cause great harm or provide great help, albeit over an extended period through something akin to a curse or boon. Altering the flow of another’s life energy can promote or deteriorate their health but takes a great deal of time to become evident. They become ill more often, finding it difficult to fight off a mere cold, and take longer to recover from simple injury. If left unchecked they will inevitably fall victim to an environmental carcinogen or a malady that runs in their family history. On the other hand, benefitting the flow of Quintessence in an individual will see the recipient barely ever falling ill for more than a day, bouncing back from any injury as though it were a mere inconvenience and living to a ripe old age. Through this function the hedge wizard can grant physical Merits or inflict physical Flaws, by spending 2 successes per point of the Merit or Flaw.\n\n••••• Rule: Masters of Quintessence Manipulation have attained a level of understanding that puts the flow of energy at their beck and call, impressing even the Awakened. Now, stored Quintessence can be directly infused into countermagic, adding dice to countermagic pools. Sensing Quintessence being directed, the sorcerer can interrupt the flow of energy, preventing another sorcerer from using Quintessence of their own. Each success blocks a point of Quintessence or Tass from empowering an effect.",
+      "aspects": [
+        "Area",
+        "Duration",
+        "Flow"
+      ],
+      "modifiers": "Modifiers: –1 to –3 difficulty based on distractions in the surrounding area, with –1 representing a loud sound system playing in the same room and –3 representing Time Square at midnight on New Years.",
+      "priceOfFailure": ""
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "Sense Surroundings",
+        "text": "Sense Surroundings: Sensing the energies of the area becomes a routine task. With a moment of meditation or invocation, a sorcerer determines if an area or item is charged with power (whether Quintessence, vampire blood, Gnosis, or another mystic source). With three successes, the sorcerer identifies the Resonance of said energy."
+      },
+      {
+        "level": 2,
+        "name": "Focused Awareness",
+        "text": "Focused Awareness: The ability to sense the ebb and flow of energy transcends local surroundings and the inanimate and crosses into the realm of individuals. Now the sorcerer can perceive another individual using subtle magics and allow them to see obstructed meridians or occluded energy flows. This reveals curses left on individuals or blocked Quintessence flow through the body imposed by malicious disruptions. The ability to gauge magical potential in a subject also becomes available. While especially useful in identifying potential threats, the amount of information gleaned in this way lacks detailed nuance to fully define if the subject is a supernatural creature or a normal human with a certain aptitude."
+      },
+      {
+        "level": 3,
+        "name": "Disrupt",
+        "text": "Disrupt: No longer held to observing, now the skilled sorcerer can begin to affect the Quintessence around them. Still unable to bend and gracefully manipulate the energy, the practitioner of this path is at least versed enough to cause disruptions to the flow around them. With their invocation or focus, the sorcerer can quell the flow in the local area, causing a Quintessence source to become dormant for a time. Disruption also can mean diverting. A flow of Quintessence may be turned aside and sent along a new path in much the same way. Alternatively, with some effort a practitioner can trap a mote of Quintessence in a simple object for a limited amount of time."
+      },
+      {
+        "level": 4,
+        "name": "Control",
+        "text": "Control: Mere brute force gives way to nuanced control of the flow of Quintessence within themselves, the world around them, and within the pattern of others. The flows of energy through themselves are now flowing rivers with metered channels and locks allowing the practitioner to harness the Quintessence in a place of power. Each success on an effort of this type allows the sorcerer to channel one point of Quintessence per success, up to the limit of that area’s power. Quintessence drawn this way dissipates unless used within the next turn.\n\nAn enemy’s flow of energy is now a viable target for disruption at this level of understanding. Stripping the energy from another’s pool destroys one Quintessence for every success rolled. More alien energies of other supernatural creatures are still accessible, but doing so is more taxing. The energy of other supernatural creatures is disrupted by one point for every two successes.\n\nThe flow of energy through an individual’s pattern is essential to their health. A sorcerer with this knowledge can cause great harm or provide great help, albeit over an extended period through something akin to a curse or boon. Altering the flow of another’s life energy can promote or deteriorate their health but takes a great deal of time to become evident. They become ill more often, finding it difficult to fight off a mere cold, and take longer to recover from simple injury. If left unchecked they will inevitably fall victim to an environmental carcinogen or a malady that runs in their family history. On the other hand, benefitting the flow of Quintessence in an individual will see the recipient barely ever falling ill for more than a day, bouncing back from any injury as though it were a mere inconvenience and living to a ripe old age. Through this function the hedge wizard can grant physical Merits or inflict physical Flaws, by spending 2 successes per point of the Merit or Flaw."
+      },
+      {
+        "level": 5,
+        "name": "Rule",
+        "text": "Rule: Masters of Quintessence Manipulation have attained a level of understanding that puts the flow of energy at their beck and call, impressing even the Awakened. Now, stored Quintessence can be directly infused into countermagic, adding dice to countermagic pools. Sensing Quintessence being directed, the sorcerer can interrupt the flow of energy, preventing another sorcerer from using Quintessence of their own. Each success blocks a point of Quintessence or Tass from empowering an effect."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "quintessence_infusion",
+        "name": "Quintessence Infusion",
+        "level": 2,
+        "text": "The ability to store and redirect Quintessence is useful on a near daily basis for the sorcerer on the go. Thinking in advance, a sorcerer prepares themselves for situations where they may begin to run dry of available quintessence by infusing drinks or snacks with their own reserves for later use. Classically, this was a potion of great power. In modern nights, the savvy sorcerer may decide the espresso in a can or a protein bar may be just as handy, serving as the perfect inconspicuous consumable. The one drawback to this task is the fueling and the resource of the ritual. For every Quintessence stored, another Quintessence must be channeled to infuse the receptacle."
+      },
+      {
+        "id": "shape_quintessence",
+        "name": "Shape Quintessence",
+        "level": 3,
+        "text": "Following elaborate diagrams or practices that align with their style, the sorcerer can manipulate the flow of Quintessence within an area. A gambling hall could be made luckier for the house, or a particularly well-respected ER could suffer higher mortality rates despite the best efforts of the staff simply by manipulating the ley lines beneath the surface. The energies will eventually return to their original pattern, as the ritual holds it in an elastic state for only so long. With proper maintenance and continued observation, a location could be made to take on the new aspects permanently."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The levels array holds the Path-specific Flow Aspect (dots 1-5)."
+  },
+  {
+    "id": "shadows",
+    "name": "Shadows",
+    "page": 45,
+    "description": "Power over darkness is a cliché that some sorcerers have no problem clinging to out of ironic giddiness or genuine belief. One wouldn’t be remiss in guessing the Path of Shadows as the source of the concept that dark forces empower the mystic arts, given how often hucksters make the claim. Regardless of its reputation, the Path does carry a foreboding and intimidating air, as it shapes and shifts the substance of instinctual fear — shadows and darkness.\n\nPractitioners have found the application of the Path of Shadows far more malleable than other Paths. Shadows are omnipresent, and even in the brightest days stand out and provide contrast. The availability of shadows and the potential of adjusting the depth of shades grants greater possibilities than less versatile Paths.\n\nOne may think that the Path manipulates the quality of ambient light, focusing it away from darker areas to make shadows appear deeper and more menacing. This is patently false. Whether it’s a magical implement or a dark matter enhancement field of the more technologically minded, this Path manipulates the very stuff of shadows. The actual nature of this substance is the source of much debate in the magical communities, with a range of theories just as diverse as those concerning the mechanism of Awakening. What practitioners do agree on is that shadowstuff can be used to great effect in a variety of useful ways.",
+    "system": {
+      "text": "Aspects: The Aspects of Area, Distance, Duration, and Number of Targets, as well as Shadowgrip listed below:\n\nShadowgrip\n\nThe severity and persistence of the controlled shadows is gauged by one’s Shadowgrip. When a target attempts to resist the Path of Shadows, they make a Willpower test with a difficulty determined by the selected Aspect. Any success ends the effect on the following turn or after one minute.\n\n• Deepening: Bringing shadows deeper into our vision can create a distracting and intimidating atmosphere. Within an area the overall lighting itself may not change per se, but the shadows deepen, and even sounds become slightly smothered at the edges. These shadows can also be cast upon others to confer the Path’s benefits, such as a bonus to Stealth tests in shadowy conditions.\n\n•• Shaping: Taking further mastery of the dark material that comprises shadow, the sorcerer now crafts pattern and intent behind their shadow weaving. Upon a successful casting, the sorcerer adds two dice to any pools involving Intimidation or Stealth as well as any Subterfuge test to hide their identity. Conversely, the shadows can surround an individual and cast doubt and confusion upon the victim’s senses. At this level of mastery, they are strong enough to cause the target to hesitate or reconsider their actions due to the unidentifiable unease. This causes the target a –1 penalty to rolls made to dodge or that rely on quick reaction time. A Willpower test at difficulty 6 allows the victim to shake the shadows from their eyes and focus on their task at hand.\n\n••• Entrenching: Not content with merely strengthening shadows, the sorcerer now animates the shadowstuff itself, letting it shift and roil about them. Should they take their deepening skills further, light now withers in the target location, and color will desaturate before the shadows. Affecting another is now far more effective. Shadows shift and distort in their eyes, and unsettling whispers can be heard when the victim gets too close to a pool of gathered shade. Being harried in such a way causes a –1 difficulty on all tests. The effect can be broken with a Willpower test at difficulty 7. Finally, the caster can cause shadows to flutter or shake creating visual diversions and increasing the difficulty of all ranged attacks made against the beneficiary by one.\n\n•••• Commanding: The shadow’s “willingness” to act has become outright eagerness. The torment the shadowstuff visits upon the sorcerer’s foes is maddening and now causes a –2 difficulty on all tests made by the target. Any attempt to shake free calls for a Willpower test at difficulty 8 and may send some enemies into a frenzy or rage if they fail. Wreathing a target in benevolent shadows gives a +4 on all Intimidation and Stealth dice pools and any Subterfuge dice pool that is used to mask one’s identity.\n\n••••• Ruling: Shadows know who their master is and immediately act with abandon at the sorcerer’s call. Enemies may be reduced to a gibbering heap on the floor from the horrific maleficent shades. Opponents must succeed at a difficulty 9 Willpower test or be reduced to uselessness, crumpling to the ground. This test can be repeated on each of the target’s turns, but the target may only act normally on a turn in which they gain a success. If the target leaves the affected area, they regain the ability to act normally. The darkness that engulfs those who wish to remain unseen is nigh impenetrable from without and within, save for the sorcerer themselves, decreasing the difficulty of Stealth tests by one. This darkness carries a weight so palpable, it may damage recording equipment engulfed by its influence.",
+      "aspects": [
+        "Area",
+        "Distance",
+        "Duration",
+        "Number of Targets",
+        "Shadowgrip"
+      ],
+      "modifiers": "",
+      "priceOfFailure": ""
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "Deepening",
+        "text": "Deepening: Bringing shadows deeper into our vision can create a distracting and intimidating atmosphere. Within an area the overall lighting itself may not change per se, but the shadows deepen, and even sounds become slightly smothered at the edges. These shadows can also be cast upon others to confer the Path’s benefits, such as a bonus to Stealth tests in shadowy conditions."
+      },
+      {
+        "level": 2,
+        "name": "Shaping",
+        "text": "Shaping: Taking further mastery of the dark material that comprises shadow, the sorcerer now crafts pattern and intent behind their shadow weaving. Upon a successful casting, the sorcerer adds two dice to any pools involving Intimidation or Stealth as well as any Subterfuge test to hide their identity. Conversely, the shadows can surround an individual and cast doubt and confusion upon the victim’s senses. At this level of mastery, they are strong enough to cause the target to hesitate or reconsider their actions due to the unidentifiable unease. This causes the target a –1 penalty to rolls made to dodge or that rely on quick reaction time. A Willpower test at difficulty 6 allows the victim to shake the shadows from their eyes and focus on their task at hand."
+      },
+      {
+        "level": 3,
+        "name": "Entrenching",
+        "text": "Entrenching: Not content with merely strengthening shadows, the sorcerer now animates the shadowstuff itself, letting it shift and roil about them. Should they take their deepening skills further, light now withers in the target location, and color will desaturate before the shadows. Affecting another is now far more effective. Shadows shift and distort in their eyes, and unsettling whispers can be heard when the victim gets too close to a pool of gathered shade. Being harried in such a way causes a –1 difficulty on all tests. The effect can be broken with a Willpower test at difficulty 7. Finally, the caster can cause shadows to flutter or shake creating visual diversions and increasing the difficulty of all ranged attacks made against the beneficiary by one."
+      },
+      {
+        "level": 4,
+        "name": "Commanding",
+        "text": "Commanding: The shadow’s “willingness” to act has become outright eagerness. The torment the shadowstuff visits upon the sorcerer’s foes is maddening and now causes a –2 difficulty on all tests made by the target. Any attempt to shake free calls for a Willpower test at difficulty 8 and may send some enemies into a frenzy or rage if they fail. Wreathing a target in benevolent shadows gives a +4 on all Intimidation and Stealth dice pools and any Subterfuge dice pool that is used to mask one’s identity."
+      },
+      {
+        "level": 5,
+        "name": "Ruling",
+        "text": "Ruling: Shadows know who their master is and immediately act with abandon at the sorcerer’s call. Enemies may be reduced to a gibbering heap on the floor from the horrific maleficent shades. Opponents must succeed at a difficulty 9 Willpower test or be reduced to uselessness, crumpling to the ground. This test can be repeated on each of the target’s turns, but the target may only act normally on a turn in which they gain a success. If the target leaves the affected area, they regain the ability to act normally. The darkness that engulfs those who wish to remain unseen is nigh impenetrable from without and within, save for the sorcerer themselves, decreasing the difficulty of Stealth tests by one. This darkness carries a weight so palpable, it may damage recording equipment engulfed by its influence."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "lifting_shadows",
+        "name": "Lifting Shadows",
+        "level": 1,
+        "text": "Shadows and shades hide secrets for those who wish to hide them, but the learned sorcerer may reveal those secrets to those they trust. Smearing ink into a pair of contacts or funneling smoke into tight swimming goggles, the sorcerer brings the sight of the recipient into the realm of shadows. For the next eight hours, night may be as bright as day. Once blessed, the sorcerer or their ally may treat all darkness as daylight when making Alertness tests based on sight."
+      },
+      {
+        "id": "grip_of_shades",
+        "name": "Grip of Shades",
+        "level": 3,
+        "text": "Within every crevasse hides a little shadow. Within every shadow hides an ally to a sorcerer of the Path of Shadowcasting. It is access to these allies that gives the sorcerer leverage in ways that many would never anticipate. By hardening the shadowstuff within the shadows on their person, the sorcerer may afford themselves a modicum of protection against impacts and benefits from an advantage in hand-to-hand combat. For 24 hours after bathing in coal-infused oils, the sorcerer has rating 2 armor when soaking bashing or lethal damage and adds two to all Brawl and Martial Arts dice pools that involve grappling."
+      }
+    ],
+    "sidebars": [],
+    "notes": "The levels array holds the Path-specific Shadowgrip Aspect (dots 1-5). The Grip of Shades ritual text refers to the Path as the “Path of Shadowcasting” as printed."
+  },
+  {
+    "id": "shapeshifting",
+    "name": "Shapeshifting",
+    "page": 47,
+    "description": "Even among primal magics, the ability to change into an animal stands out as exceptional. Many monsters haunting the night have the power of transformation, including those who are true shapeshifters. Hedge magicians who study the Path of Shapeshifting mimic a certain amount of their power, transforming first pieces of themselves and later their entire body in dramatic ways.\n\nMost think of this Path as turning oneself or others into animals. When shapeshifting magicians choose subtlety, they can be remarkable spies. They can make cosmetic changes to look like a different person, and then supplement their disguise with sharpened senses. They can transform into something more dangerous if their cover is blown.\n\nThe biggest risk of this Path is that the human mind is not equipped to change shapes. Every transformation incurs risk, but it’s greatest when making a full shift to an animal form. Then, even without a botch, the magician needs to roll Willpower (difficulty 6) to retain their own mind, rather than losing themself to their animal nature.",
+    "system": {
+      "text": "Duration: Scene\n\nAspects: None of the standard Aspects apply to Shapeshifting. Instead, it uses:\n\nScale\n\n• Cosmetic changes only, such as eye color or growing hair.\n\n•• Small but noticeable changes, such as growing claws or scales.\n\n••• The magician can change a single body part to that of some other creature.\n\n•••• Half-Shift: the magician can either change half of their body to an animal’s or take a form halfway between human and animal.\n\n••••• Full Shifting: The magician can change completely into an animal.\n\nSubject\n\n••• The magician can only affect themselves.\n\n•••• The magician may transform another target.\n\n••••• The magician may affect two subjects at once.\n\nDisparity\n\n••• Only a single animal feature.\n\n•••• The magician can take on two unrelated shifts, such as the head of one animal and the body of another.\n\n••••• Three unrelated shifts are possible.\n\nPrice of Failure: When a shapeshifter botches, the best-case scenario consists of an unexpected and unpleasant transformation. They can also lose themselves to their other form, functionally going feral. In a worst-case scenario, they can experience a rampage similar to the Berserker/Stress Atavism Flaw (Mage 20 p. 644).",
+      "aspects": [
+        "Scale",
+        "Subject",
+        "Disparity"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: When a shapeshifter botches, the best-case scenario consists of an unexpected and unpleasant transformation. They can also lose themselves to their other form, functionally going feral. In a worst-case scenario, they can experience a rampage similar to the Berserker/Stress Atavism Flaw (Mage 20 p. 644)."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "Cosmetic changes only, such as eye color or growing hair."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "Small but noticeable changes, such as growing claws or scales."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "The magician can change a single body part to that of some other creature."
+      },
+      {
+        "level": 4,
+        "name": "Half-Shift",
+        "text": "Half-Shift: the magician can either change half of their body to an animal’s or take a form halfway between human and animal."
+      },
+      {
+        "level": 5,
+        "name": "Full Shifting",
+        "text": "Full Shifting: The magician can change completely into an animal."
+      }
+    ],
+    "rituals": [
+      {
+        "id": "face_theft",
+        "name": "Face Theft",
+        "level": 1,
+        "text": "The key ritual for Shapeshifting-based spycraft, Face Theft allows the magician to take on the precise form of another human being. They must have some piece of the person, such as strands of hair or nail clippings. The ritual requires one success for a person broadly similar to the caster, and an additional success each if the form differs in race, sex, or by more than 20 years of age."
+      },
+      {
+        "id": "fix_the_true_form",
+        "name": "Fix the True Form",
+        "level": 4,
+        "text": "Shapeshifters often find themselves in conflict with one another. They also run into stranger things with multiple forms. Fix the True Form was developed by one who claimed descent from werewolves. It forces anyone targeted by it to take on their “true” form if they fail at a Willpower roll (difficulty 8). For magicians, they simply revert to their natural form, as do most other shapeshifters. Ironically, despite being created in part to force werewolves into their human or wolf forms, this ritual forces Garou and Fera to take on their mixed forms instead, often with terrible consequences for an overconfident hedge magician."
+      },
+      {
+        "id": "megafauna_transformation",
+        "name": "Megafauna Transformation",
+        "level": 5,
+        "text": "The Path of Shapeshifting allows the caster to assume animal forms, including partial transformations. But in the end, the caster can normally only fully transform into a normal animal. This ritual allows them to become a gigantic version of whatever animal they want to transform into. In most cases, this is a full throwback to an extinct version of the animal, such as the megatherium (giant sloth) of the Americas. This requires at least five successes."
+      }
+    ],
+    "sidebars": [],
+    "notes": "Duration is fixed at Scene. Three Path-specific Aspects (Scale, Subject, Disparity) replace the standard Aspects; Subject and Disparity have entries only at dots 3-5. The levels array holds the Scale Aspect (dots 1-5); Subject and Disparity are in system.text only. In the extraction the Scale table was displaced into the middle of the Shadows ritual Lifting Shadows; it has been restored here."
+  },
+  {
+    "id": "starlight",
+    "name": "Starlight",
+    "page": 48,
+    "description": "There are Paths that go back centuries and then there are some that only arise from the unique environments of the modern night. Urban sprawls gave sorcerers a unique worldview and provided a compass for the lands beyond the Shroud. Peering into the lands of the dead is not a new concept to the magical community, but those who walk the concrete valley started to see a pattern in the stars of the Shadowland skies that matched the lights of their cities. Through study and the broadening of their understanding, the Path known as Starlight was born. Much to the dismay and jealousy of the inhabitants of the Shadowlands, only those gifted in Starlight seem able to see the stars that they use.\n\nLike navigators of the golden age of sail, Starlight practitioners understand the unique sky of the Shadowlands and chart courses to safely travel through the realm of the dead. Simply knowing where they are going is only the start of the power these navigators have. Their minds produce a sort of protection and preservation shield for any mortals traveling with them. This becomes a necessity for travel since the shadowlands have no air and the very ground is anathema to the living. This is no physical shield against all harm, though, and any violent wraith that means them harm can easily indulge that urge. Should the duration of the spell expire, those traveling will be exposed to the lethal environment of the Shadowlands.\n\nIt is knowledge of the guiding lights of the Shadowland skies that also allow navigators to open doorways into the Shadowlands directly, completely bypassing the Shroud in the process. Any door can lead to the Shadowlands; it just takes a lot of preparation, and the journey begins. Moving quickly towards the destination is advised, considering few navigators have been able to complete a journey that took longer than one day.",
+    "system": {
+      "text": "Modifiers: Decrease difficulty by –1 if carrying a personal item of the recently deceased\n\nAspects: The Aspects of Duration, Passengers, and Wending:\n\nWending\n\n• The threshold is the first obstacle a navigator must master. With focus and will, any doorway can serve as a threshold into the Shadowlands. The door only remains open for the navigator and will allow them and their passengers to pass. Traveling companions benefit from the same life preserving effect as the caster so long as they remain within sight of their navigator. Anyone attempting to reopen the doorway once closed will find the mundane corresponding threshold. This door collapses after it has been reopened and closed again by the navigator during their return from the Shadowlands, or willfully collapsed by the navigator to close the way behind them. A different doorway in the Shadowlands can be used to re-enter the Skinlands, but another activation of Starlight must be performed to create the new threshold. There is a drawback to this technique; The destination in the Skinlands is difficult to know without more capabilities as a navigator.\n\n•• The Shadowlands are more familiar to a navigator of this level. Confidence swells in their chest, and the realm of the dead seems far less frightening. While traveling in the Shadowlands, the navigator benefits from –1 difficulty on all Awareness, Leadership, Survival, and Occult rolls concerning this environment, as well as Willpower rolls to overcome fear and intimidation.\n\n••• The navigator has found a point in the Shadowlands that is akin to their own personal North Star. No matter where they are in the Shadowlands, so long as they can see this star, the navigator has a general understanding of where they may exit into the Skinlands when opening a new threshold.\n\n•••• The familiarity with the Shadowlands is now palpable to any traveling companions the navigator has brought along. Traveling companions of the navigator benefit from a –1 difficulty to Willpower rolls made to overcome fear and intimidation, as well as Awareness and Survival rolls made within the Shadowlands.\n\n••••• The navigator’s guiding light within the Shadowlands is visible to them even with their eyes closed. No matter how deep they travel or how turned around they may get, the navigator will always be able to find their way to a door back to the Skinlands. Furthermore, they know exactly where their exit from the Shadowlands will lead.",
+      "aspects": [
+        "Duration",
+        "Passengers",
+        "Wending"
+      ],
+      "modifiers": "Modifiers: Decrease difficulty by –1 if carrying a personal item of the recently deceased",
+      "priceOfFailure": ""
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "The threshold is the first obstacle a navigator must master. With focus and will, any doorway can serve as a threshold into the Shadowlands. The door only remains open for the navigator and will allow them and their passengers to pass. Traveling companions benefit from the same life preserving effect as the caster so long as they remain within sight of their navigator. Anyone attempting to reopen the doorway once closed will find the mundane corresponding threshold. This door collapses after it has been reopened and closed again by the navigator during their return from the Shadowlands, or willfully collapsed by the navigator to close the way behind them. A different doorway in the Shadowlands can be used to re-enter the Skinlands, but another activation of Starlight must be performed to create the new threshold. There is a drawback to this technique; The destination in the Skinlands is difficult to know without more capabilities as a navigator."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "The Shadowlands are more familiar to a navigator of this level. Confidence swells in their chest, and the realm of the dead seems far less frightening. While traveling in the Shadowlands, the navigator benefits from –1 difficulty on all Awareness, Leadership, Survival, and Occult rolls concerning this environment, as well as Willpower rolls to overcome fear and intimidation."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "The navigator has found a point in the Shadowlands that is akin to their own personal North Star. No matter where they are in the Shadowlands, so long as they can see this star, the navigator has a general understanding of where they may exit into the Skinlands when opening a new threshold."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "The familiarity with the Shadowlands is now palpable to any traveling companions the navigator has brought along. Traveling companions of the navigator benefit from a –1 difficulty to Willpower rolls made to overcome fear and intimidation, as well as Awareness and Survival rolls made within the Shadowlands."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "The navigator’s guiding light within the Shadowlands is visible to them even with their eyes closed. No matter how deep they travel or how turned around they may get, the navigator will always be able to find their way to a door back to the Skinlands. Furthermore, they know exactly where their exit from the Shadowlands will lead."
+      }
+    ],
+    "rituals": [],
+    "sidebars": [],
+    "notes": "No Sample Rituals are printed for Starlight. The levels array holds the Path-specific Wending Aspect (dots 1-5). The extraction had the page's blocks out of order (end of description and System before the title); reading order has been restored here."
+  },
+  {
+    "id": "summoning_binding_and_warding",
+    "name": "Summoning, Binding, and Warding",
+    "page": 49,
+    "description": "Sorcerers in both fiction and legend are well-known for their ability to summon and control others, both living and ephemeral. With these powers, the magician can summon animals, spirits, ghosts, demons, and other strange beings. They can also defend against these beings, bind them, and compel them to obey the magician. Though overlap exists with the Path of Ephemera, this Path focuses on methods of compulsion, rather than cooperation, with the beings being called and dealt with.\n\nAll Summoning, Binding, and Warding magics are rituals, and rituals exist for reaching individual beings or classes of beings. There are separate rituals to summon, bind, and ward each target. This has led many magicians to their doom. Though summoning a being may intrigue it, attempting to bind them tends to incur hostility, and magicians who either don’t know or fail at casting the warding ritual often find themselves in a great deal of trouble.\n\nIn addition to the complications of each specific being or type of being the hedge magician intends to work with, there are several versions of this Path which are learned completely separately. Variants exist for summoning material creatures (like animals and people), angels and demons, ghosts, spirits of nature, and other sentient beings. There are even reports of variants focused on inanimate objects and virtual creations, allowing some magicians to ward their computers against viruses or summon their cars at need.",
+    "system": {
+      "text": "Aspects: The three distinct parts of the Path have separate Aspects. Warding has Duration and Strength, each level of which subtracts one die from all actions the summoned being takes against the magician. For three successes, Warding Strength allows the creation of a Warding Circle, which the being cannot cross without a Willpower roll (difficulty 6) where they achieve more successes than the magician.\n\nSummoning has Duration as an Aspect. Additionally, it has Number of summoned beings (or swarms) and Metaphysical Weight for the summoned being. The summoned being is compelled to appear before the magician but must still transport themself there. Only the most powerful beings can truly travel instantaneously.\n\nBinding similarly has the aspects of Duration and Metaphysical Weight, as well as Binding Intensity. A being may spend a point of Willpower to resist a binding, but the binding can be recast. Some beings, especially those with Metaphysical Weight 5, are powerful enough to require binding rituals with large thresholds in addition to the usual requirements — sometimes as high as 20 or more successes.\n\nBinding Intensity\n\n• The creature cannot directly act against the magician.\n\n•• Any single question must be answered truthfully.\n\n••• All questions for the duration must be answered truthfully, and the being may be compelled to perform one service, though they may interpret the command liberally so long as they literally satisfy it.\n\n•••• A single task is performed as directed, following the orders closely.\n\n••••• The magician may transfer limited control of the binding to another person. The being performs one task for them and answers any questions the summoner asks of it.\n\nPrice of Failure: The Path of Summoning, Binding, and Warding has no need for special failure or botch costs. Instead, the consequences of failures and botches are visited upon the magician by the being summoned. The biggest source of these problems is that, on a botch, the magician often ends up under the mistaken impression they have succeeded.",
+      "aspects": [
+        "Duration",
+        "Strength",
+        "Number",
+        "Metaphysical Weight",
+        "Binding Intensity"
+      ],
+      "modifiers": "",
+      "priceOfFailure": "Price of Failure: The Path of Summoning, Binding, and Warding has no need for special failure or botch costs. Instead, the consequences of failures and botches are visited upon the magician by the being summoned. The biggest source of these problems is that, on a botch, the magician often ends up under the mistaken impression they have succeeded."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "The creature cannot directly act against the magician."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "Any single question must be answered truthfully."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "All questions for the duration must be answered truthfully, and the being may be compelled to perform one service, though they may interpret the command liberally so long as they literally satisfy it."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "A single task is performed as directed, following the orders closely."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "The magician may transfer limited control of the binding to another person. The being performs one task for them and answers any questions the summoner asks of it."
+      }
+    ],
+    "rituals": [],
+    "sidebars": [],
+    "notes": "No Sample Rituals are printed for this Path. Aspects are split by sub-Path: Warding uses Duration and Strength; Summoning uses Duration, Number (of summoned beings or swarms) and Metaphysical Weight; Binding uses Duration, Metaphysical Weight and Binding Intensity. The levels array holds the Binding Intensity Aspect (dots 1-5)."
+  },
+  {
+    "id": "weather_control",
+    "name": "Weather Control",
+    "page": 50,
+    "description": "In societies that relied heavily on agriculture or seafaring, those who could control the weather were prized, often being the difference between life and death in their communities. Famines have been prevented or ended, and the most powerful sorcerers have been known to dispel or divert natural disasters.\n\nWeather control allows sorcerers to do what it says on the package — they can control the weather. While they can’t directly make enormous weather shifts such as El Niños, what they can affect creates ripples through larger areas. No weather pattern happens in a vacuum, and this remains true for magical tampering with the weather. Many weather workers have some dots in Science, to account for being able to discern upcoming weather patterns. Many weather workers also learn at least a small amount of Divination for this purpose, frequently scrying in pools of water and clouds as their practices for such.\n\nThough rarely consulted in the modern era, weather workers still practice in secret. The power they command is dramatic and potentially life-altering. Like healers, weather workers would be constantly pestered to perform miracles if their abilities were commonly known. At the same time, they would have to contend with those claiming out of fear and jealousy that the weather workers gained their powers through evil means.\n\nWeather workers rarely function alone. The amount of effort required to produce adequate effects often necessitates teamwork. Some form covens around the goal of group weather control.",
+    "system": {
+      "text": "Modifiers: Weather control uses no rituals. The large number of successes required to produce effects lends itself to extended rolls and teamwork.\n\n• 1 or more additional successes required to stop a severe thunderstorm or worse once it’s started. Calm weather is easier to stir up than nasty weather is to allay.\n\n• +1 difficulty to cause any effect indoors.\n\nAspects: Weather Control uses the Aspects Distance (treat the measurement on the chart as the radius of effect), Duration, and Intensity:\n\nIntensity\n\n• Small changes only. This includes warm or cold breezes, slight but noticeable changes in temperature, and causing fire to momentarily flicker and flare.\n\n•• The weather worker can cause minor affects that do not cause direct damage. The sorcerer might call up a dense fog that imposes perception penalties (see Mage 20 p. 435), clear a cloudy sky, or create winds in the direction they desire.\n\n••• A sorcerer may form and dispel simple rainstorms. Strong winds can impose a penalty on ranged attacks by blowing the projectile off course and causing difficulties aiming. The weather worker may also change the temperature up to 30 degrees Fahrenheit in either direction. Depending on the starting temperature, this may impose or remove penalties from heat illness or hypothermia. Flash floods can also be deadly.\n\n•••• A weather worker’s storm strength increases. They can now command gale-force winds, lightning, hail, and other damaging weather effects. They may now target individuals to take the brunt of the storm, and damaging effects do 4 + successes damage. Lightning causes lethal damage while bashing damage results from hail. Other effects may also cause damage, within reason. Weather effects can cause moderate penalties to those caught in the storms.\n\n••••• The sorcerer can cause extreme effects. Thunderstorms are well within the weather worker’s grasp. Destructive tornadoes and other powerful meteorological activity can tear through a city. The sorcerer may cause 6 + successes bashing or lethal every 15 minutes to those in the storm’s path. Anyone caught in the storm also suffers maximum environmental penalties.\n\nPrice of Failure: Even intentional weather control effects might have unintended consequences on the environment both near and far. Weather pattern disruptions are no small matter. A botch, however, unleashes terrible effects depending on the nature of the changes sought. Lightning might directly strike the sorcerer or their allies. An arid climate might be hit with a monsoon the ground can’t accommodate, leading to widespread flooding. The local climate and possibly the surrounding area suffers dramatic, perhaps long-lived, changes. This can cause a crisis for the local fauna, plant life, and people who had no time to prepare and may not know how to cope with the new climate. Death, even if not immediate, is unfortunately a common risk when sorcerers play with the weather.",
+      "aspects": [
+        "Distance",
+        "Duration",
+        "Intensity"
+      ],
+      "modifiers": "Modifiers: Weather control uses no rituals. The large number of successes required to produce effects lends itself to extended rolls and teamwork.\n\n• 1 or more additional successes required to stop a severe thunderstorm or worse once it’s started. Calm weather is easier to stir up than nasty weather is to allay.\n\n• +1 difficulty to cause any effect indoors.",
+      "priceOfFailure": "Price of Failure: Even intentional weather control effects might have unintended consequences on the environment both near and far. Weather pattern disruptions are no small matter. A botch, however, unleashes terrible effects depending on the nature of the changes sought. Lightning might directly strike the sorcerer or their allies. An arid climate might be hit with a monsoon the ground can’t accommodate, leading to widespread flooding. The local climate and possibly the surrounding area suffers dramatic, perhaps long-lived, changes. This can cause a crisis for the local fauna, plant life, and people who had no time to prepare and may not know how to cope with the new climate. Death, even if not immediate, is unfortunately a common risk when sorcerers play with the weather."
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "Small changes only. This includes warm or cold breezes, slight but noticeable changes in temperature, and causing fire to momentarily flicker and flare."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "The weather worker can cause minor affects that do not cause direct damage. The sorcerer might call up a dense fog that imposes perception penalties (see Mage 20 p. 435), clear a cloudy sky, or create winds in the direction they desire."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "A sorcerer may form and dispel simple rainstorms. Strong winds can impose a penalty on ranged attacks by blowing the projectile off course and causing difficulties aiming. The weather worker may also change the temperature up to 30 degrees Fahrenheit in either direction. Depending on the starting temperature, this may impose or remove penalties from heat illness or hypothermia. Flash floods can also be deadly."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "A weather worker’s storm strength increases. They can now command gale-force winds, lightning, hail, and other damaging weather effects. They may now target individuals to take the brunt of the storm, and damaging effects do 4 + successes damage. Lightning causes lethal damage while bashing damage results from hail. Other effects may also cause damage, within reason. Weather effects can cause moderate penalties to those caught in the storms."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "The sorcerer can cause extreme effects. Thunderstorms are well within the weather worker’s grasp. Destructive tornadoes and other powerful meteorological activity can tear through a city. The sorcerer may cause 6 + successes bashing or lethal every 15 minutes to those in the storm’s path. Anyone caught in the storm also suffers maximum environmental penalties."
+      }
+    ],
+    "rituals": [],
+    "sidebars": [],
+    "notes": "Weather Control uses no rituals, so no Sample Rituals are printed. The levels array holds the Path-specific Intensity Aspect (dots 1-5). The Price of Failure paragraph continues onto p. 51, the last page of chapter one."
+  }
+]
