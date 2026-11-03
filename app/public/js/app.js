@@ -534,6 +534,7 @@ const App = {
 
   setUser(user) {
     this.currentUser = user;
+    if (window.WizardEgg) WizardEgg.refresh();
     const isGuest = user.role === 'guest';
     if (!isGuest) { _loadUserCustomMF(); _loadUserCustomRotes(); _loadUserCustomBg(); _loadUserCustomWonders(); _loadChronicleCustom(); } // pre-warm caches
     $('#user-name').textContent = isGuest ? 'Guest' : user.username;
@@ -566,6 +567,7 @@ const App = {
 
   clearUser() {
     this.currentUser = null;
+    if (window.WizardEgg) setTimeout(() => WizardEgg.refresh(), 300);
     _invalidateUserCustomMF();
     _invalidateUserCustomRotes();
     _invalidateUserCustomBg();
@@ -942,7 +944,10 @@ const App = {
 
         <div class="admin-dash-header">
           <h2 class="admin-dash-title">Overview</h2>
-          <button class="btn-secondary" onclick="App.showAdminUsers()">⚙ User Management →</button>
+          <span class="admin-dash-actions">
+            <button class="btn-secondary" onclick="App.showAdminWizard()">🧙 Wizard Messages</button>
+            <button class="btn-secondary" onclick="App.showAdminUsers()">⚙ User Management →</button>
+          </span>
         </div>
 
         <!-- Stat cards: activity first, totals second -->
@@ -1075,6 +1080,79 @@ const App = {
       ${signupDots}
       ${xLabels}
     </svg>`;
+  },
+
+  // ── Wizard Darrell messages ────────────────────────────────────────────────
+  async showAdminWizard() {
+    if (this.currentUser?.role !== 'admin') return;
+    this.showPage('admin');
+    const content = $('#admin-content');
+    if (!content) return;
+    let data;
+    try {
+      const r = await fetch('/api/admin/wizard-messages');
+      if (!r.ok) throw new Error('Access denied');
+      data = await r.json();
+    } catch (err) {
+      content.innerHTML = `<p style="color:var(--crimson);padding:1rem">Failed to load messages: ${escHtml(err.message)}</p>`;
+      return;
+    }
+    const max = data.max || 200;
+    const rows = data.messages.map(m => `
+      <div class="wiz-msg ${m.enabled ? '' : 'wiz-msg-off'}" data-id="${m.id}">
+        <label class="wiz-msg-on" title="Show this message"><input type="checkbox" class="wiz-enabled" ${m.enabled ? 'checked' : ''} /></label>
+        <textarea class="form-input wiz-text" rows="2" maxlength="${max}" aria-label="Message text">${escHtml(m.text)}</textarea>
+        <div class="wiz-msg-actions">
+          <button class="btn-primary btn-sm wiz-save" disabled>Save</button>
+          <button class="btn-danger btn-sm wiz-del">Delete</button>
+        </div>
+      </div>`).join('');
+    content.innerHTML = `
+      <div class="admin-dash-header">
+        <button class="btn-ghost" onclick="App.showAdmin()">← Overview</button>
+        <h2 class="admin-dash-title" style="margin:0">Wizard Darrell <span class="admin-result-count">${data.messages.length} message${data.messages.length === 1 ? '' : 's'}</span></h2>
+      </div>
+      <p class="settings-hint">Darrell slides in from the bottom-left corner and says one of these at random. Untick a message to keep it without showing it. Users can switch Darrell off entirely in their Settings.</p>
+      <div class="wiz-add">
+        <textarea id="wiz-new" class="form-input" rows="2" maxlength="${max}" placeholder="A new thing for Darrell to say…"></textarea>
+        <button class="btn-primary" id="wiz-add-btn">Add message</button>
+      </div>
+      <div class="wiz-list" id="wiz-list">${rows || '<p class="practice-empty-hint">No messages yet. Darrell will arrive silently.</p>'}</div>`;
+
+    const api = async (url, method, body) => {
+      const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Request failed');
+      return j;
+    };
+    $('#wiz-add-btn').addEventListener('click', async () => {
+      const text = $('#wiz-new').value.trim();
+      if (!text) { toast('Write a message first.', 'error'); return; }
+      try { await api('/api/admin/wizard-messages', 'POST', { text }); toast('Message added.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
+      catch (e) { toast(e.message, 'error'); }
+    });
+    $$('#wiz-list .wiz-msg').forEach(row => {
+      const id = row.dataset.id, ta = row.querySelector('.wiz-text'), save = row.querySelector('.wiz-save'), orig = ta.value;
+      ta.addEventListener('input', () => { save.disabled = !ta.value.trim() || ta.value.trim() === orig; });
+      save.addEventListener('click', async () => {
+        try { await api(`/api/admin/wizard-messages/${id}`, 'PUT', { text: ta.value }); toast('Message saved.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
+        catch (e) { toast(e.message, 'error'); }
+      });
+      row.querySelector('.wiz-enabled').addEventListener('change', async e => {
+        try { await api(`/api/admin/wizard-messages/${id}`, 'PUT', { enabled: e.target.checked }); row.classList.toggle('wiz-msg-off', !e.target.checked); WizardEgg?.refresh(); }
+        catch (err) { e.target.checked = !e.target.checked; toast(err.message, 'error'); }
+      });
+      row.querySelector('.wiz-del').addEventListener('click', () => {
+        $('#modal-title').textContent = 'Delete message';
+        $('#modal-body').innerHTML = `<p>Delete this message for good?</p><p style="font-style:italic;color:var(--text-dim)">${escHtml(orig)}</p>`;
+        const btn = $('#modal-confirm'); btn.textContent = 'Delete'; btn.disabled = false;
+        btn.onclick = async () => {
+          try { await api(`/api/admin/wizard-messages/${id}`, 'DELETE'); this.closeModal(); toast('Message deleted.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
+          catch (e) { toast(e.message, 'error'); }
+        };
+        $('#modal-overlay').style.display = 'flex';
+      });
+    });
   },
 
   // ── User management ─────────────────────────────────────────────────────────
@@ -14271,6 +14349,15 @@ const Settings = {
 
         ${PrismUI.settingsSectionHTML(data)}
 
+        <div class="settings-section">
+          <h3 class="settings-section-title">Wizard Darrell</h3>
+          <p class="settings-hint">A wizard who slides in from the bottom-left corner of the screen when you hover there, with news and tips. Desktop only.</p>
+          <div class="settings-row">
+            <label class="chron-toggle-label"><input type="checkbox" id="settings-wizard-enabled" ${data.wizard_enabled === 0 ? '' : 'checked'} /> Show Wizard Darrell</label>
+            <button class="btn-primary" id="btn-save-wizard">Save</button>
+          </div>
+        </div>
+
         <!-- Change Password -->
         <div class="settings-section">
           <h3 class="settings-section-title">Change Password</h3>
@@ -14343,6 +14430,22 @@ const Settings = {
     });
 
     PrismUI.attachSettings();
+
+    // ── Wizard Darrell ───────────────────────────────────────────────────────
+    $('#btn-save-wizard')?.addEventListener('click', async () => {
+      const on = !!$('#settings-wizard-enabled')?.checked;
+      try {
+        const r = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wizard_enabled: on }),
+        });
+        if (!r.ok) throw new Error();
+        if (App.currentUser) App.currentUser.wizard_enabled = on ? 1 : 0;
+        window.WizardEgg?.refresh();
+        toast(on ? 'Wizard Darrell is on.' : 'Wizard Darrell is off.');
+      } catch { toast('Failed to save.', 'error'); }
+    });
 
     // ── Obsidian settings ────────────────────────────────────────────────────
     $('#btn-save-obsidian')?.addEventListener('click', () => {

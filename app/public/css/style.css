@@ -10437,3 +10437,17 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .sorc-sheet-artifact { margin-bottom:0.3rem; }
 .sorc-sheet-artifact-name { cursor:pointer; }
 .sorc-adv-ritual-row .practices-list { margin:0.2rem 0; }
+
+/* ── Admin: Wizard Darrell messages ─────────────────────────────────────── */
+.admin-dash-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.wiz-add { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.75rem 0 1rem; }
+.wiz-add textarea { flex: 1; resize: vertical; }
+.wiz-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.wiz-msg { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.5rem; border: 1px solid var(--border, rgba(255,255,255,0.1)); border-radius: 6px; }
+.wiz-msg-off .wiz-text { opacity: 0.5; }
+.wiz-msg-on { padding-top: 0.55rem; }
+.wiz-msg-on input { accent-color: var(--gold-mid); cursor: pointer; }
+.wiz-text { flex: 1; resize: vertical; }
+.wiz-msg-actions { display: flex; flex-direction: column; gap: 0.35rem; }
+@media (max-width: 640px) { .wiz-add, .wiz-msg { flex-direction: column; } .wiz-msg-actions { flex-direction: row; } }
+.wiz-save:disabled { opacity: 0.4; cursor: default; }

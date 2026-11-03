@@ -268,4 +268,52 @@ router.get('/stats', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// ── Wizard Darrell speech-balloon messages ───────────────────────────────────
+const WIZARD_MAX = 200;
+const wizardText = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+
+// GET /api/admin/wizard-messages
+router.get('/wizard-messages', (req, res) => {
+  try {
+    res.json({ messages: db.prepare(`SELECT id, text, enabled, sort_order FROM wizard_messages ORDER BY sort_order, id`).all(), max: WIZARD_MAX });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// POST /api/admin/wizard-messages  { text }
+router.post('/wizard-messages', (req, res) => {
+  try {
+    const text = wizardText(req.body.text);
+    if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
+    if (text.length > WIZARD_MAX) return res.status(400).json({ error: `Message is limited to ${WIZARD_MAX} characters` });
+    const next = (db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM wizard_messages`).get().n);
+    const r = db.prepare(`INSERT INTO wizard_messages (text, sort_order) VALUES (?, ?)`).run(text, next);
+    res.status(201).json({ id: r.lastInsertRowid, text, enabled: 1, sort_order: next });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// PUT /api/admin/wizard-messages/:id  { text?, enabled? }
+router.put('/wizard-messages/:id', (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!db.prepare(`SELECT 1 FROM wizard_messages WHERE id = ?`).get(id)) return res.status(404).json({ error: 'Message not found' });
+    if (req.body.text !== undefined) {
+      const text = wizardText(req.body.text);
+      if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
+      if (text.length > WIZARD_MAX) return res.status(400).json({ error: `Message is limited to ${WIZARD_MAX} characters` });
+      db.prepare(`UPDATE wizard_messages SET text = ? WHERE id = ?`).run(text, id);
+    }
+    if (req.body.enabled !== undefined) db.prepare(`UPDATE wizard_messages SET enabled = ? WHERE id = ?`).run(req.body.enabled ? 1 : 0, id);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
+// DELETE /api/admin/wizard-messages/:id
+router.delete('/wizard-messages/:id', (req, res) => {
+  try {
+    const r = db.prepare(`DELETE FROM wizard_messages WHERE id = ?`).run(parseInt(req.params.id, 10));
+    if (!r.changes) return res.status(404).json({ error: 'Message not found' });
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
 module.exports = router;
