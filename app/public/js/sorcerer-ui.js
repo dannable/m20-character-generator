@@ -109,7 +109,7 @@ const SorcererUI = {
     const favored = cur && cur.kind === 'affiliation' ? `
       <div class="sorc-favored">
         <div><span class="sorc-favored-label">Favored Attributes</span> ${cur.favoredAttributes.map(this.ATTR_NAME).join(', ') || '—'}</div>
-        <div><span class="sorc-favored-label">Favored Paths</span> ${cur.favoredPaths.map(escHtml).join(', ') || '—'}${cur.favoredNote ? ` <em>${escHtml(cur.favoredNote)}</em>` : ''}</div>
+        <div><span class="sorc-favored-label">Favored Paths</span> ${cur.favoredPaths.map(n => { const t = SORCERER.PATH_ALIASES[String(n).toLowerCase()]; return escHtml(n) + (t ? ` (${escHtml(SORCERER.pathById(t).name)})` : ''); }).join(', ') || '—'}${cur.favoredNote ? ` <em>${escHtml(cur.favoredNote)}</em>` : ''}</div>
       </div>` : '';
     const desc = cur ? `<details class="sorc-affil-desc"><summary>About ${escHtml(cur.name)} <span class="page-ref">Sorcerer p. ${cur.page || ''}</span></summary><div class="sorc-affil-text">${this._paras(cur.description)}</div></details>` : '';
     const alignOpts = SORCERER.ALIGNMENTS.map(a => `<option value="${a.id}" ${(c.faction || '') === a.id ? 'selected' : ''}>${escHtml(a.name)}</option>`).join('');

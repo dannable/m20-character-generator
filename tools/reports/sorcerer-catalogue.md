@@ -6,7 +6,7 @@ transcribed JSON in `tools/sorcerer-src/` (schema in `TRANSCRIPTION.md`). Source
 
 | Block | Count | Notes |
 | --- | --- | --- |
-| PATHS | 21 + 2 placeholders | Herbalism and Shadowcasting are named by Affiliations but not described in this book |
+| PATHS | 21 | Affiliations that list Herbalism resolve to Alchemy, and Shadowcasting to Shadows (p. 45) |
 | Rituals | 67 incl. Store Spell on every Path that has rituals | Alchemy, Divination, Starlight, Summoning/Binding/Warding and Weather Control list no named rituals |
 | PHENOMENA | 22 | five levels each |
 | AFFILIATIONS | 20 + Unaligned + 3 Ascension War societies | favored Attributes/Paths resolved to ids (`favoredPathIds`) |
