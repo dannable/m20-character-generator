@@ -48,6 +48,7 @@ db.exec(`
 
     spheres       TEXT DEFAULT '{}',
     affinity_sphere TEXT DEFAULT '',
+    affinity_sphere_2 TEXT DEFAULT '',
 
     arete         INTEGER DEFAULT 1,
     willpower     INTEGER DEFAULT 5,
@@ -304,6 +305,7 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN wonders TEXT DEFAULT '[]'`); } 
 // The legacy paradigm / practice columns are still written in prism mode as a
 // human-readable projection so sheets, exports and diffs keep working.
 try { db.exec(`ALTER TABLE characters ADD COLUMN focus_mode TEXT NOT NULL DEFAULT 'core'`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN affinity_sphere_2 TEXT DEFAULT ''`); } catch {}
 // { metaphysical, personal, ascension, social_role?, epistemology?, openness?, afterlife? } → PRISM.TENETS ids
 try { db.exec(`ALTER TABLE characters ADD COLUMN tenets TEXT DEFAULT '{}'`); } catch {}
 // PRISM.PARADIGM_PRESETS id when the tenets were filled from a book paradigm, else ''

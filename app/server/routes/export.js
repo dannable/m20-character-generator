@@ -347,21 +347,32 @@ async function buildCharacterPDF(c) {
   y1 = y; y2 = y; y3 = y;
 
   const sph = c.spheres || {};
-  const isAff = (id) => id === (c.affinity_sphere || '').toLowerCase();
+  const dual = !!(c.merits && !Array.isArray(c.merits) && c.merits.dual_affiliation !== undefined);
+  const isAff = (id) => id === (c.affinity_sphere || '').toLowerCase()
+    || (dual && !!c.affinity_sphere_2 && id === String(c.affinity_sphere_2).toLowerCase());
+  // Technocratic sphere names (M20 p. 509)
+  const conv = (c.tradition || '').toLowerCase();
+  const techno = c.affiliation === 'Technocracy';
+  const SPH_NAME = {
+    correspondence: techno ? 'Data' : 'Correspondence',
+    prime:  techno && conv.includes('syndicate') ? 'Primal Utility' : 'Prime',
+    spirit: techno && conv.includes('void') ? 'Dimensional Science' : 'Spirit',
+  };
+  const spName = (name, id) => SPH_NAME[id] || name;
 
   // Col 1: Correspondence, Entropy, Forces
   [['Correspondence','correspondence'],['Entropy','entropy'],['Forces','forces']].forEach(([name, id]) => {
-    y1 = isAff(id) ? TR_AFF(C1, y1, CW, name, sph[id] || 0) : TR(C1, y1, CW, name, sph[id] || 0);
+    y1 = isAff(id) ? TR_AFF(C1, y1, CW, spName(name, id), sph[id] || 0) : TR(C1, y1, CW, spName(name, id), sph[id] || 0);
   });
 
   // Col 2: Life, Matter, Mind
   [['Life','life'],['Matter','matter'],['Mind','mind']].forEach(([name, id]) => {
-    y2 = isAff(id) ? TR_AFF(C2, y2, CW, name, sph[id] || 0) : TR(C2, y2, CW, name, sph[id] || 0);
+    y2 = isAff(id) ? TR_AFF(C2, y2, CW, spName(name, id), sph[id] || 0) : TR(C2, y2, CW, spName(name, id), sph[id] || 0);
   });
 
   // Col 3: Prime, Spirit, Time
   [['Prime','prime'],['Spirit','spirit'],['Time','time']].forEach(([name, id]) => {
-    y3 = isAff(id) ? TR_AFF(C3, y3, CW, name, sph[id] || 0) : TR(C3, y3, CW, name, sph[id] || 0);
+    y3 = isAff(id) ? TR_AFF(C3, y3, CW, spName(name, id), sph[id] || 0) : TR(C3, y3, CW, spName(name, id), sph[id] || 0);
   });
 
   y = Math.min(y1, y2, y3) - 4;
@@ -466,10 +477,10 @@ async function buildCharacterPDF(c) {
       const angle = Math.PI - (i / wMax) * 2 * Math.PI;
       const dx = wCx + wR * Math.cos(angle);
       const dy = wCy + wR * Math.sin(angle);
-      if (i === 0) { CIRC(dx, dy, wDotR * 1.4, true); }
-      else {
-        CIRC(dx, dy, wDotR, i <= qVal || (pVal > 0 && i >= wMax - pVal));
-      }
+      // 20 pips: Quintessence fills clockwise from the top, Paradox fills counter-clockwise from the top.
+      // The first pip is drawn larger as the wheel's origin but is filled only when the character has a point there.
+      const filled = i < qVal || (pVal > 0 && i >= wMax - pVal);
+      CIRC(dx, dy, i === 0 ? wDotR * 1.4 : wDotR, filled);
     }
     y2 = wCy - wR - wDotR - 6;
 
