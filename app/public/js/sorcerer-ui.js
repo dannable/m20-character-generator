@@ -617,6 +617,272 @@ const SorcererUI = {
     return issues;
   },
 
+  /* ── Sheet ──────────────────────────────────────────────────────────── */
+  styleLabel(c) { const m = { hedge: 'Hedge Wizard', psychic: 'Psychic' }; const a = m[c.numina_style] || 'Sorcerer'; return c.numina_secondary ? `${a} · ${m[c.numina_secondary]}` : a; },
+  alignmentName(c) { const a = SORCERER.ALIGNMENTS.find(x => x.id === (c.faction || '')); return a && a.id ? a.name : ''; },
+  sheetHeaderHTML(c) {
+    this.ensure(c);
+    const aff = this.affiliation(c);
+    return `
+        <div class="sheet-field">
+          <span class="sheet-field-label">Affiliation</span>
+          <span class="sheet-field-value">${escHtml(aff ? aff.name : (c.affiliation || '—'))}</span>
+          <span class="sheet-field-sub">${escHtml(this.styleLabel(c))}${this.alignmentName(c) ? ' · ' + escHtml(this.alignmentName(c)) : ''}</span>
+        </div>
+        <div class="sheet-field">
+          <span class="sheet-field-label">Essence</span>
+          <span class="sheet-field-value">${escHtml(c.essence || '—')}</span>
+        </div>`;
+  },
+  /** Dice pool text for a Path: casting Attribute + Path Ability (rating). */
+  poolText(c, id) {
+    const n = c.numina[id] || {};
+    const attr = c.casting_attribute ? this.ATTR_NAME(c.casting_attribute) : '—';
+    const ab = n.ability ? `${this.abilityName(n.ability)} ${this.abilityRating(c, n.ability)}` : '—';
+    return `${attr} ${c[c.casting_attribute] || ''} + ${ab}`.replace(/\s+/g, ' ').trim();
+  },
+  sheetNuminaBandHTML(c, ro, editLink) {
+    this.ensure(c);
+    const paths = this.pathIds(c), phens = this.phenIds(c);
+    const cap = this.psychicCap(c);
+    const row = (id, isPath) => {
+      const n = SORCERER.numenById(id); const name = n ? n.name : ((c.numina[id] || {}).custom_name || id);
+      const r = this.rating(c, id); const isAff = c.affinity_path === id;
+      const sub = isPath ? `${escHtml(this.poolText(c, id))}${(c.numina[id] || {}).practice ? ` · ${escHtml(((M20.PRACTICES || []).find(p => p.id === c.numina[id].practice) || {}).name || c.numina[id].practice)}` : ''}` : `Willpower ${c.willpower || 0}, diff level + 3${r > cap ? ` · <span class="prism-warn">above cap ${cap}</span>` : ''}`;
+      return `<div class="sheet-trait-row sorc-sheet-numen${isAff ? ' affinity-row' : ''}" data-numen="${id}">
+        <span class="sheet-trait-name${isAff ? ' affinity' : ''}"><span class="sorc-sheet-numen-name" data-numen="${id}" title="Show rules text">${isAff ? '✦ ' : ''}${escHtml(name)}</span><em class="sheet-specialty sorc-pool">${sub}</em></span>
+        ${dots(r, 5, 'readonly')}
+      </div>`;
+    };
+    const ritualsHTML = paths.map(id => {
+      const rs = SORCERER.ritualsFor(c, id); if (!rs.length) return '';
+      const pname = (SORCERER.pathById(id) || {}).name || id;
+      return `<div class="sorc-sheet-ritual-group"><div class="sheet-group-title" style="margin-top:0.4rem">${escHtml(pname)}</div>${rs.map(rt => {
+        const cat = SORCERER.ritualById(id, rt.id); const text = cat ? cat.text : (rt.notes || '');
+        return `<details class="sorc-sheet-ritual"><summary><span class="sorc-dots-inline">${'●'.repeat(rt.level)}</span> ${escHtml(rt.name)}${cat ? '' : ' <span class="custom-badge">Custom</span>'}</summary>${text ? this._paras(text) : '<p class="sheet-empty-hint">No text recorded.</p>'}</details>`;
+      }).join('')}</div>`;
+    }).join('');
+    const storeNote = c.numina_style === 'hedge' || paths.length ? `<p class="sheet-empty-hint">Spells take one turn per level, rituals ten minutes per level; spend 1 Willpower and roll the pool at difficulty level + 4 (Sorcerer p. 12).</p>` : '';
+    return `
+      <div class="sheet-band" id="sheet-numina-band">
+        <div class="sheet-band-title">${paths.length && phens.length ? 'Paths &amp; Phenomena' : phens.length ? 'Psychic Phenomena' : 'Hedge Magic Paths'}${editLink ? editLink('fe-numina') : ''}</div>
+        <div class="sheet-cols-3">
+          <div class="sheet-group">
+            ${paths.length ? `<div class="sheet-group-title">Paths</div>${paths.map(id => row(id, true)).join('')}` : ''}
+            ${phens.length ? `<div class="sheet-group-title"${paths.length ? ' style="margin-top:0.5rem"' : ''}>Phenomena <span class="cw-note">cap ${cap}</span></div>${phens.map(id => row(id, false)).join('')}` : ''}
+            ${!paths.length && !phens.length ? '<div class="sheet-empty-hint">No Numina recorded.</div>' : ''}
+            ${storeNote}
+          </div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Rituals</div>
+            ${ritualsHTML || '<div class="sheet-empty-hint">No rituals known.</div>'}
+          </div>
+          <div class="sheet-group">
+            <div class="sheet-group-title">Rules</div>
+            <div id="sorc-sheet-detail" class="sorc-detail sorc-sheet-detail"><p class="sheet-empty-hint">Click a Path or Phenomenon for its rules text.</p></div>
+          </div>
+        </div>
+      </div>`;
+  },
+  sheetFocusHTML(c, editLink) {
+    this.ensure(c);
+    const affName = c.affinity_path ? ((SORCERER.pathById(c.affinity_path) || {}).name || c.affinity_path) : '—';
+    const arts = (c.artifacts || []).map(a => `<div class="sorc-sheet-artifact"><span class="sorc-sheet-artifact-name" data-art="${escHtml(a.id || '')}">${escHtml(a.name)} <span class="sorc-dots-inline">${'●'.repeat(a.rating || 0)}</span></span>${a.notes ? `<div class="sheet-empty-hint" style="text-align:left">${escHtml(a.notes)}</div>` : ''}</div>`).join('');
+    return `
+            <div class="sheet-group-title" style="margin-top:0.5rem">Sorcery${editLink ? editLink('fe-numina') : ''}</div>
+            <div class="sheet-focus-row">
+              <div class="sheet-focus-item"><span class="sheet-focus-label">Style</span><span class="sheet-focus-value">${escHtml(this.styleLabel(c))}</span></div>
+              ${c.numina_style === 'hedge' || this.pathIds(c).length ? `
+              <div class="sheet-focus-item"><span class="sheet-focus-label">Casting Attribute</span><span class="sheet-focus-value">${c.casting_attribute ? `${this.ATTR_NAME(c.casting_attribute)} ${c[c.casting_attribute] || ''}` : '—'}</span></div>
+              <div class="sheet-focus-item"><span class="sheet-focus-label">Affinity Path</span><span class="sheet-focus-value">${escHtml(affName)}</span></div>` : ''}
+              ${arts ? `<div class="sheet-focus-item"><span class="sheet-focus-label">Artifacts</span><div class="sheet-focus-value">${arts}</div></div>` : ''}
+            </div>`;
+  },
+  /** Sheet listeners: rules-text pane for Paths/Phenomena and artifact names. */
+  attachSheet(root) {
+    const d = root.querySelector('#sorc-sheet-detail');
+    root.querySelectorAll('.sorc-sheet-numen-name').forEach(el => el.addEventListener('click', () => {
+      if (!d) return; const id = el.dataset.numen;
+      d.innerHTML = SORCERER.isPath(id) ? this.pathDetailHTML(id) : SORCERER.isPhenomenon(id) ? this.phenDetailHTML(id) : '<p class="sheet-empty-hint">Custom Numen: no rules text.</p>';
+      d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+    root.querySelectorAll('.sorc-sheet-artifact-name').forEach(el => el.addEventListener('click', () => {
+      const a = SORCERER.artifactById(el.dataset.art); if (!d || !a) return;
+      d.innerHTML = `<h4>${escHtml(a.name)} <span class="sorc-dots-inline">${'●'.repeat(a.rating)}</span> <span class="page-ref">Sorcerer p. ${a.page || ''}</span></h4>${this._paras(a.text)}`;
+      d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+  },
+
+  /* ── Free Edit ──────────────────────────────────────────────────────── */
+  freeEditIdentityHTML(c) {
+    this.ensure(c);
+    const affOpts = SORCERER.AFFILIATIONS.filter(a => a.kind !== 'society').map(a => `<option value="${a.id}" ${c.affiliation === a.id ? 'selected' : ''}>${escHtml(a.name)}</option>`).join('');
+    const alignOpts = SORCERER.ALIGNMENTS.map(a => `<option value="${a.id}" ${(c.faction || '') === a.id ? 'selected' : ''}>${escHtml(a.name)}</option>`).join('');
+    const essOpts = (M20.ESSENCES || []).map(e => { const n = e.name || e; return `<option value="${escHtml(n)}" ${c.essence === n ? 'selected' : ''}>${escHtml(n)}</option>`; }).join('');
+    return `
+        <div class="fe-field"><label>Affiliation</label><select class="form-input sorc-fe-affiliation"><option value="">— Unaligned / none —</option>${affOpts}</select></div>
+        <div class="fe-field"><label>Ascension War alignment</label><select class="form-input sorc-fe-alignment">${alignOpts}</select></div>
+        <div class="fe-field"><label>Essence</label><select class="form-input sorc-fe-essence"><option value="">—</option>${essOpts}</select></div>`;
+  },
+  /** The Numina step inside Free Edit: style, casting Attribute, Affinity Path, Paths/Phenomena, rituals, artifacts. */
+  freeEditNuminaHTML(c) {
+    this.ensure(c);
+    const shim = this._shim(c);
+    const r = this.rules(c);
+    const styles = [['hedge', 'Hedge Magic'], ['psychic', 'Psychic Phenomena']];
+    const styleSel = `<select class="form-input sorc-fe-style">${styles.map(([id, n]) => `<option value="${id}" ${c.numina_style === id ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+    const secSel = `<select class="form-input sorc-fe-secondary"><option value="">— none —</option>${styles.filter(([id]) => id !== c.numina_style).map(([id, n]) => `<option value="${id}" ${c.numina_secondary === id ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+    const both = r.allowBothStyles || !!c.numina_secondary;
+    let body = '';
+    if (c.numina_style === 'hedge' || (both && (c.numina_secondary === 'hedge' || c.numina_style === 'hedge'))) body += this._hedgeSection(shim);
+    if (c.numina_style === 'psychic' || (both && (c.numina_secondary === 'psychic' || c.numina_style === 'psychic'))) body += this._psychicSection(shim);
+    const artRows = c.artifacts.map((a, i) => `<div class="sorc-artifact-row" data-idx="${i}"><span class="sorc-artifact-name">${escHtml(a.name)} <span class="sorc-dots-inline">${'●'.repeat(a.rating || 0)}</span>${a.id ? '' : ' <span class="custom-badge">Custom</span>'}</span><input type="text" class="sorc-artifact-notes" data-idx="${i}" value="${escHtml(a.notes || '')}" placeholder="Notes…" maxlength="500"><button type="button" class="btn-remove-secondary sorc-artifact-remove" data-idx="${i}" title="Remove">×</button></div>`).join('');
+    const artOpts = SORCERER.ARTIFACTS.map(a => `<option value="${a.id}">${escHtml(a.name)} (${'●'.repeat(a.rating)})</option>`).join('');
+    return `
+    <div class="fe-section" id="fe-numina">
+      <div class="fe-section-title">Numina <span class="fe-secondary-badge">M20 Sorcerer</span></div>
+      <div class="fe-grid-2">
+        <div class="fe-field"><label>Primary style</label>${styleSel}</div>
+        <div class="fe-field"><label>Secondary style <span class="info-tip" data-tip="Learning a second style of Numina costs 21 XP and needs Storyteller approval (Sorcerer p. 104). Use Advancement to buy it, or set it here as a Storyteller correction.">?</span></label>${secSel}</div>
+      </div>
+      <p class="fe-section-note" style="margin:0 0 0.6rem;color:var(--text-faint);font-size:0.82rem">Ratings, Practices, Path Abilities and rituals edit in place; the Ability caps the Path and Phenomena are capped at half Willpower (${this.psychicCap(c)}).</p>
+      ${body}
+      <div class="step-section" id="sorc-artifacts" style="margin-top:0.8rem">
+        <div class="fe-group-label">Artifacts <span class="cw-note">(Artifact Background ${(c.backgrounds || {}).artifact || 0})</span></div>
+        ${artRows || '<p class="practice-empty-hint">No artifacts.</p>'}
+        <div class="practice-adder-row" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem">
+          <select id="sorc-artifact-add"><option value="">＋ Tools of the Trade…</option>${artOpts}</select>
+          <input type="text" id="sorc-artifact-custom-name" placeholder="or a custom artifact…" maxlength="80" style="flex:1;min-width:10rem">
+          <select id="sorc-artifact-custom-rating">${[1,2,3,4,5].map(n => `<option value="${n}">${'●'.repeat(n)}</option>`).join('')}</select>
+          <button type="button" class="btn-secondary btn-sm" id="sorc-artifact-custom-add">Add</button>
+        </div>
+        <div id="sorc-artifact-detail" class="sorc-detail"></div>
+      </div>
+    </div>`;
+  },
+  /** A Creator-like shim so the wizard's Numina renderers and listeners work inside Free Edit (no freebie limits). */
+  _shim(c, rerender) {
+    return { char: c, stepHeader: () => '', freebiesRemaining: () => 9999, canSpendFreebie: () => true, updateFreebieDisplay() {}, updateSidebar() {}, renderStep: () => rerender && rerender(), _mortalPoolCounter: () => '' };
+  },
+  attachFreeEdit(el, fe) {
+    const c = fe.char; this.ensure(c);
+    const rerender = () => { const y = window.scrollY; fe._render(); window.scrollTo({ top: y }); };
+    const shim = this._shim(c, rerender);
+    const sel = (q, fn) => { const x = el.querySelector(q); if (x) x.addEventListener('change', () => fn(x)); };
+    sel('.sorc-fe-affiliation', x => { c.affiliation = x.value; });
+    sel('.sorc-fe-alignment',   x => { c.faction = x.value; rerender(); });
+    sel('.sorc-fe-essence',     x => { c.essence = x.value; });
+    sel('.sorc-fe-style',       x => { c.numina_style = x.value; if (c.numina_secondary === x.value) c.numina_secondary = ''; rerender(); });
+    sel('.sorc-fe-secondary',   x => { c.numina_secondary = x.value; rerender(); });
+    this.attachNumina(el, shim);
+    this.attachBackgrounds(el, shim);
+  },
+
+  /* ── Advancement ────────────────────────────────────────────────────── */
+  advNuminaSection(adv, c, rem) {
+    this.ensure(c);
+    const cap = this.psychicCap(c);
+    const styles = SORCERER.stylesFor(c);
+    const rows = this.numinaIds(c).map(id => {
+      const n = SORCERER.numenById(id); const name = n ? n.name : ((c.numina[id] || {}).custom_name || id);
+      const isAff = c.affinity_path === id; const r = this.rating(c, id);
+      const isPhen = SORCERER.isPhenomenon(id) || (c.numina[id] || {}).kind === 'psychic';
+      const max = isPhen ? Math.min(5, cap) : 5;
+      const abil = (c.numina[id] || {}).ability; const abilR = abil ? this.abilityRating(c, abil) : 99;
+      const capped = !isPhen && abil && r >= abilR;
+      const label = `${escHtml(name)}${isAff ? ' <span class="adv-affinity-badge">✦ Affinity</span>' : ''}${capped ? ` <span class="cw-note">capped by ${escHtml(this.abilityName(abil))} ${abilR}</span>` : ''}`;
+      return adv._advRow('numen', 'numina', id, label, r, capped ? r : max, rem, isAff);
+    }).join('');
+    // Rituals: per known Path, a picker of rituals not yet known (cost = level)
+    const ritualRows = this.pathIds(c).map(id => {
+      const p = SORCERER.pathById(id); const r = this.rating(c, id); const known = SORCERER.ritualsFor(c, id);
+      const avail = ((p && p.rituals) || []).filter(rt => rt.level <= r && !known.some(k => k.id === rt.id));
+      const knownHTML = known.map(k => `<span class="practice-tag"><span class="practice-tag-name">${escHtml(k.name)} <span class="sorc-dots-inline">${'●'.repeat(k.level)}</span></span></span>`).join('') || '<span class="practice-empty-hint">None.</span>';
+      return `<div class="adv-trait-row sorc-adv-ritual-row" style="flex-wrap:wrap">
+        <span class="adv-trait-name">${escHtml(p ? p.name : id)} <span class="cw-note">rituals</span></span>
+        <div class="practices-list" style="flex:1 1 100%">${knownHTML}</div>
+        <div class="practice-adder-row" style="display:flex;gap:0.4rem;flex-wrap:wrap;flex:1 1 100%">
+          ${avail.length ? `<select class="sorc-adv-ritual-add" data-path="${id}"><option value="">＋ Learn a sample ritual…</option>${avail.map(rt => `<option value="${rt.id}" ${rem < rt.level ? 'disabled' : ''}>${escHtml(rt.name)} (${'●'.repeat(rt.level)}, ${rt.level} XP)</option>`).join('')}</select>` : ''}
+          <input type="text" class="sorc-adv-ritual-custom" data-path="${id}" placeholder="or a custom ritual…" maxlength="80" style="flex:1;min-width:9rem">
+          <select class="sorc-adv-ritual-level" data-path="${id}">${[1,2,3,4,5].map(n => `<option value="${n}" ${n > r ? 'disabled' : ''}>${'●'.repeat(n)} (${n} XP)</option>`).join('')}</select>
+          <button type="button" class="btn-ghost btn-sm sorc-adv-ritual-custom-add" data-path="${id}">Learn</button>
+        </div>
+      </div>`;
+    }).join('');
+    const newNumen = styles.length ? `
+      <div class="adv-trait-row">
+        <span class="adv-trait-name">New Path or Phenomenon <span class="adv-cost">7 XP</span></span>
+        <select class="sorc-adv-new-numen" ${rem < 7 ? 'disabled' : ''}>
+          <option value="">＋ Learn…</option>
+          ${styles.includes('hedge') ? `<optgroup label="Hedge Magic Paths">${this.allowedPaths(c).filter(p => !this.rating(c, p.id)).map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('')}</optgroup>` : ''}
+          ${styles.includes('psychic') ? `<optgroup label="Psychic Phenomena">${this.allowedPhenomena(c).filter(p => !this.rating(c, p.id) && !(this.phenIds(c).includes('anti_psychic')) && !(p.id === 'anti_psychic' && this.phenIds(c).length)).map(p => `<option value="${p.id}">${escHtml(p.name)}</option>`).join('')}</optgroup>` : ''}
+        </select>
+      </div>` : '';
+    const other = c.numina_style === 'hedge' ? 'psychic' : 'hedge';
+    const secondStyle = c.numina_secondary ? '' : `
+      <div class="adv-trait-row">
+        <span class="adv-trait-name">Learn ${other === 'hedge' ? 'hedge magic' : 'psychic phenomena'} as a second style <span class="cw-note">Storyteller approval; Sorcerer p. 104</span></span>
+        <span class="adv-cost${rem < 21 ? ' adv-unaffordable' : ''}">21 XP</span>
+        <button class="btn-ghost btn-sm sorc-adv-second-style" data-value="${other}" ${rem < 21 ? 'disabled' : ''}>Learn</button>
+      </div>`;
+    return `<div class="adv-section" id="adv-numina">
+      <h3 class="adv-section-title">Numina</h3>
+      <p class="adv-info-note">Paths and Phenomena cost current rating × 7 (Affinity Path × 6); a new one costs 7. Rituals cost their level. ${c.numina_style === 'hedge' || this.pathIds(c).length ? 'A Path cannot exceed its Path Ability.' : ''}</p>
+      ${rows || '<p class="adv-info-note">No Numina yet.</p>'}
+      ${newNumen}
+      ${ritualRows ? `<div class="adv-group-label">Rituals</div>${ritualRows}` : ''}
+      ${secondStyle}
+    </div>`;
+  },
+  attachAdvancement(adv) {
+    const c = adv.char;
+    const root = document.getElementById('adv-numina'); if (!root) return;
+    const sel = root.querySelector('.sorc-adv-new-numen');
+    if (sel) sel.addEventListener('change', () => {
+      const id = sel.value; if (!id) return; const n = SORCERER.numenById(id); sel.value = '';
+      adv._spendXP({ group: 'numen', col: 'numina', key: id, label: n ? n.name : id, from: '0', to: '1', cost: '7' });
+    });
+    root.querySelectorAll('.sorc-adv-ritual-add').forEach(s => s.addEventListener('change', () => {
+      const rt = SORCERER.ritualById(s.dataset.path, s.value); if (!rt) return; s.value = '';
+      adv._spendXP({ group: 'ritual', col: 'rituals', key: `${s.dataset.path}/${rt.id}`, label: `${rt.name} (ritual)`, from: '0', to: '1', cost: String(rt.level), ritual: { id: rt.id, path: s.dataset.path, name: rt.name, level: rt.level } });
+    }));
+    root.querySelectorAll('.sorc-adv-ritual-custom-add').forEach(b => b.addEventListener('click', () => {
+      const path = b.dataset.path;
+      const name = (root.querySelector(`.sorc-adv-ritual-custom[data-path="${path}"]`) || {}).value || '';
+      const level = parseInt((root.querySelector(`.sorc-adv-ritual-level[data-path="${path}"]`) || {}).value, 10) || 1;
+      if (!name.trim()) return;
+      const id = 'custom-' + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      adv._spendXP({ group: 'ritual', col: 'rituals', key: `${path}/${id}`, label: `${name.trim()} (ritual)`, from: '0', to: '1', cost: String(level), ritual: { id, path, name: name.trim(), level } });
+    }));
+    const ss = root.querySelector('.sorc-adv-second-style');
+    if (ss) ss.addEventListener('click', () => {
+      if (!confirm('Learning a second style of Numina costs 21 XP and needs Storyteller approval. Continue?')) return;
+      adv._spendXP({ group: 'numina_style', col: '', key: 'numina_secondary', label: `Second Numina style (${ss.dataset.value})`, from: '0', to: '1', cost: '21', value: ss.dataset.value });
+    });
+  },
+
+  /* ── Markdown export ────────────────────────────────────────────────── */
+  markdownNumina(c, e, d) {
+    this.ensure(c);
+    let md = '## Numina\n\n';
+    const aff = this.affiliation(c);
+    md += `**Affiliation:** ${e(aff ? aff.name : (c.affiliation || '—'))}${this.alignmentName(c) ? ` (${e(this.alignmentName(c))})` : ''}  \n`;
+    md += `**Style:** ${e(this.styleLabel(c))}  \n`;
+    if (c.numina_style === 'hedge' || this.pathIds(c).length) md += `**Casting Attribute:** ${c.casting_attribute ? this.ATTR_NAME(c.casting_attribute) : '—'}  \n**Affinity Path:** ${e(c.affinity_path ? ((SORCERER.pathById(c.affinity_path) || {}).name || c.affinity_path) : '—')}  \n`;
+    md += '\n';
+    const ids = this.numinaIds(c);
+    if (ids.length) {
+      md += `| Path / Phenomenon | Rating | Pool / Practice |\n| :--- | :--- | :--- |\n`;
+      ids.forEach(id => { const n = SORCERER.numenById(id); const name = n ? n.name : id; const isPath = SORCERER.isPath(id); md += `| ${c.affinity_path === id ? '✦ ' : ''}${e(name)} | ${d(this.rating(c, id))} | ${isPath ? e(this.poolText(c, id)) : `Willpower ${c.willpower || 0}`} |\n`; });
+      md += '\n';
+    }
+    const rs = Array.isArray(c.rituals) ? c.rituals : [];
+    if (rs.length) { md += '**Rituals**\n\n'; rs.forEach(r => { md += `- ${e(r.name)} (${(SORCERER.pathById(r.path) || {}).name || r.path} ${'●'.repeat(r.level)})\n`; }); md += '\n'; }
+    const arts = Array.isArray(c.artifacts) ? c.artifacts : [];
+    if (arts.length) { md += '**Artifacts**\n\n'; arts.forEach(a => { md += `- ${e(a.name)} ${'●'.repeat(a.rating || 0)}${a.notes ? ` — ${e(a.notes)}` : ''}\n`; }); md += '\n'; }
+    return md + '---\n\n';
+  },
+
   /* ── Merits & Flaws from the Sorcerer book, shaped like M20.MERITS ──── */
   merits() {
     return SORCERER.MERITS_FLAWS.filter(m => m.kind === 'merit' || m.id === 'wild_talent').map(m => this._mf(m, 'merit'));

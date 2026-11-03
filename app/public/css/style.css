@@ -10427,3 +10427,13 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 #sorc-artifacts .practice-adder-row select, #sorc-artifacts .practice-adder-row input { width:auto; }
 #sorc-artifacts #sorc-artifact-add { flex:1 1 14rem; }
 #sorc-artifacts #sorc-artifact-custom-rating { flex:0 0 6.5rem; }
+.sorc-pool { display:block; font-style:normal; font-size:0.68rem; color:var(--text-faint); margin-top:0.1rem; }
+.sorc-sheet-numen-name { cursor:pointer; }
+.sorc-sheet-numen-name:hover { text-decoration:underline dotted; }
+.sorc-sheet-ritual { font-size:0.82rem; margin:0.2rem 0; }
+.sorc-sheet-ritual summary { cursor:pointer; color:var(--text-mid); }
+.sorc-sheet-ritual p { font-size:0.78rem; color:var(--text-dim); margin:0.3rem 0 0.3rem 0.6rem; line-height:1.45; }
+.sorc-sheet-detail { max-height:28rem; overflow:auto; margin-top:0; }
+.sorc-sheet-artifact { margin-bottom:0.3rem; }
+.sorc-sheet-artifact-name { cursor:pointer; }
+.sorc-adv-ritual-row .practices-list { margin:0.2rem 0; }
