@@ -143,6 +143,19 @@ function sphereDisplayNameById(id, char) {
   return sp ? sphereDisplayName(sp, char) : (id || '');
 }
 
+// Display label for a character's affiliation on rosters, cards and lists:
+// Awakened → Tradition/Convention (or faction), Sorcerer → Affiliation name
+// (the column holds a catalogue id), Mortal → "Mortal".
+function charAffiliationLabel(c) {
+  if (!c) return '—';
+  if (c.character_type === 'sorcerer') {
+    const a = typeof SORCERER !== 'undefined' && c.affiliation ? SORCERER.affiliationById(c.affiliation) : null;
+    return a ? a.name : (c.affiliation ? c.affiliation.replace(/_/g, ' ') : 'Unaligned sorcerer');
+  }
+  if (c.character_type === 'mortal') return c.tradition || c.affiliation || 'Mortal';
+  return c.tradition || c.affiliation || '—';
+}
+
 // Returns the faction-appropriate display name for a background
 function bgDisplayName(bg, affiliation) {
   if (!bg) return '';
@@ -851,7 +864,7 @@ const App = {
   },
 
   _dashCompactTile(c) {
-    const tradition = c.tradition || c.affiliation || '—';
+    const tradition = charAffiliationLabel(c);
     const isFav     = this.isFavorite(c.id);
     return `
       <div class="dash-compact-tile" onclick="App.viewCharacter(${c.id})" title="${escHtml(c.name)}">
@@ -982,7 +995,7 @@ const App = {
                 <div class="admin-recent-row">
                   <div class="admin-recent-main">
                     <span class="admin-recent-name">${escHtml(c.name)}</span>
-                    <span class="admin-recent-meta">${escHtml(c.tradition || c.affiliation || '—')}${c.owner_username ? ' · ' + escHtml(c.owner_username) : ''}</span>
+                    <span class="admin-recent-meta">${escHtml(charAffiliationLabel(c))}${c.owner_username ? ' · ' + escHtml(c.owner_username) : ''}</span>
                   </div>
                   <span class="admin-recent-date">${formatDate(c.updated_at)}</span>
                 </div>`).join('')
@@ -1694,7 +1707,7 @@ const App = {
   },
 
   renderCard(c, showOwner = false, hideDanger = false) {
-    const tradition = escHtml(c.tradition || c.affiliation || '—');
+    const tradition = escHtml(charAffiliationLabel(c));
     const concept   = escHtml(c.concept || '—');
     const chronDate = c.chronicle_next_session
       ? new Date(c.chronicle_next_session + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -1893,7 +1906,7 @@ const App = {
         return;
       }
       const rows = characters.map(c => {
-        const aff = c.affiliation === 'Technocracy' ? c.tradition || 'Technocracy' : (c.tradition || c.affiliation || '');
+        const aff = c.character_type === 'sorcerer' ? charAffiliationLabel(c) : c.affiliation === 'Technocracy' ? c.tradition || 'Technocracy' : (c.tradition || c.affiliation || '');
         const meta = [aff, c.concept].filter(Boolean).join(' · ');
         return `
           <div class="admin-list-row" title="Open ${escHtml(c.name)}" onclick="App.closeModal(); App.viewCharacter(${c.id})">
@@ -3971,7 +3984,7 @@ const Chronicle = {
           <div class="chronicle-member-row chronicle-member-clickable" data-char-id="${m.id}">
             <div class="chronicle-member-info">
               <span class="chronicle-member-name">${escHtml(m.name)}</span>
-              <span class="chronicle-member-meta">${escHtml(m.tradition || m.affiliation || '—')} · Arete ${m.arete} ${PrismUI.memberBadgeHTML(m, detailRules)}</span>
+              <span class="chronicle-member-meta">${escHtml(charAffiliationLabel(m))} · ${m.character_type === 'sorcerer' ? (m.numina_style === 'psychic' ? 'Psychic' : 'Hedge wizard') : m.character_type === 'mortal' ? 'Mortal' : `Arete ${m.arete}`} ${PrismUI.memberBadgeHTML(m, detailRules)}</span>
               ${m.owner_username ? `<span class="chronicle-member-owner">Player: ${escHtml(m.owner_username)}</span>` : ''}
             </div>
             ${xpTrack}
@@ -9567,7 +9580,7 @@ const Creator = {
       <div class="form-grid">
         <div class="form-group">
           <label>Character Name</label>
-          <input type="text" id="f-name" value="${escHtml(c.name || '')}" placeholder="Your hunter's name" />
+          <input type="text" id="f-name" value="${escHtml(c.name || '')}" placeholder="${sorc ? "Your sorcerer's name" : "Your hunter's name"}" />
         </div>
         <div class="form-group">
           <label>Player Name</label>
@@ -9605,9 +9618,9 @@ const Creator = {
         </div>
         <div class="form-group">
           <label>Concept
-            <span class="info-tip" data-tip="A brief phrase that captures who your hunter is — e.g. 'discharged soldier with PTSD' or 'reformed cultist'.">?</span>
+            <span class="info-tip" data-tip="${sorc ? "A brief phrase that captures who your sorcerer is — e.g. 'paranormal investigator with a YouTube channel' or 'UFO-hunting engineer'." : "A brief phrase that captures who your hunter is — e.g. 'discharged soldier with PTSD' or 'reformed cultist'."}">?</span>
           </label>
-          <input type="text" id="f-concept" value="${escHtml(c.concept || '')}" placeholder="e.g. discharged soldier, struggling vitae addict, militant priest" />
+          <input type="text" id="f-concept" value="${escHtml(c.concept || '')}" placeholder="${sorc ? 'e.g. paranormal investigator, hedge-witch herbalist, reluctant psychic' : 'e.g. discharged soldier, struggling vitae addict, militant priest'}" />
         </div>
       </div>
 
@@ -9618,7 +9631,7 @@ const Creator = {
         </div>
         <p class="step-instructions" style="margin-top:0">${sorc ? 'Who taught them? What did the Art cost them? Do they know about the Ascension War, and do they care?' : 'How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?'}</p>
         <textarea class="form-input" id="f-mortal-motivation" rows="4" maxlength="1000"
-          placeholder="A few sentences describing what drives your hunter…">${escHtml(c.notes || '')}</textarea>
+          placeholder="${sorc ? 'A few sentences on how they came to the Art and what they want from it…' : 'A few sentences describing what drives your hunter…'}">${escHtml(c.notes || '')}</textarea>
       </div>
 
       <div class="ornate-divider">— Nature &amp; Demeanor —</div>
@@ -13926,7 +13939,7 @@ const Obsidian = {
       aff === 'Traditions'  ? (char.tradition || '') :
       aff === 'Technocracy' ? (char.faction   || '') :
       (char.faction || '');
-    const affDisplay = trad || aff || '—';
+    const affDisplay = char.character_type === 'sorcerer' ? charAffiliationLabel(char) : (trad || aff || '—');
 
     // ── YAML frontmatter (Dataview-compatible) ──────────────────────────────
     const fmLines = [
@@ -14173,7 +14186,7 @@ const Obsidian = {
       md += '*No characters have joined yet.*\n\n';
     } else {
       members.forEach(m => {
-        const trad  = m.tradition || m.affiliation || '—';
+        const trad  = charAffiliationLabel(m);
         const link  = `[[${this._safeName(m.name)}]]`;
         const owner = m.owner_username ? ` · Player: ${e(m.owner_username)}` : '';
         md += `- ${link} — ${e(trad)} · Arete ${m.arete || 1}${owner}\n`;

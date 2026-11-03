@@ -194,7 +194,7 @@ router.get('/stats', (req, res) => {
     `).all();
 
     const recent_chars = db.prepare(`
-      SELECT ch.id, ch.name, ch.player, ch.tradition, ch.affiliation, ch.updated_at,
+      SELECT ch.id, ch.name, ch.player, ch.tradition, ch.affiliation, ch.character_type, ch.updated_at,
              u.username AS owner_username
       FROM characters ch
       LEFT JOIN users u ON u.id = ch.user_id
