@@ -38,17 +38,10 @@ for p in paths:
     p['rituals'].sort(key=lambda r: (r['level'], r['name']))
     path_by_name[p['name'].lower()] = p['id']
 
-# Favored Paths named by Affiliations that this book does not describe (plan decision 8)
-PLACEHOLDERS = [
-    {'id': 'herbalism', 'name': 'Herbalism', 'page': None, 'placeholder': True,
-     'description': 'Named as a favored Path of the Children of Osiris, but not described in M20 Sorcerer. Ask your Storyteller for the Path write-up (earlier editions of Sorcerer cover it) or treat it as a custom Path.',
-     'system': {'text': '', 'aspects': [], 'modifiers': '', 'priceOfFailure': ''}, 'levels': [], 'rituals': [], 'sidebars': [], 'notes': ''},
-    {'id': 'shadowcasting', 'name': 'Shadowcasting', 'page': None, 'placeholder': True,
-     'description': 'Named as a favored Path of Nebuu-Afef, the Order of the Golden Fly, but not described under that name in M20 Sorcerer. It is most likely the Shadows Path (p. 45); ask your Storyteller.',
-     'system': {'text': '', 'aspects': [], 'modifiers': '', 'priceOfFailure': ''}, 'levels': [], 'rituals': [], 'sidebars': [], 'notes': ''},
-]
-paths += PLACEHOLDERS
-for p in PLACEHOLDERS: path_by_name[p['name'].lower()] = p['id']
+# Affiliations name two Paths under their older titles (confirmed by David 2026-11-03):
+# Herbalism is grouped with Brewing under the Path of Alchemy, and Shadowcasting is the Shadows Path (p. 45).
+PATH_ALIASES = {'herbalism': 'alchemy', 'shadowcasting': 'shadows'}
+for alias, target in PATH_ALIASES.items(): path_by_name[alias] = target
 
 for ph in phen:
     ph['id'] = ph.get('id') or slug(ph['name'])
@@ -117,7 +110,8 @@ js = "/* M20 Sorcerer catalogue — generated from the book text; see tools/repo
 js += "const SORCERER = " + json.dumps(data, ensure_ascii=False, indent=1) + ";\n"
 js += r"""
 // ── helpers ─────────────────────────────────────────────────────────────────
-SORCERER.pathById       = id => SORCERER.PATHS.find(p => p.id === id) || null;
+SORCERER.PATH_ALIASES   = {"herbalism": "alchemy", "shadowcasting": "shadows"};
+SORCERER.pathById       = id => SORCERER.PATHS.find(p => p.id === (SORCERER.PATH_ALIASES[id] || id)) || null;
 SORCERER.phenomenonById = id => SORCERER.PHENOMENA.find(p => p.id === id) || null;
 SORCERER.numenById      = id => SORCERER.pathById(id) || SORCERER.phenomenonById(id);
 SORCERER.affiliationById= id => SORCERER.AFFILIATIONS.find(a => a.id === id) || null;

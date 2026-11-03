@@ -1688,40 +1688,6 @@ const SORCERER = {
    "rituals": [],
    "sidebars": [],
    "notes": "Weather Control uses no rituals, so no Sample Rituals are printed. The levels array holds the Path-specific Intensity Aspect (dots 1-5). The Price of Failure paragraph continues onto p. 51, the last page of chapter one."
-  },
-  {
-   "id": "herbalism",
-   "name": "Herbalism",
-   "page": null,
-   "placeholder": true,
-   "description": "Named as a favored Path of the Children of Osiris, but not described in M20 Sorcerer. Ask your Storyteller for the Path write-up (earlier editions of Sorcerer cover it) or treat it as a custom Path.",
-   "system": {
-    "text": "",
-    "aspects": [],
-    "modifiers": "",
-    "priceOfFailure": ""
-   },
-   "levels": [],
-   "rituals": [],
-   "sidebars": [],
-   "notes": ""
-  },
-  {
-   "id": "shadowcasting",
-   "name": "Shadowcasting",
-   "page": null,
-   "placeholder": true,
-   "description": "Named as a favored Path of Nebuu-Afef, the Order of the Golden Fly, but not described under that name in M20 Sorcerer. It is most likely the Shadows Path (p. 45); ask your Storyteller.",
-   "system": {
-    "text": "",
-    "aspects": [],
-    "modifiers": "",
-    "priceOfFailure": ""
-   },
-   "levels": [],
-   "rituals": [],
-   "sidebars": [],
-   "notes": ""
   }
  ],
  "PHENOMENA": [
@@ -2682,7 +2648,7 @@ const SORCERER = {
      "qualifier": ""
     },
     {
-     "id": "herbalism",
+     "id": "alchemy",
      "qualifier": ""
     },
     {
@@ -2991,7 +2957,7 @@ const SORCERER = {
      "qualifier": ""
     },
     {
-     "id": "shadowcasting",
+     "id": "shadows",
      "qualifier": ""
     },
     {
@@ -3683,7 +3649,8 @@ const SORCERER = {
 };
 
 // ── helpers ─────────────────────────────────────────────────────────────────
-SORCERER.pathById       = id => SORCERER.PATHS.find(p => p.id === id) || null;
+SORCERER.PATH_ALIASES   = {"herbalism": "alchemy", "shadowcasting": "shadows"};
+SORCERER.pathById       = id => SORCERER.PATHS.find(p => p.id === (SORCERER.PATH_ALIASES[id] || id)) || null;
 SORCERER.phenomenonById = id => SORCERER.PHENOMENA.find(p => p.id === id) || null;
 SORCERER.numenById      = id => SORCERER.pathById(id) || SORCERER.phenomenonById(id);
 SORCERER.affiliationById= id => SORCERER.AFFILIATIONS.find(a => a.id === id) || null;

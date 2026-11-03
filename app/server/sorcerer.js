@@ -31,9 +31,19 @@ const int = (v, lo, hi) => Math.max(lo, Math.min(hi, parseInt(v, 10) || 0));
 
 // ── Character-side normalisation ─────────────────────────────────────────────
 /** numina: { id: { rating, practice, ability, custom_name } } — Paths and Phenomena share the map. */
+// Herbalism and Shadowcasting were short-lived placeholder ids; the book folds them into Alchemy and Shadows.
+const LEGACY_PATHS = { herbalism: 'alchemy', shadowcasting: 'shadows' };
+const legacyPath = id => LEGACY_PATHS[id] || id;
+
 function cleanNumina(raw) {
   const out = {};
-  for (const [id, v] of Object.entries(asObj(raw))) {
+  const src = {};
+  for (const [id0, v] of Object.entries(asObj(raw))) {
+    const id = legacyPath(id0);
+    const cur = src[id], r = (v && typeof v === 'object') ? int(v.rating, 0, 5) : int(v, 0, 5);
+    if (!cur || r > ((cur && typeof cur === 'object') ? int(cur.rating, 0, 5) : int(cur, 0, 5))) src[id] = v;
+  }
+  for (const [id, v] of Object.entries(src)) {
     const isPath = PATH_IDS.has(id), isPhen = PHEN_IDS.has(id), isCustom = /^custom_[a-z0-9_]+$/.test(id);
     if (!isPath && !isPhen && !isCustom) continue;
     const o = (v && typeof v === 'object') ? v : { rating: v };
@@ -55,7 +65,7 @@ function cleanRituals(raw, numina) {
   const seen = new Set(); const out = [];
   for (const r of asArr(raw)) {
     if (!r || typeof r !== 'object') continue;
-    const pathId = str(r.path, 60);
+    const pathId = legacyPath(str(r.path, 60));
     if (!pathId || !(PATH_IDS.has(pathId) || /^custom_[a-z0-9_]+$/.test(pathId))) continue;
     const level = int(r.level, 1, 5);
     let id = str(r.id, 80), name = str(r.name, 80), text = '';
@@ -109,6 +119,7 @@ function normalizeCharacterSorcerer(data, existing) {
   if (data.numina_style !== undefined)      data.numina_style = STYLES.has(data.numina_style) ? data.numina_style : '';
   if (data.numina_secondary !== undefined)  data.numina_secondary = STYLES.has(data.numina_secondary) && data.numina_secondary !== (data.numina_style ?? existing?.numina_style) ? data.numina_secondary : '';
   if (data.casting_attribute !== undefined) data.casting_attribute = ATTR_IDS.has(String(data.casting_attribute).toLowerCase()) ? String(data.casting_attribute).toLowerCase() : '';
+  if (data.affinity_path !== undefined)     data.affinity_path = legacyPath(data.affinity_path);
   if (data.affinity_path !== undefined)     data.affinity_path = PATH_IDS.has(data.affinity_path) || /^custom_[a-z0-9_]+$/.test(data.affinity_path || '') ? data.affinity_path : '';
   if (data.numina !== undefined)            data.numina = cleanNumina(data.numina);
   const numina = data.numina ?? asObj(existing?.numina);
@@ -139,7 +150,7 @@ function sanitizeSorcererRules(raw) {
   if (r.allowSorcerers !== undefined)      out.allowSorcerers = !!r.allowSorcerers;
   const list = (v, ids) => Array.isArray(v) ? v.filter(id => ids.has(id)) : null;
   if (r.allowedAffiliations !== undefined) { const l = list(r.allowedAffiliations, AFFIL_IDS); if (l) out.allowedAffiliations = l; }
-  if (r.allowedPaths !== undefined)        { const l = list(r.allowedPaths, PATH_IDS);        if (l) out.allowedPaths = l; }
+  if (r.allowedPaths !== undefined)        { const l = list(Array.isArray(r.allowedPaths) ? [...new Set(r.allowedPaths.map(legacyPath))] : r.allowedPaths, PATH_IDS);        if (l) out.allowedPaths = l; }
   if (r.allowedPhenomena !== undefined)    { const l = list(r.allowedPhenomena, PHEN_IDS);    if (l) out.allowedPhenomena = l; }
   if (r.enforceFavored !== undefined)      out.enforceFavored = ENFORCE_MODES.has(r.enforceFavored) ? r.enforceFavored : 'block';
   if (r.allowBothStyles !== undefined)     out.allowBothStyles = !!r.allowBothStyles;
