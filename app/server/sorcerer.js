@@ -149,4 +149,81 @@ function sanitizeSorcererRules(raw) {
   return out;
 }
 
-module.exports = { SORCERER, cleanNumina, cleanRituals, cleanArtifacts, normalizeCharacterSorcerer, sanitizeSorcererRules, STYLES, ENFORCE_MODES };
+// ── XP spends on Sorcerer traits ─────────────────────────────────────────────
+// trait_group 'numen'        → numina[key].rating from→to (col 'numina')
+// trait_group 'ritual'       → append body.ritual {id, path, name, level} (col 'rituals'), from 0 → to 1
+// trait_group 'numina_style' → set numina_secondary = body.value (21 XP), from 0 → to 1
+const XP_GROUPS = new Set(['numen', 'ritual', 'numina_style']);
+
+/** Validate a sorcerer XP spend body against the stored character. Returns an error string or null. */
+function validateXpSpend(charRow, body) {
+  if (charRow.character_type !== 'sorcerer') return 'Only Sorcerer characters have Numina';
+  const numina = asObj(charRow.numina);
+  const { trait_group, trait_key, from, to } = body;
+  if (trait_group === 'numen') {
+    if (body.trait_col !== 'numina') return 'Invalid trait column';
+    const known = PATH_IDS.has(trait_key) || PHEN_IDS.has(trait_key) || (numina[trait_key] && /^custom_/.test(trait_key));
+    if (!known) return 'Unknown Path or Phenomenon';
+    const cur = numina[trait_key] ? (numina[trait_key].rating || 0) : 0;
+    if (from !== cur) return `Rating mismatch (have ${cur})`;
+    if (to > 5) return 'Rating cannot exceed 5';
+    if (PATH_IDS.has(trait_key) && numina[trait_key] && numina[trait_key].ability) {
+      const ab = numina[trait_key].ability; let have = 0;
+      for (const col of ['talents','skills','knowledges']) { const m = asObj(charRow[col]); if (m[ab] !== undefined) have = m[ab] || 0; }
+      if (to > have) return `${trait_key} is capped by its Path Ability (${ab} ${have}); raise the Ability first`;
+    }
+    if (PHEN_IDS.has(trait_key) && to > Math.floor((charRow.willpower || 0) / 2)) return `Phenomena are capped at half Willpower (${Math.floor((charRow.willpower || 0) / 2)})`;
+    if (trait_key === 'anti_psychic' && Object.keys(numina).some(id => id !== 'anti_psychic' && PHEN_IDS.has(id) && numina[id].rating > 0)) return 'Anti-Psychic cannot be combined with other Phenomena';
+    // A new Path/Phenomenon of the other style needs the secondary style
+    const style = PATH_IDS.has(trait_key) ? 'hedge' : PHEN_IDS.has(trait_key) ? 'psychic' : null;
+    if (cur === 0 && style && style !== charRow.numina_style && style !== charRow.numina_secondary) return `A ${style === 'hedge' ? 'hedge magic Path' : 'Psychic Phenomenon'} needs that style learned first (21 XP, Storyteller approval)`;
+    return null;
+  }
+  if (trait_group === 'ritual') {
+    if (body.trait_col !== 'rituals') return 'Invalid trait column';
+    const r = body.ritual && typeof body.ritual === 'object' ? body.ritual : null;
+    if (!r || !r.path) return 'Ritual details required';
+    if (!numina[r.path] || !(numina[r.path].rating > 0)) return 'The character does not know that Path';
+    const [clean] = cleanRituals([r], numina);
+    if (!clean) return 'Invalid ritual';
+    if (clean.level > numina[r.path].rating) return `Ritual level ${clean.level} is above the Path rating ${numina[r.path].rating}`;
+    const have = asArr(charRow.rituals);
+    if (have.some(x => x.path === clean.path && x.id === clean.id)) return 'Ritual already known';
+    const levels = new Set(have.filter(x => x.path === clean.path).map(x => x.level));
+    for (let l = 1; l < clean.level; l++) if (!levels.has(l)) return `A level ${clean.level} ritual needs a ritual at every lower level (missing level ${l})`;
+    if (from !== 0 || to !== 1) return 'Rituals are bought once';
+    return null;
+  }
+  if (trait_group === 'numina_style') {
+    if (trait_key !== 'numina_secondary') return 'Invalid trait key';
+    if (!STYLES.has(body.value) || body.value === charRow.numina_style) return 'Invalid secondary style';
+    if (charRow.numina_secondary) return 'A secondary style is already known';
+    if (from !== 0 || to !== 1) return 'Invalid range';
+    return null;
+  }
+  return 'Unknown trait group';
+}
+
+/** Apply (direction +1) or revert (direction -1) a sorcerer XP log entry. Returns {col, value} to persist. */
+function applyXpSpend(charRow, entry, direction = 1) {
+  const numina = asObj(charRow.numina);
+  if (entry.trait_group === 'numen') {
+    const n = numina[entry.trait_key] || {};
+    const rating = direction > 0 ? entry.to : entry.from;
+    if (rating > 0) numina[entry.trait_key] = { ...n, rating }; else delete numina[entry.trait_key];
+    return { col: 'numina', value: JSON.stringify(numina) };
+  }
+  if (entry.trait_group === 'ritual') {
+    let rituals = asArr(charRow.rituals);
+    const r = entry.ritual || {};
+    rituals = rituals.filter(x => !(x.path === r.path && x.id === r.id));
+    if (direction > 0) { const [clean] = cleanRituals([r], numina); if (clean) rituals.push(clean); }
+    return { col: 'rituals', value: JSON.stringify(rituals) };
+  }
+  if (entry.trait_group === 'numina_style') {
+    return { col: 'numina_secondary', value: direction > 0 ? entry.value : '' };
+  }
+  return null;
+}
+
+module.exports = { SORCERER, cleanNumina, cleanRituals, cleanArtifacts, normalizeCharacterSorcerer, sanitizeSorcererRules, STYLES, ENFORCE_MODES, XP_GROUPS, validateXpSpend, applyXpSpend };

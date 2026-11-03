@@ -2,7 +2,8 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { PRISM, normalizeCharacterFocus } = require('../prism');
-const { normalizeCharacterSorcerer } = require('../sorcerer');
+const Sorc = require('../sorcerer');
+const { normalizeCharacterSorcerer } = Sorc;
 const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
@@ -588,13 +589,15 @@ router.post('/:id/xp/spend', (req, res) => {
     }
     if (toVal !== fromVal + 1) return res.status(400).json({ error: 'Can only raise one dot at a time' });
     if (cost < 1) return res.status(400).json({ error: 'Invalid cost' });
-    if (trait_col && !JSON_TRAIT_COLS.has(trait_col)) return res.status(400).json({ error: 'Invalid trait column' });
+    const isSorcSpend = Sorc.XP_GROUPS.has(trait_group);
+    if (isSorcSpend) { const err = Sorc.validateXpSpend(char, req.body); if (err) return res.status(400).json({ error: err }); }
+    if (!isSorcSpend && trait_col && !JSON_TRAIT_COLS.has(trait_col)) return res.status(400).json({ error: 'Invalid trait column' });
     // Ability columns: the key must be a known ability, one of the character's custom abilities,
     // or a chronicle custom ability — never an arbitrary string.
     if (trait_col && ABILITY_COLS.has(trait_col) && !isKnownAbilityKey(char, trait_col, trait_key)) {
       return res.status(400).json({ error: 'Unknown ability' });
     }
-    if (!trait_col && trait_group !== 'resonance' && !SCALAR_TRAIT_COLS.has(trait_key)) {
+    if (!isSorcSpend && !trait_col && trait_group !== 'resonance' && !SCALAR_TRAIT_COLS.has(trait_key)) {
       return res.status(400).json({ error: 'Invalid trait key' });
     }
 
@@ -605,7 +608,11 @@ router.post('/:id/xp/spend', (req, res) => {
     if (cost > xpAvailable) return res.status(400).json({ error: `Not enough XP (have ${xpAvailable}, need ${cost})` });
 
     // Apply trait update
-    if (SCALAR_TRAIT_COLS.has(trait_key) && !trait_col) {
+    if (isSorcSpend) {
+      const entry = { trait_group, trait_key, from: fromVal, to: toVal, ritual: req.body.ritual, value: req.body.value };
+      const up = Sorc.applyXpSpend(char, entry, 1);
+      if (up) db.prepare(`UPDATE characters SET ${up.col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(up.value, char.id);
+    } else if (SCALAR_TRAIT_COLS.has(trait_key) && !trait_col) {
       db.prepare(`UPDATE characters SET ${trait_key} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
         .run(toVal, char.id);
     } else if (trait_col && JSON_TRAIT_COLS.has(trait_col)) {
@@ -628,6 +635,8 @@ router.post('/:id/xp/spend', (req, res) => {
       type: 'spend', trait_group, trait_col: trait_col || null,
       trait_key, trait_label: (trait_label || trait_key).replace(/<[^>]+>/g, ''),
       from: fromVal, to: toVal, cost, date: new Date().toISOString(),
+      ...(isSorcSpend && trait_group === 'ritual' ? { ritual: { id: String(req.body.ritual.id || ''), path: String(req.body.ritual.path), name: String(req.body.ritual.name || '').slice(0, 80), level: parseInt(req.body.ritual.level, 10) || 1, notes: String(req.body.ritual.notes || '').slice(0, 2000) } } : {}),
+      ...(isSorcSpend && trait_group === 'numina_style' ? { value: req.body.value } : {}),
     });
     db.prepare(`UPDATE characters SET xp_log = ? WHERE id = ?`).run(JSON.stringify(xpLog), char.id);
     res.json({ ok: true, xp_log: xpLog });
@@ -654,7 +663,10 @@ router.delete('/:id/xp/:logIndex', (req, res) => {
 
     // Revert trait to the pre-spend value stored in the log entry
     const { trait_group, trait_col, trait_key, from: fromVal } = entry;
-    if (trait_col && JSON_TRAIT_COLS.has(trait_col)) {
+    if (Sorc.XP_GROUPS.has(trait_group)) {
+      const up = Sorc.applyXpSpend(char, entry, -1);
+      if (up) db.prepare(`UPDATE characters SET ${up.col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(up.value, char.id);
+    } else if (trait_col && JSON_TRAIT_COLS.has(trait_col)) {
       const jsonData = JSON.parse(char[trait_col] || '{}');
       jsonData[trait_key] = fromVal;
       db.prepare(`UPDATE characters SET ${trait_col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)

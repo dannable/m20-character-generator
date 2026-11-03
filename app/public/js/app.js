@@ -295,6 +295,8 @@ function showChronicleWelcomeModal(chronicleName, rules) {
 // XP cost to raise a trait from currentVal → currentVal+1 (M20 p. 336)
 function xpCost(traitGroup, currentVal, isAffinitySphere = false) {
   switch (traitGroup) {
+    case 'numen':      return currentVal === 0 ? 7 : currentVal * (isAffinitySphere ? 6 : 7);   // Sorcerer p. 105 (Affinity Path x6)
+    case 'background_sorcerer': return currentVal === 0 ? 3 : currentVal * 3;                   // Sorcerer p. 105: current x3
     case 'attribute':  return currentVal * 4;
     case 'ability':    return currentVal === 0 ? 3 : currentVal * 2;
     case 'background': return currentVal === 0 ? 3 : currentVal * 2;
@@ -5612,7 +5614,7 @@ const Sheet = {
           <span class="sheet-field-label">Type</span>
           <span class="sheet-field-value">Mortal Hunter</span>
         </div>
-        ` : `
+        ` : char.character_type === 'sorcerer' ? SorcererUI.sheetHeaderHTML(char) : `
         <div class="sheet-field">
           <span class="sheet-field-label">Affiliation</span>
           <span class="sheet-field-value">${escHtml(char.tradition || char.affiliation || '—')}</span>
@@ -5672,7 +5674,7 @@ const Sheet = {
         </div>
       </div>
 
-      ${char.character_type === 'mortal' ? `
+      ${char.character_type === 'sorcerer' ? SorcererUI.sheetNuminaBandHTML(char, ro, editLink) : char.character_type === 'mortal' ? `
       <!-- Band 3 (Mortal): VIRTUES & HUMANITY -->
       <div class="sheet-band">
         <div class="sheet-band-title">Virtues &amp; Humanity</div>
@@ -5767,7 +5769,7 @@ const Sheet = {
             ${meritsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits${editLink('fe-mf')}</div>${meritsHTML}` : ''}
             ${flawsHTML ? `<div class="sheet-group-title" style="margin-top:0.5rem">Flaws${editLink('fe-mf')}</div>${flawsHTML}` : ''}
             ${!meritsHTML && !flawsHTML && !ro && !char.is_draft ? `<div class="sheet-group-title" style="margin-top:0.5rem">Merits &amp; Flaws${editLink('fe-mf', '✎ Add')}</div><div class="sheet-empty-hint">None yet. Use Edit to add Merits or Flaws.</div>` : ''}
-            ${char.character_type === 'mortal' ? '' : `
+            ${char.character_type === 'sorcerer' ? SorcererUI.sheetFocusHTML(char, editLink) : char.character_type === 'mortal' ? '' : `
             <div class="sheet-group-title" style="margin-top:0.5rem">Magical Focus${editLink('fe-focus-section')}</div>
             <div class="sheet-focus-row">
               ${char.focus_mode === 'prism' ? PrismUI.sheetFocusHTML(char) : `
@@ -5793,9 +5795,9 @@ const Sheet = {
           </div>
           <div class="sheet-group core-stats-group">
             <div class="sheet-group-title">Core Statistics</div>
-            ${char.character_type === 'mortal' ? '' : this.coreStatBox('Arete', char.arete || 1, 10)}
+            ${(char.character_type === 'mortal' || char.character_type === 'sorcerer') ? '' : this.coreStatBox('Arete', char.arete || 1, 10)}
             ${this.willpowerBox(char.willpower || (char.character_type === 'mortal' ? 1 : 5), char.willpower_spent || 0)}
-            ${char.character_type === 'mortal' ? '' : this.qpControls(char.quintessence || 0, char.paradox || 0)}
+            ${char.character_type === 'mortal' ? '' : char.character_type === 'sorcerer' ? (SorcererUI.canStoreQuintessence(char) ? this.qpControls(char.quintessence || 0, 0, { hideParadox: true, note: `Stored by ${escHtml(SorcererUI.canStoreQuintessence(char))}` }) : '') : this.qpControls(char.quintessence || 0, char.paradox || 0)}
           </div>
           <div class="sheet-group">
             ${this.healthTrack(char)}
@@ -5803,7 +5805,7 @@ const Sheet = {
         </div>
       </div>
 
-      ${char.character_type === 'mortal' ? '' : this.rotesSection(char)}
+      ${(char.character_type === 'mortal' || char.character_type === 'sorcerer') ? '' : this.rotesSection(char)}
 
       ${this.combatSection(char, ro)}
 
@@ -6317,7 +6319,7 @@ const Sheet = {
   },
 
   // Quintessence / Paradox with +/- controls
-  qpControls(q, p) {
+  qpControls(q, p, opts = {}) {
     const max = 20, r = 72, dotR = 9, pad = 16;
     const size = (r + dotR + pad) * 2;
     const cx = size / 2, cy = size / 2;
@@ -6348,7 +6350,7 @@ const Sheet = {
              </span>`}
       </div>
       <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="wheel-svg" id="sheet-qp-wheel">${dotsSVG}</svg>
-      <div class="qp-stat-label qp-paradox">
+      ${opts.hideParadox ? (opts.note ? `<div class="qp-stat-label"><span class="cw-note">${opts.note}</span></div>` : '') : `<div class="qp-stat-label qp-paradox">
         <span class="qp-label-name">Paradox</span>
         ${ro
           ? `<span class="qp-label-value qp-paradox-value" id="sheet-p-val">${p}</span>`
@@ -6357,7 +6359,7 @@ const Sheet = {
                <input class="qp-input qp-input-paradox" id="inp-p" value="${p}" maxlength="4" title="Enter a number to set, or +N / −N to adjust" />
                <button class="qp-btn qp-btn-paradox" id="btn-p-plus"  title="Gain Paradox">+</button>
              </span>`}
-      </div>
+      </div>`}
     </div>`;
   },
 
@@ -6669,6 +6671,7 @@ const Sheet = {
     }
 
     // ── "✎ Edit" links → Free Edit, scrolled to the section ──────
+    if (this.char?.character_type === 'sorcerer') SorcererUI.attachSheet(document.getElementById('sheet-content') || document);
     $$('.sheet-edit-link').forEach(btn => btn.addEventListener('click', async e => {
       e.stopPropagation();
       await App.editCharacter(this.char.id);
@@ -13009,6 +13012,7 @@ const FreeEdit = {
   open(char) {
     this.char = JSON.parse(JSON.stringify(char));
     if (!this.char.specialties) this.char.specialties = {};
+    if (this.char.character_type === 'sorcerer') SorcererUI.ensure(this.char);
     if (this.char.character_type === 'mortal') {
       if (!this.char.virtues || typeof this.char.virtues !== 'object') {
         this.char.virtues = { conscience: 1, self_control: 1, courage: 1 };
@@ -13172,7 +13176,8 @@ const FreeEdit = {
 
     // Backgrounds — show all from M20 (except multi-instance Wonder) plus any chronicle custom ones
     const bgAff = c.affiliation || 'Traditions';
-    const allBgs = M20.BACKGROUNDS.filter(b => !b.multiInstance && (!b.factionOnly || !b.factionOnly.length || b.factionOnly.includes(bgAff)));
+    const allBgs = c.character_type === 'sorcerer' ? SorcererUI.backgrounds(c)
+      : M20.BACKGROUNDS.filter(b => !b.multiInstance && (!b.factionOnly || !b.factionOnly.length || b.factionOnly.includes(bgAff)));
     const chronBgs = (c._chronicleRules?.customBackgrounds || []).filter(b => b.name);
     const bgRows = [...allBgs, ...chronBgs.map(b => ({ id: b.id, name: b.name, max: b.max || 5 }))].map(bg => bgRow(bg.name || bg.id, bg.id, bg.max || 5)).join('');
     // Wonder instances (read-only display — managed via the wonder section)
@@ -13216,16 +13221,17 @@ const FreeEdit = {
         <div class="fe-field"><label>Chronicle</label>${this._input('chronicle', c.chronicle, 'Chronicle name')}</div>
         <div class="fe-field"><label>Nature</label>${this._input('nature', c.nature, 'Nature archetype')}</div>
         <div class="fe-field"><label>Demeanor</label>${this._input('demeanor', c.demeanor, 'Demeanor archetype')}</div>
+        ${c.character_type === 'sorcerer' ? SorcererUI.freeEditIdentityHTML(c) : c.character_type === 'mortal' ? '' : `
         <div class="fe-field"><label>Affiliation</label>${this._input('affiliation', c.affiliation, 'Traditions / Technocracy / Disparates')}</div>
         <div class="fe-field"><label>Tradition / Convention</label>${this._input('tradition', c.tradition, 'Tradition or Convention')}</div>
         <div class="fe-field"><label>Faction / Order</label>${this._input('faction', c.faction, 'Faction or order')}</div>
         <div class="fe-field"><label>Essence</label>${this._input('essence', c.essence, 'Dynamic / Pattern / Primordial / Questing')}</div>
         <div class="fe-field"><label>Affinity Sphere</label>${this._input('affinity_sphere', c.affinity_sphere, 'e.g. life, mind, forces')}</div>
-        ${hasDualAffiliation(c) ? `<div class="fe-field"><label>Second Affinity Sphere <span class="fe-secondary-badge">Dual Affiliation</span></label>${this._input('affinity_sphere_2', c.affinity_sphere_2, 'e.g. prime, spirit')}</div>` : ''}
+        ${hasDualAffiliation(c) ? `<div class="fe-field"><label>Second Affinity Sphere <span class="fe-secondary-badge">Dual Affiliation</span></label>${this._input('affinity_sphere_2', c.affinity_sphere_2, 'e.g. prime, spirit')}</div>` : ''}`}
       </div>
     </div>
 
-    ${FreeEditExtras.focusSectionHTML(c)}
+    ${c.character_type === 'sorcerer' ? SorcererUI.freeEditNuminaHTML(c) : FreeEditExtras.focusSectionHTML(c)}
 
     <!-- Attributes -->
     <div class="fe-section">
@@ -13279,7 +13285,7 @@ const FreeEdit = {
       ${feWonderRows ? `<div style="margin-top:0.75rem"><div class="fe-group-label">Wonders</div>${feWonderRows}</div>` : ''}
     </div>
 
-    ${c.character_type === 'mortal' ? `
+    ${c.character_type === 'sorcerer' ? '' : c.character_type === 'mortal' ? `
     <!-- Virtues (Mortal) -->
     <div class="fe-section">
       <div class="fe-section-title">Virtues</div>
@@ -13325,7 +13331,10 @@ const FreeEdit = {
     <div class="fe-section">
       <div class="fe-section-title">Core Stats</div>
       <div class="fe-stat-grid">
-        ${c.character_type === 'mortal' ? `
+        ${c.character_type === 'sorcerer' ? `
+          <div class="fe-trait-row"><span class="fe-trait-label">Willpower</span>${this._dots(c.willpower||5, 10, 'willpower')}</div>
+          ${SorcererUI.canStoreQuintessence(c) ? `<div class="fe-trait-row"><span class="fe-trait-label">Quintessence <span class="cw-note">${escHtml(SorcererUI.canStoreQuintessence(c))}</span></span>${this._number('quintessence', c.quintessence||0, 0, 20)}</div>` : ''}
+        ` : c.character_type === 'mortal' ? `
           <div class="fe-trait-row"><span class="fe-trait-label">Humanity</span>${this._dots(c.humanity||0, 10, 'humanity')}</div>
           <div class="fe-trait-row"><span class="fe-trait-label">Willpower</span>${this._dots(c.willpower||1, 10, 'willpower')}</div>
         ` : `
@@ -13337,7 +13346,7 @@ const FreeEdit = {
       </div>
     </div>
 
-    ${c.character_type === 'mortal' ? '' : `
+    ${(c.character_type === 'mortal' || c.character_type === 'sorcerer') ? '' : `
     <!-- Resonance -->
     <div class="fe-section">
       <div class="fe-section-title">Resonance</div>
@@ -13641,6 +13650,7 @@ const FreeEdit = {
     });
 
     FreeEditExtras.attach(el, this);
+    if (this.char.character_type === 'sorcerer') SorcererUI.attachFreeEdit(el, this);
 
     // Bottom buttons
     $('#fe-cancel-btn-bottom')?.addEventListener('click', () => this._cancel());
@@ -14003,7 +14013,10 @@ const Obsidian = {
     }
     md += '\n---\n\n';
 
-    // ── Spheres ──────────────────────────────────────────────────────────────
+    // ── Spheres (Numina for Sorcerers) ──────────────────────────────────────
+    if (char.character_type === 'sorcerer') {
+      md += SorcererUI.markdownNumina(char, e, d);
+    } else {
     md += '## Spheres\n\n';
     md += `| Sphere | | Sphere | | Sphere | |\n`;
     md += `| :----- | :- | :----- | :- | :----- | :- |\n`;
@@ -14024,6 +14037,7 @@ const Obsidian = {
       md += `| ${cols.join(' | ')} |\n`;
     }
     md += '\n---\n\n';
+    }
 
     // ── Advantages ───────────────────────────────────────────────────────────
     md += '## Advantages\n\n';
@@ -14070,9 +14084,13 @@ const Obsidian = {
 
     // ── Core Stats ───────────────────────────────────────────────────────────
     md += '## Core Stats\n\n';
+    if (char.character_type === 'sorcerer') {
+      md += `| Willpower | Quintessence |\n| :-------- | :----------- |\n| ${d(char.willpower||5, 10)} | ${SorcererUI.canStoreQuintessence(char) ? (char.quintessence||0) : '—'} |\n\n`;
+    } else {
     md += `| Arete | Willpower | Quintessence | Paradox |\n`;
     md += `| :---- | :-------- | :----------- | :------ |\n`;
     md += `| ${d(char.arete||1)} | ${d(char.willpower||5, 10)} | ${char.quintessence||0} | ${char.paradox||0} |\n\n`;
+    }
     md += '---\n\n';
 
     // ── Magical Focus ────────────────────────────────────────────────────────
@@ -14486,7 +14504,7 @@ const Advancement = {
             <div id="adv-bg-rows">${this._bgRows(char, remaining, allowBg)}</div>
           </div>
 
-          ${this._sphereSection(char, remaining)}
+          ${char.character_type === 'sorcerer' ? SorcererUI.advNuminaSection(this, char, remaining) : this._sphereSection(char, remaining)}
           ${this._otherSection(char, remaining)}
         </div>
 
@@ -14640,6 +14658,10 @@ const Advancement = {
 
   _bgRows(char, rem, allowBg) {
     if (!allowBg) return `<p class="adv-info-note">Background XP spending is currently disabled.</p>`;
+    if (char.character_type === 'sorcerer') {
+      // Sorcerer p. 105: Backgrounds cost current rating x3
+      return SorcererUI.backgrounds(char).map(bg => this._advRow('background_sorcerer', 'backgrounds', bg.id, bg.name, (char.backgrounds || {})[bg.id] || 0, bg.max || 5, rem)).join('');
+    }
     const bgs  = filteredBackgrounds(char.affiliation || 'Traditions');
     const dict = char.backgrounds || {};
     return bgs.map(bg => {
@@ -14661,7 +14683,8 @@ const Advancement = {
   },
 
   _otherSection(char, rem) {
-    const areteRow = this._advRow('arete', null, 'arete', 'Arete', char.arete || 1, 10, rem);
+    const noArete  = char.character_type === 'sorcerer' || char.character_type === 'mortal';
+    const areteRow = noArete ? '' : this._advRow('arete', null, 'arete', 'Arete', char.arete || 1, 10, rem);
     const wpRow    = this._advRow('willpower', null, 'willpower', 'Willpower', char.willpower || 5, 10, rem);
 
     const resonances = Array.isArray(char.resonance) ? char.resonance : [];
@@ -14673,8 +14696,8 @@ const Advancement = {
 
     return `<div class="adv-section">
       <h3 class="adv-section-title">Other Traits</h3>
-      <div class="adv-group-label">Arete &amp; Willpower</div>
-      ${areteRow}${wpRow}
+      <div class="adv-group-label">${noArete ? 'Willpower' : 'Arete &amp; Willpower'}</div>
+      ${areteRow}${wpRow}${char.character_type === 'sorcerer' && char.numina_style === 'psychic' ? `<p class="adv-info-note">Phenomena are capped at half Willpower (currently ${SorcererUI.psychicCap(char)}).</p>` : ''}
       ${resRows ? `<div class="adv-group-label">Resonance</div>${resRows}` : ''}
     </div>`;
   },
@@ -14725,6 +14748,7 @@ const Advancement = {
       });
     });
 
+    if (this.char.character_type === 'sorcerer') SorcererUI.attachAdvancement(this);
     this._attachRaiseBtns();
   },
 
@@ -14795,6 +14819,8 @@ const Advancement = {
           trait_group: group, trait_col: col || null,
           trait_key: key, trait_label: label,
           from: fromVal, to: toVal, cost,
+          ...(dataset.ritual ? { ritual: dataset.ritual } : {}),
+          ...(dataset.value ? { value: dataset.value } : {}),
         }),
       });
       if (!r.ok) {
@@ -14803,7 +14829,7 @@ const Advancement = {
       }
       const data = await r.json();
       this.char.xp_log = data.xp_log;
-      this._applyTraitUpdate(group, col || null, key, toVal);
+      this._applyTraitUpdate(group, col || null, key, toVal, dataset);
       toast(`${label.replace(/<[^>]+>/g,'')} raised to ${toVal} (−${cost} XP).`);
       this._render();
     } catch { toast('Failed to spend XP.', 'error'); }
@@ -14874,8 +14900,16 @@ const Advancement = {
     $('#modal-overlay').style.display = 'flex';
   },
 
-  _applyTraitUpdate(group, col, key, newVal) {
-    if (group === 'attribute' || group === 'arete' || group === 'willpower') {
+  _applyTraitUpdate(group, col, key, newVal, dataset = {}) {
+    if (group === 'numen') {
+      if (!this.char.numina) this.char.numina = {};
+      this.char.numina[key] = { ...(this.char.numina[key] || {}), rating: newVal };
+    } else if (group === 'ritual') {
+      if (!Array.isArray(this.char.rituals)) this.char.rituals = [];
+      if (dataset.ritual) this.char.rituals.push(dataset.ritual);
+    } else if (group === 'numina_style') {
+      this.char.numina_secondary = dataset.value || '';
+    } else if (group === 'attribute' || group === 'arete' || group === 'willpower') {
       this.char[key] = newVal;
     } else if (col && ['talents','skills','knowledges','backgrounds','spheres'].includes(col)) {
       if (!this.char[col]) this.char[col] = {};
