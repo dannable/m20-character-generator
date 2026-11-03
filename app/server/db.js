@@ -340,6 +340,13 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN virtues TEXT DEFAULT '{}'`); } 
 try { db.exec(`ALTER TABLE characters ADD COLUMN humanity INTEGER DEFAULT 0`); } catch {}
 // Numina (mortal only): { pathId: rating } map — Hunters Hunted II psychic powers
 try { db.exec(`ALTER TABLE characters ADD COLUMN numina TEXT DEFAULT '{}'`); } catch {}
+// Sorcerer (M20 Sorcerer) — see server/sorcerer.js
+try { db.exec(`ALTER TABLE characters ADD COLUMN numina_style TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN numina_secondary TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN casting_attribute TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN affinity_path TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN rituals TEXT DEFAULT '[]'`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN artifacts TEXT DEFAULT '[]'`); } catch {}
 
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`

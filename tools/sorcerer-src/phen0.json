@@ -1,0 +1,300 @@
+[
+ {
+  "id": "animal_psychics",
+  "name": "Animal Psychics",
+  "page": 54,
+  "description": "Some people are naturally good with animals, and some psychics supernaturally so. This ability allows a psychic to exert their will to communicate with and control animals. Even the lowest expression of this Phenomenon allows a psychic to put an animal at ease by bridging the communication gap, rendering it more inclined to respond positively to the psychic.\n\nA psychic may speak to and command an animal through a method of their choosing. Examples include silently locking eye contact, imitating noises animals make, dressage gestures, the psychic’s native language, or a stream of gibberish. The method matters much less than the psychic’s intent and force of will. Even at its highest levels, this phenomenon does not affect insects or any creature, such as jellyfish, which lacks a brain.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "Commune",
+    "text": "A psychic may communicate with one animal the psychic can perceive through mundane senses (sight, hearing, etc). They may issue simple commands but cannot command an animal to attack. The psychic can, however, command an animal to stand down from an intended attack. Issuing a command an animal was inclined to do anyway requires no additional roll, but to command an animal to do something against its nature requires a roll of Charisma + Animal Ken with a difficulty of 9 minus the psychic’s dots of Animal Psychics."
+   },
+   {
+    "level": 2,
+    "name": "Mass Communication",
+    "text": "As with Commune, but the Psychic may now communicate with multiple animals of the same species at once. Commands to animals may be more complex so long as the psychic can adequately describe it; however, animals won’t typically attack for the psychic unless already inclined to do so. This level may alternatively target a single animal for expanded command capability."
+   },
+   {
+    "level": 3,
+    "name": "Mind Link",
+    "text": "A psychic may link minds with a single animal for instant two-way communication and the ability to sense what the animal senses. The psychic must initially sense the animal as per Commune, but the animal may travel outside of the psychic’s perception range without breaking the link. This power ends when the psychic severs the link. The link can prove dangerous — any damage the linked animal takes results in psychic backlash, which causes an equal amount of soakable bashing damage to the psychic. If the animal dies while the link is active, the psychic must not only roll to soak the damage, but also roll current Willpower at difficulty 8. A failure renders the psychic stunned for 1 round. Botches can leave the psychic overwhelmed by the trauma of death for a scene and have lasting consequences, such as heightened startle responses, until the psychic regains one Willpower."
+   },
+   {
+    "level": 4,
+    "name": "Domination",
+    "text": "A psychic may order any single animal to do anything within the animal’s natural capabilities. The animal fights and dies for the psychic on demand without question. The psychic must adequately describe a command for the animal to understand what the psychic wants. Complex commands may still confuse an animal, though the animal does its best to interpret and carry out any command the psychic gives it. Once the psychic successfully activates this power, the animal follows the psychic’s orders until either the psychic severs the connection, or the animal dies. Psychics using this power must also establish a Mind Link if they wish to continue issuing commands to the animal at range. This does not require additional rolls or Willpower expenditure, but it does open the psychic up to suffering damage when the animal is injured or killed as detailed above."
+   },
+   {
+    "level": 5,
+    "name": "Swarm",
+    "text": "With mastery over this Phenomenon, a psychic may now use any lower ability on all animals the psychic can sense through mundane senses at once. The psychic’s control is no longer limited to one species at a time. Using Mind Link in this way can quickly become dangerous, as every linked animal presents a risk of backlash damage if injured. The distraction of maintaining multiple mental links is overwhelming, inflicting a -3 dice penalty to all Attribute-based rolls until the Mind Link ends unless the psychic spends a point of Willpower when making the roll to temporarily push past the distraction."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": ""
+ },
+ {
+  "id": "anti_psychic",
+  "name": "Anti-Psychic",
+  "page": 55,
+  "description": "Anti-Psychic is the rarest psychic phenomenon. That said, it is very subtle. Many Anti-Psychics go through life unaware of their ability. It often takes an attack by, or other serious misunderstanding with, another psychic before the Anti-Psychic learns of their gift.\n\nAnti-Psychic Phenomena scramble the abilities of other psychics with mental static. Those with a scientific paradigm theorize Anti-Psychic emanations use a similar basis for function as Telepathy. Instead of projecting a signal the recipient’s brain can decode as a message, image, or impression, the theory is the Anti-Psychic projects a signal that interferes with the brainwaves responsible for psychic phenomena. Due to the nature of this Phenomenon, it’s impossible for an Anti-Psychic to develop any other psychic phenomena. They are, however, capable of learning other Numina.\n\nAn Anti-Psychic disrupts all other psychic phenomena within their range of effect and enjoys a limited effect on those using the Mind Sphere. At higher levels, the Anti-Psychic may even disrupt vampiric Disciplines and Garou gifts. This Phenomenon remains perpetually active, even while the Anti Psychic sleeps, unless the psychic spends a point of Willpower to completely suppress the phenomenon for a turn or direct it to a single individual. If using Anti-Psychic against Mind Sphere effects or Night-Folk, the psychic does not automatically succeed but reflexively rolls activation at difficulty 7 or the mage’s Arete, whichever is higher. On a success, the effects of the Anti-Psychic’s ranks in the ability applies. For more information on countering Night-Folk powers, see Mage: The Ascension 20th Anniversary Edition page 546.\n\nThe rarity of this Phenomenon represents a mixed blessing. While many would not anticipate the ability, lending an element of surprise, the novelty can make the Anti-Psychic a tempting specimen for scientifically inclined supernatural entities. Whispered rumors imply that the Technocratic Union uses Anti-Psychics from their Extraordinary Citizens to bolster raids on known or suspected psychics.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "",
+    "text": "5-yard radius. Add +1 difficulty to psychic phenomenon activation within the radius and +1 difficulty to Mind Sphere rolls."
+   },
+   {
+    "level": 2,
+    "name": "",
+    "text": "10-yard radius. Add +2 difficulty to psychic phenomenon activation within the radius and +1 difficulty to Mind Sphere rolls."
+   },
+   {
+    "level": 3,
+    "name": "",
+    "text": "15-yard radius. Add +3 difficulty to psychic phenomenon activation within the radius and +2 difficulty to Mind Sphere rolls. Add +1 difficulty for use of any mental-based Night Folk powers."
+   },
+   {
+    "level": 4,
+    "name": "",
+    "text": "25-yard radius. Add +4 difficulty to psychic phenomenon activation within the radius and +2 difficulty to Mind Sphere rolls. Add +2 difficulty for use of any mental-based Night Folk powers."
+   },
+   {
+    "level": 5,
+    "name": "",
+    "text": "40-yard radius. Add +5 difficulty to psychic phenomenon activation within the radius and +3 difficulty to Mind Sphere rolls. Add +3 difficulty for use of any mental-based Night Folk powers."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": ""
+ },
+ {
+  "id": "astral_projection",
+  "name": "Astral Projection",
+  "page": 56,
+  "description": "Astral Projection allows the psychic to split their spirit, mind, or consciousness — or a combination of those depending on belief — from their body. The astral form is intangible and can cover vast distances in a short time, as it’s not beholden to normal laws of physics. Astral travelers can peer into and even visit the Astral Umbra’s realms of ideas (see Mage 20 p. 94). The psychic using Astral Projection cannot affect the physical world through normal means, though they may do so through other psychic phenomena at +2 difficulty. Botching Astral Projection activation causes a disorienting psychic backlash, preventing the psychic from leaving their body for 24 hours.\n\nA psychic’s body remains vulnerable while they are using astral projection, and the psychic cannot sense what’s happening to it. It’s a common fear among psychics with this ability that someone might move or harm their bodies while they’re away. Many tend to limit their use of drugs and alcohol, because memory lapses can trigger the same fear.\n\nPsychics can interact with astral spirits — denizens of the Astral Umbra and other astral traveling individuals. Astral Projection does not confer the ability to see and interact with ghosts. For combat while astral traveling, substitute Wits for Dexterity, Intelligence for Strength, and Perception for Stamina. Astral travelers usually appear as slightly idealized versions of themselves, including manifestations of gender or stylistic expression, freed from physical or societal limitations on such expressions. Alternatively, those with exceedingly poor self-image sometimes appear with exaggerated perceived flaws. Despite potential differences from physical appearance, astral travelers are typically able to recognize each other should they meet again in the physical realm.\n\nMost psychics are only able to access the Astral Penumbra, but the most powerful have claimed to be able to travel further. Traveling into Otherworlds is risky business, and more than a handful of psychics have gone exploring, never to find their bodies again. Some believe leaving the body uninhabited for too long risks letting something else in.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "Peek",
+    "text": "The psychic may spend up to one minute per point of Stamina astral projecting and travel up to one mile away from their body. A psychic can only use sight at this level — their other senses do not function while projecting. A character may also travel into the Astral Penumbra for this amount of time."
+   },
+   {
+    "level": 2,
+    "name": "Errand",
+    "text": "The psychic gains the ability to hear while astral traveling. They may travel up to 100 miles away from their body with a limit of 10 minutes per point of Stamina."
+   },
+   {
+    "level": 3,
+    "name": "Journey",
+    "text": "The psychic can travel up to 1000 miles away from their body and may remain in astral form for 30 minutes per point of Stamina. A psychic may choose to manifest as a blurry, ghost-like image of their astral form for one turn by spending a point of Willpower but may not speak. They do not show up on recordings."
+   },
+   {
+    "level": 4,
+    "name": "Failsafe",
+    "text": "Upon being stunned or knocked out, the psychic may roll Astral Projection activation as a reflexive action. The psychic may use this power to seek help for their prone body, or simply as a way to remain useful while otherwise out of commission. The psychic may manifest as Journey, and while manifested, the psychic can communicate at whisper volume. The psychic’s voice and translucent form do not show up on recordings. The psychic may travel anywhere on Earth and remain projected for up to an hour per dot of Stamina they possess, though they may spend a point of Willpower every hour they wish to continue traveling beyond this limit. They may use all senses as normal. Though the psychic may return to their body at any time before their normal limit is up, returning will not wake them unless the cause of unconsciousness has resolved."
+   },
+   {
+    "level": 5,
+    "name": "Odyssey",
+    "text": "The psychic’s astral travel abilities are legendary. The psychic can travel anywhere on or in Earth, extending to at least the edge of the atmosphere. Attempting to go further requires a Willpower roll at difficulty 9. So long as the psychic’s body lives, including aid with life support technology, the psychic may travel indefinitely. If manifested, the psychic may speak in normal volumes and may choose to either appear in an indistinct, translucent form or deceptively opaque and may stay manifested for up to an hour per point of Willpower spent. The psychic may choose to show up on recordings."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": ""
+ },
+ {
+  "id": "biocontrol",
+  "name": "Biocontrol",
+  "page": 57,
+  "description": "Most psychic phenomena involve the perception or control of things outside the psychic’s body, but Biocontrol allows the psychic to exert will over their body itself. A psychic can ignore pain, enhance senses, and even divert circulation or regulate hormonal levels at will.\n\nWhile others can afford themselves minor degrees of control with biofeedback and meditation, psychics with Biocontrol can force their bodies to survive what appear to be hopeless situations. The mother who lifted a car off her child, the man who never seems drunk no matter how many drinks he downs, and the lone survivor of a tragedy are all examples of this phenomenon. The more miraculous the expression, however, the more likely the psychic inadvertently draws the wrong attention.\n\nBeyond potential unwanted attention, Biocontrol isn’t without risk. Botches can cause biological processes to go haywire at exactly the wrong time, proportional to the effect the psychic was trying to achieve. A psychic needing to reduce their oxygen requirement to survive drowning might increase their metabolism and expedite their demise, but a psychic seeking social advantage with pheromones might embarrass themself by causing excessive sweating.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "Mindfulness",
+    "text": "The psychic concentrates on altering their biological processes in minor ways. They can stop small wounds from bleeding, raise or lower their core body temperature by up to two degrees, hold their breath for an extended time, ignore pain from minor wounds, including wound penalties of up to half their Biocontrol rating (rounded up), and consciously regulate their blood pressure and pulse within normal range. The effect ends if the psychic’s concentration breaks."
+   },
+   {
+    "level": 2,
+    "name": "Healing Factor",
+    "text": "The psychic forces their body to accelerate the metabolic processes responsible for healing and fighting infections far beyond the normal rate. The psychic must spend time resting and meditating, ideally while receiving medical care — the psychic’s still mortal, after all. For every activation success, the psychic reduces the time to heal the highest health level by one level, to a minimum of one hour for bashing damage and one day for lethal or aggravated damage. After the first level of damage heals, the psychic may roll activation again to repeat the process. If using Healing Factor, psychics can ignore the permanent impairment risk (see Mage 20 p. 408) so long as they have sufficient nutrition and rest."
+   },
+   {
+    "level": 3,
+    "name": "Surge",
+    "text": "The psychic floods their system with hormones at will. Psychics choose Physical, Social, or Mental and split their activation successes between attributes from the chosen category to raise dots (to a maximum of 5 in any attribute) for one scene. This can represent an adrenaline surge allowing for “hysterical strength” in an emergency, a surge of dopamine to improve mental function, or modulation of serotonin and pheromones to make themselves calmer or subconsciously attractive in social situations. Deliberately causing hormone spikes strains the body: When the effect wears off, the psychic must roll Stamina at difficulty 5 to soak activation successes as bashing damage."
+   },
+   {
+    "level": 4,
+    "name": "Toggle Nerves",
+    "text": "A psychic with this level of control enhances or reduces sensitivity in their nerves for up to one scene per activation success. The most common usage is temporarily deadening pain. A psychic may ignore wound penalties caused by pain by up to activation success number of health levels — it doesn’t allow the psychic to ignore penalties due to nonfunctional or missing body parts. A psychic may instead choose to deaden senses to ignore other noxious stimuli, such as powerful scents, sudden lighting changes, or temperature extremes. The psychic may ignore up to activation successes in distraction penalties and may split the successes across multiple penalty types. Alternatively, a psychic may increase nerve sensitivity, lowering the difficulty of perception-based rolls by activation successes and may split the successes across senses. However, increasing nerve sensitivity comes at a risk. Every success spent toward lowering perception difficulty with a sense adds to the difficulty of resisting distractions using that sense while the power is active. If the psychic increases touch sensitivity and sustains damage, they suffer additional wound penalties equal to their activation senses devoted to touch."
+   },
+   {
+    "level": 5,
+    "name": "Biological Mastery",
+    "text": "The psychic achieves complete control over their body. They can stop and restart their heart at will, regulate digestion, temporarily suspend the need for oxygen, and put themselves in hibernation to force more extreme feats of healing — including regrowing parts. They can accelerate or suspend regeneration at a cellular level and may nullify toxins with an activation roll. Each activation success reduces the Toxin Rating of the substance by one. If the remaining Toxin Rating is lower than the psychic’s Stamina, the psychic may direct the toxin to a specific part of their body to run its course, suffering an Impediment (as the flaw, see M20 Book of Secrets p. 39) for the duration of the toxin’s effect. If the Toxin Rating is higher than the psychic’s Stamina after using Biological Mastery, the psychic suffers the toxin normally at the lowered Toxin Rating. A psychic may spend a turn concentrating and roll activation to soak lethal and aggravated damage with Stamina for a scene."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": ""
+ },
+ {
+  "id": "channeling",
+  "name": "Channeling",
+  "page": 58,
+  "description": "A medium stands before a group and calls forth a dead relative with some letter of the alphabet for a name. Some attendee says they know someone dead with that name. The medium lets them know that they crossed over peacefully, and the spirit wants the best for them. They forgive the living for some vague sin that the attendee acknowledges, and nothing further is asked. Solace has been achieved and the medium gets paid. The reality show does great, and popularity grows. That’s all crap.\n\nIn the psychic community, there are those that channel the dead. It’s rarely for the purpose of making someone feel better though. The dead are a wealth of untapped experience that would make even the most learned master blush with envy. That knowledge is at the beck and call of the channeler, and when used correctly they are never without the right skill for the task at hand.\n\nChannelers come in all shapes, sizes, and styles. Some of them are into the classic ‘eyes roll back and speak in another tongue’ Victorian-era trope. There are a few that drink home-brewed concoctions they’ve made for themselves that “open them up to the other side.” Modern channelers with a technological bent use spirit boxes and EVP devices to get their knowledge. In the end, the psychic is opening themselves up to a wraith in the Shadowlands that has the knowledge they need. The better they are, the stronger the connection to the skills and talents of the dead.\n\nIt’s a dangerous game to play, to be sure. Opening that door can lead to some nasty pieces of work sauntering into the psychic’s psyche if they aren’t careful. When things go wrong, full blown possession awaits the unfortunate channeler. But the flip side is being able to bring in the knowledge of a surgical genius in a medical emergency, an acrobat when crossing a precarious ledge, or a stone-cold killer when self-defense is required. Channelers are the first to say the risk is worth the reward.\n\nWhen Channeling, the psychic can only bring forth one spirit at a time. The psyche of the channeler could easily be overwhelmed if more than one wraith is given access to their being. Should the psychic summon another spirit while currently hosting another from a previous channeling, the first is released and replaced by the second.\n\nBy necessity, the channeler has some insight into the Shadowlands, the realm of the ghosts. As they grow more powerful in their practice, the channeler can peer across the Shroud for a number of minutes equal to successes rolled. This is a separate use of their channeling talent and costs the same as channeling a spirit for their capabilities. The difficulty of this power roll is affected by the strength of the Shroud in their area and has no restriction on frequency of use, so long as the psychic has the Willpower points to spend.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "",
+    "text": "The channeler can tap into the other side and draw forth a ghost’s Abilities, though they may only access a single Ability per use of this power. Successes on the activation roll become bonus dice for rolls utilizing the desired Talent, Skill, or Knowledge for the remainder of the scene. When gazing across the Shroud, the psychic can gather a vague idea of the wraiths present."
+   },
+   {
+    "level": 2,
+    "name": "",
+    "text": "The psychic can now access two Abilities simultaneously, splitting successes between desired traits. The channeler also can now make out more of the Shadowlands when peering across the Shroud. The channeler can discern details of the landscape and identify specific ghosts that are present."
+   },
+   {
+    "level": 3,
+    "name": "",
+    "text": "Further growth now allows a third Ability to be channeled, subject to the limitations above. The channeler can now verbally communicate with ghosts beyond the Shroud."
+   },
+   {
+    "level": 4,
+    "name": "",
+    "text": "The psychic can now access any Talent, Skill or Knowledge, maintaining multiple channeled traits as long as they gain sufficient successes on the activation roll to cover the desired trait levels. Communication is no longer hindered by a short window of accessibility, and gazing across the Shroud lasts a whole scene."
+   },
+   {
+    "level": 5,
+    "name": "",
+    "text": "With a psyche girded by many trials and tribulations, the psychic is fortified enough to now channel two separate personalities at once. Note that each wraith channeled still requires its own cost and power roll. Should the Ability channeled be the same on each use, the bonus dice from both uses are added to dice pools using the Talent, Skill, or Knowledge.\n\nAt the pinnacle of their skill, with one spirit channeled, the medium may open themselves to a wraith and gain all the Abilities of the visiting spirit. Successes rolled during the channeling roll are now available to any Talent, Skill, or Knowledge that wraith may have possessed in life. The extra costs of channeling with such lowered defenses can be high, however. The spirit may request a favor, a task to be completed, or even the right to freely control the channeler’s body for a period of time."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": "The level entries have no bold names in the book. The closing paragraph beginning “At the pinnacle of their skill…” follows the ••••• entry and has been kept as the second paragraph of level 5."
+ },
+ {
+  "id": "clairvoyance",
+  "name": "Clairvoyance",
+  "page": 59,
+  "description": "Clairvoyance refers to the capability to see beyond one’s immediate surroundings and out to great distances. In many cases, the projected sense can be any of the five senses, and the actual input received is rarely something so simple as a one-to-one analogue of the distant location. In most cases, the senses are bombarded with interpretive sensations that all add up to a single unified idea of the location, person, or object being perceived.\n\nThe more information a clairsentient has about their target, the clearer the image they receive. Reams of reports sit in government testing facilities with project names like Stargate, Grillflame, and Sunstreak that tell of scouted psychics giving impressions and corollary sensations to target observations. Items they were very familiar with were held in far off locations, mountain bases, desert outposts, and even submarines. The psychics would relay things such as getting a chill, seeing a noon-day sun, or feeling as though they were floating in a swimming pool. While a good start, the practiced clairvoyant can achieve far more accuracy and clarity. The most powerful clairvoyants can see a location hundreds of miles away with crystal clarity, and rumors whisper of powerhouses with global reach.\n\nSome confusion does exist between what constitutes Clairvoyance and what is Astral Projection. There are those that insist they are the same phenomenon when mastery is achieved in either. The discerning psychic sees this conflation as laughable. The most well-informed physic scholars might offer this clarification: “Clairvoyance obviously takes advantage of the inherent connection between points in space, while the inner self leaves the body and is sent traveling via Astral Projection.”\n\nThis connection and familiarity with the subject of their viewing has a direct effect on their chances of success as well. Finding more familiar targets requires only one or two successes, while being a stranger to the subject will increase the number of successes needed to locate it. Once a connection is made, the clairsentient can observe the location or the area surrounding a person or object to whatever degree of clarity they achieved. A psychic attempting to refocus their second sight needs to make another roll (with the difficulty adjusted one lower for familiarity, if the new subject was viewed from their first focus).",
+  "levels": [
+   {
+    "level": 1,
+    "name": "",
+    "text": "Experiencing remote locations is new to the psychic, and most observations are interpretive. This impression can be a physical sensation of cold steel for a knife, the smell of gunpowder for firearms, or a vision of a doghouse for guard dogs. In some cases, an actual image of the subject can be achieved, but this will be hazy at best. The one exception is hearing. Sounds come across the mental bridge garbled and unintelligible, if they can be heard at all. More successes grant more literal symbolic sensations, with five successes affording actual visual perception of the target, cloudy as it may be. Senses have a limited range for novices and reach to approximately one mile around the psychic. Retraining their focus requires another Willpower roll and another expenditure of Willpower to solidify their new remote subject."
+   },
+   {
+    "level": 2,
+    "name": "",
+    "text": "Remote sight becomes more reliably achievable, albeit still shrouded in mild distortion or haze. Sound comes across far more frequently, with a chance of being clear enough to be understandable. Three successes on the Willpower test affords a near clear image of the subject with distorted sounds, while five successes grant crystal clarity and intelligible sounds that could convey the general subject and mood of conversations near the subject. The psychic can now push their senses further — out to ten miles away from their current location. The difficulty of the roll increases by one past 5 miles and by two at 8 miles."
+   },
+   {
+    "level": 3,
+    "name": "",
+    "text": "Clarity is no longer an issue, and remote sensing brings sight and sound across the expanse without distortion. The clairvoyant unlocks a new avenue of clarified perception in the sense of touch. “Touching” a distant subject psychically returns muffled sensations, as though their hands were encased in heavy mittens. With clarity no longer a concern, successes now define the distance a clairsentient can reach, with each success representing ten miles of range. At this point, a new Willpower roll is still required to refocus but no longer costs more effort to perform."
+   },
+   {
+    "level": 4,
+    "name": "",
+    "text": "Sight, sound, and touch are all within the purview of the remote viewer. The clairvoyant also begins perceiving smells and tastes, with strong odors and flavors being detected when they are in abundance. Range now increases ten-fold, with each success equating to 100 miles of range."
+   },
+   {
+    "level": 5,
+    "name": "",
+    "text": "The clairsentient master can remotely view a location as though they are standing in the room. All five senses are received with exact definition, with no secret escaping their perception. Range increases ten-fold once more, with each success extending their reach by 1,000 miles. Finally, so long as the psychic is refocusing on an element that they can see within their current clairvoyant view, no new roll is required, as they forge new correspondences to subjects on the fly."
+   }
+  ],
+  "system": "",
+  "sidebars": [],
+  "notes": "The level entries have no bold names in the book. “physic scholars” is as printed."
+ },
+ {
+  "id": "cyberkinesis",
+  "name": "Cyberkinesis",
+  "page": 60,
+  "description": "Cyberkinesis is one of the most recently discovered Psychic Phenomena — the first instance documented less than a century ago — and represents the ability to control electronic machinery by thought. Experts in psychic phenomena theorize that Cyberkinesis is an information age variant of telekinesis. The psychic generates small electromagnetic fields that control and alter the firmware and software of electronics, ranging from fire alarms to super computers.\n\nThough the cyberkinetic may psychically control the machine, they can’t psychically read its contents without Cyberpathy. All powers above dot one require the Cyberkinetic to have either access to the device’s display or to be able to access the device via Cyberpathy.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "Switch",
+    "text": "The cyberkinetic may turn electronics off and on without touching them. +2 difficulty to activation if the electronic requires a physical relay rather than an electronic one. The psychic must be able to sense the electronic device to use this power. This is an exception to the usual requirement to access the device’s display and applies to devices without displays such as light fixtures."
+   },
+   {
+    "level": 2,
+    "name": "Remote",
+    "text": "The psychic may control electronics with their mind without having to use an input device such as a keyboard. This does not give any login or override credentials, but if the psychic knows credentials, they may enter them. Any action more difficult than operating an office computer raises the activation difficulty. This power removes the need for haptic input devices if the psychic uses Augmented Reality (M20 Operative’s Dossier, p. 58).\n\nDifficulty Modifier — Example\n+1 — Controlling a small office’s server network or a home security system, using a 3-D printer with pre-loaded designs\n+2 — Psychically driving an electric car at highway speeds\n+3 — Using specialized equipment such as a 3-D printer with no pre-loaded designs\n+4 — Directing a computer-controlled factory\n+5 — Operating a space shuttle single-handedly"
+   },
+   {
+    "level": 3,
+    "name": "Glitch",
+    "text": "The psychic directs their electromagnetic fields to scramble electronic processes by causing tiny internal shorts and power surges. They can cause computers to lock up or blue screen and recording equipment to pick up only static. The effect requires active concentration. Most electronics return to normal after the effect ends, but some older tech simply crashes. A psychic using AR may use this as an attack on Icons and other Digital Web objects, dealing bashing damage. Use activation to attack, and substitute dots in Cyberkinesis for the weapon modifier in the damage roll. If the psychic inflicts 3 or more damage in one attack, the target is stunned for a round."
+   },
+   {
+    "level": 4,
+    "name": "Spoof",
+    "text": "The psychic tricks operating systems into letting them in without valid credentials. If the system would be able to perform the task, the psychic can force the system to do it. The psychic may plant fake documents, install malware, give themself admin privileges, or erase data."
+   },
+   {
+    "level": 5,
+    "name": "Overclock",
+    "text": "The psychic overrides safety limiters in electronics to force them to exceed their normal capabilities. A computer processes faster or runs more intensive software than it should be able to, an electric car accelerates faster, or an office laser pointer becomes a weapon. Every activation success adds an automatic success to the psychic’s next use of the machine, but the exertion damages the machine. Rolls to operate the machine after this power is used suffer a dice penalty equal to the activation successes until the device is repaired. Acquiring 8 or more successes when activating this power completely fries the machine after the Overclock effect ends."
+   }
+  ],
+  "system": "",
+  "sidebars": [
+   {
+    "title": "Psychics and Technomagickal Wonders",
+    "text": "Cyberkinetics and Cyberpaths will mostly interact with mundane technology, and that’s what the base rules for those Phenomena describe. In mixed chronicles with Awakened mages, or even as part of a higher-powered plot, a psychic might run across Wonders like technomagickal Devices.\n\nUnlike standard technology, technomagickal Wonders tend to be stubborn, have quirks, and sometimes a will of their own. As such, they receive active resistance rolls against any uses of Cyberkinesis and Cyberpathy. After the psychic rolls successful activation for their effect, the Storyteller rolls the Wonder’s rating times 2 at difficulty 7 to resist the psychic. If the Wonder gets more successes, the psychic’s attempt fails, but the psychic knows the device resisted their attempt. If the psychic gets more successes, the psychic may proceed as normal, treating their net successes as their activation successes. Botches rolled on a Device’s resistance may offer additional future affinity towards the psychic at the Storyteller’s discretion.\n\nA Storyteller may instead choose to allow the psychic to roll activation at an additional difficulty equal to the Wonder’s rating in cases where the psychic’s intended action matches the nature — and historical tendencies — of the Wonder. On successful activation, the Wonder does not roll resistance.\n\nIf the psychic possesses the Cyberpathy power Enigma, Wonders roll to resist the psychic at difficulty 8. The powerful decryption function allows a psychic to better reason with the Wonder in convincing it to work with the psychic.\n\nFor more information about Wonders, see Mage 20, p. 651"
+   }
+  ],
+  "notes": "The Remote (level 2) entry is accompanied in the book by a two-column table (Difficulty Modifier / Example); it has been transcribed as line-separated rows at the end of the level 2 text. The extracted text for the •••• (Spoof) and ••••• (Overclock) entries was split across columns and has been reassembled in reading order."
+ },
+ {
+  "id": "cyberpathy",
+  "name": "Cyberpathy",
+  "page": 61,
+  "description": "As experts believe Cyberkinesis is an information age variant of telekinesis, they similarly believe Cyberpathy functions on the same premise as telepathy — the Cyberpath decodes electromagnetic patterns in a computer’s hard drives to access information, just as a telepath decodes electrical impulses in the brain.\n\nA Cyberpath must keep the computer in question in sight, except for Remote Access, where they must instead keep the entry point computer in sight. This ability may also target storage devices and media such as flash drives, disks, and external or unconnected hard drives. Typically, Cyberpathy takes 10 to 15 minutes, but each activation success reduces the time required by one minute. Until the psychic possesses dot 5, heavily encrypted systems increase the activation difficulty. Cyberpathy proves most versatile when combined with Cyberkinesis but can also aid mundane hacking attempts.",
+  "levels": [
+   {
+    "level": 1,
+    "name": "Map Structure",
+    "text": "The Cyberpath can examine the directory of computers and storage devices. The Cyberpath can find the location and properties of all files stored but cannot access the files using this power. This can be useful for Cyberpath hackers looking for specific data. The psychic can use this level to identify a device by its Augmented Reality Object ID if it is web-capable."
+   },
+   {
+    "level": 2,
+    "name": "Read-only Mode",
+    "text": "As Map Structure, but the Cyberpath may also read files. Plain text and graphics files are simple to view, and the Cyberpath may divine the functions of executable files and applications. The Cyberpath is unable to decrypt encrypted files at this stage. The psychic may view the device’s associated ARO if it is Level 1 or below and may divine the ARO’s properties if it’s a higher level."
+   },
+   {
+    "level": 3,
+    "name": "Download",
+    "text": "The psychic can use their brain as storage media, copying and pasting files found using Cyberpathy. The Cyberpath may access stored text, graphics, and videos at any time from their mind, but cannot run applications. The psychic may store a maximum number of files equal to the total of their mental attributes (Example: Coleen has Perception 4, Intelligence 3, and Wits 3. She may store 10 files in her mind). Larger files and applications may use more than one storage slot, while a zipped folder may contain multiple small files in one slot, at the cost of the psychic being unable to read any of the files while stored in this manner. The Cyberpath may later write any files they saved this way to any media they can access with Cyberpathy, with the option to either copy the file to the media or transfer it from their mind. If the device has a connected display device, the psychic can combine Download with Cyberpathy to write and display a file to others in the same turn. Deleting files from the psychic’s mind is a free action, but the psychic may only delete one file at a time. Larger files that took more than one storage slot take a number of rounds equal to the number of slots the file occupies to finish deletion, but the psychic may perform other actions as normal during deletion. The character may download an ARO from a device to upload later to spoof the device’s identity."
+   },
+   {
+    "level": 4,
+    "name": "Remote Access",
+    "text": "The Cyberpath may connect to any computer or device, such as external hard drives, on the same network as their local device. This power only allows the psychic to treat the remote device as if it were in front of them, and any other powers must be activated separately. The psychic may access multiple devices on the same network at a cost of 1 Willpower per device. If the device is capable of internet access, the psychic may use this ability to access the internet, including the Digital Web. The psychic may use advanced AR devices as their point of access with this power."
+   },
+   {
+    "level": 5,
+    "name": "Enigma",
+    "text": "The Cyberpath becomes a living decryption algorithm, able to crack even heavily encrypted systems and files with ease. The psychic may activate this power to ignore difficulty increases for lower Cyberpathy powers and mundane access on secure and encrypted systems or files previously stored using Download. The psychic may alternatively use activation successes to increase Cyberpathy and hacking difficulty for others on a file or device, at +1 difficulty per activation success if the psychic possesses dots in Computers or Cyberkinesis."
+   }
+  ],
+  "system": "",
+  "sidebars": [
+   {
+    "title": "The Digital Web",
+    "text": "While any Sleeper can technically access Grid Sectors of the Digital Web through their devices, psychics skilled in Cyberpathy and Cyberkinesis can experience these sectors like a mage. Cyberpathy allows the psychic to access the Digital Web without relying on Augmented Reality (AR) devices. The psychic may substitute Abilities when navigating the Digital Web as in M20 Operatives Dossier p. 60 but may also substitute Cyberkinesis for Athletics and Cyberpathy for Streetwise, Subterfuge, and Seduction.\n\nA psychic can only affect the Digital Web with Cyberpathy and Cyberkinesis; no other Phenomena function there. See the M20 Operatives Dossier Chapter 5 for detailed information about the Digital Web.\n\nAny power that would be considered vulgar in a given Sector must be rolled at +2 difficulty and still risks the consequences of breaking a sector’s rules, even if the psychic can’t personally incur Paradox. Yes, this means a careless Cyberpath can cause a Whiteout.\n\nCyberpaths may craft unique icons like mages can, and experienced Cyberpaths can be difficult to distinguish from mages (Mage 20, p. 468) until their Awakened companions want to hop out of the pen of the Grid Sectors."
+   }
+  ],
+  "notes": "The Digital Web sidebar is printed on p. 62. The “(Mage 20, p. 468)” reference was duplicated by extraction and has been collapsed to a single citation."
+ }
+]

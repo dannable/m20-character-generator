@@ -1,0 +1,259 @@
+[
+  {
+    "id": "psychokinesis",
+    "name": "Psychokinesis",
+    "page": 70,
+    "description": "Every once in a while, there is a YouTube video, a TV special, a variety show, or a book published about some enlightened master who has expanded their minds to the point where they can bend a spoon or shift a book 6 inches across a table. Every person that watches or reads about these feats sit in awe and wonder of the possibility of moving objects with the sheer force of their mind.\n\nPsychokinesis, or telekinesis to some, is beautiful in its simplicity. There are no subtle tricks or illusory veils. There is only the simple movement of matter through space through sheer force of will. As the psychokinetic grows in strength, they hone their accuracy and increase the maximum weight they can set in motion. The inexperienced only moves small objects, and very clumsily at that. On the other hand, a master psychokinetic can lift massive loads and move them at startling speeds, while also being capable of feats of fine motor skill that most have trouble performing with their own hands.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "With a mental Strength and Dexterity of 0, the psychic can only lift a maximum of 5 pounds. Objects take a sluggish and clumsy path through space when moved and have a maximum speed of 5+ Wits yards per round."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "The psychic’s mental Strength and Dexterity rise to 1, and objects have a movement of 7+ Wits yards per round."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "Growing power and understanding have provided the psychokinetic with a mental Strength and Dexterity of 2. Manipulated targets move at 9+ Wits yards per round.\n\nFurther unlocking their understanding of kinetic force as a tool of the mind bears fresh fruit. The psychic can now make one ranged attack with their action through sheer force. The psychokinetic force hits like a punch from a distance using the psychic’s mental Strength and their Brawl or Martial Arts as a dice pool to attack, with base damage equal to their mental Strength. This attack represents concentrated use of the Phenomenon and cannot be used while performing any other psychokinetic action. This application is also instant and requires the full cost of activating the Phenomenon every time."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "The psychic’s mental Strength and Dexterity are now 3, and they can move manipulated objects at 11+ Wits yards per round.\n\nYet another new application becomes available to the psychokinetic. The psychic has internalized their psychokinetic force and now may levitate themselves regardless of weight at a rate equivalent to their walking speed. This usage of the Phenomenon takes greater concentration than most and therefore cannot be used while lifting other targets."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "A psychokinetic master has a mental Strength and Dexterity of 4 and can move manipulated targets at a rate of 15+ Wits yards per round.\n\nBoth refined actions of the phenomenon receive upgrades at this level. Levitation is now second nature and can be performed while lifting other targets, and Psychokinetic assaults may now cause bashing or lethal damage."
+      }
+    ],
+    "system": "Psychokinesis grants the psychic a Strength and Dexterity score for their actions once activated. This only requires one activation per instance of the Phenomenon and remains active as long as the psychokinetic maintains concentration or until the end of the scene. Using psychokinesis requires the psychic be able to see their intended target with their own eyes. Each success on the activation roll allows for one separate target to be manipulated, but the total weight of all targets cannot exceed the lifting capacity of the psychic. Any time the psychic takes damage, they must make a new Willpower roll to maintain concentration. If they roll fewer successes than the number of targets they are currently manipulating, they must select targets to release until the number of targets matches the new success total. If more successes are rolled, the number of manipulated targets remains unchanged.\n\nA psychokinetic with the power to lift a person may do so unimpeded. The target is allowed a Strength + Athletics test to grab hold of a sturdy anchor point if one is nearby to hold on to. If a secure grip point is not available, the target is helpless to stop the power of the psychokinetic barring supernatural advantages of their own.\n\nOnce a target is being manipulated, actions taken with the target use the Strength or Dexterity of the psychic’s Psychokinesis and the appropriate Ability required for the action. For example, a gun being manipulated would call for a psychokinetic Dexterity + Firearms test to fire. “Throwing” a manipulated object requires that the item be released while propelling it with an appropriate Strength + Athletics test. The disconnect and lack of contact with a manipulated target causes all actions taken via psychokinetic manipulation to suffer a +1 difficulty. Attempting to perform a psychokinetic action with more than one manipulated item in the same turn requires the psychic to split their dice pool as normal for taking multiple actions.",
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "psychometry",
+    "name": "Psychometry",
+    "page": 73,
+    "description": "Psychometry is one of the more emotionally taxing Phenomena to the psychics gifted — or cursed — with it. By touching objects, the psychic can read the emotional resonances left behind and see visions associated with the object. It’s not always clear which objects have strong resonances: an office coffee mug could have only fleeting impressions. However, it could be a cherished gift from a child or even the mug a worker had in her hand when she learned of a loved one’s death.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "Impression",
+        "text": "The psychic can get dreamlike impressions of recent events involving the object or more distant events with strong associated emotions. The psychic at this stage mostly gets emotional readings and vague, figurative imagery. At 3+ successes, the psychic may also see an accurate image of the person most closely associated with the object."
+      },
+      {
+        "level": 2,
+        "name": "Reveal Scar",
+        "text": "The psychic gets impressions of the event with the strongest emotional resonance associated with the object. They get dreamlike and imprecise images of the event. With 3+ successes, they also determine the owner’s approximate age, personality cues, connection to the object, and what the owner felt at the time."
+      },
+      {
+        "level": 3,
+        "name": "Replay",
+        "text": "The psychic clearly experiences the event and may gather general impressions of what happened to the object’s owner the day of the incident. Alternatively, the psychic may replay the object’s last 24 hours, even if nothing emotionally significant happened."
+      },
+      {
+        "level": 4,
+        "name": "Tether",
+        "text": "The psychic may use the object as a psychic tether to the object’s owner. Activating this level gives the psychic insight into the owner’s current location to track them. In addition to clearly seeing the event with the strongest emotional resonance associated with the object, they also read emotional impressions and visions of the other people at the event and their feelings."
+      },
+      {
+        "level": 5,
+        "name": "Catalog",
+        "text": "The psychic may use Tether on any event the object was associated with, not only the ones with the strongest emotional impact."
+      }
+    ],
+    "system": "It takes mere seconds to read the resonances, even if the vision seems to last much longer from the psychic’s perspective. The number of activation success dictates the level of detail the psychic receives. Many successes give clear and vivid impressions, which are prone to making the psychic feel the emotions and pain for a time, where fewer successes only give fleeting impressions. On a botch, the psychic becomes lost in the visions, temporarily merging in personality with one of the individuals from the event and possibly acting it out. When a psychic with Psychometry touches an object with immense emotional resonance, the Storyteller may call for a reflexive Psychometry roll.",
+    "sidebars": [
+      {
+        "title": "Who’s the Owner?",
+        "text": "Normally, an object’s owner is straightforward. However, for the purposes of Psychometry, especially at lower levels, the psychic usually gets impressions left by whoever possessed the object at the time of the high-emotion event. If someone stole a weapon to commit a murder, the murderer may appear more clearly than the rightful owner."
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "id": "psychoportation",
+    "name": "Psychoportation",
+    "page": 73,
+    "description": "Psychoportation, also sometimes called teleportation, is a powerful psychic ability to suddenly be elsewhere. This is one of the more powerful and rare psychic phenomena. The occasional narrow-minded Correspondence Sphere Mage has been put in their place by watching a simple psychic psychoport out of danger’s way without earning Reality’s ire.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "Short Hop",
+        "text": "Range up to 12 + Intelligence yards in a turn."
+      },
+      {
+        "level": 2,
+        "name": "Simple Jump",
+        "text": "Range up to 20 + (3 x Intelligence) yards."
+      },
+      {
+        "level": 3,
+        "name": "Long Jump",
+        "text": "Range up to 40 + (6 x Intelligence) yards. The psychic may spend a turn of concentration and roll activation at +1 difficulty to double this range."
+      },
+      {
+        "level": 4,
+        "name": "Leap",
+        "text": "Range up to 80 + (12 x Intelligence) yards. The psychic may double, as per Long Jump."
+      },
+      {
+        "level": 5,
+        "name": "Leap of Faith",
+        "text": "The psychic no longer needs to sense a stable location to psychoport to it. The psychic may spend a scene studying the location and successfully roll Perception + Alertness at difficulty 8 to commit it to memory."
+      }
+    ],
+    "system": "No one knows for sure how psychoportation works, but some theories include dissipating into the air and reforming in another spot, a variation of astral travel, or personal wormholes. What’s known is a psychic can’t carry more than about 100lb of extra cargo without suffering severe strain, causing the psychic at minimum 6 levels of bashing damage that can be soaked normally. This increases by 1 level of bashing damage for each additional 25 lbs. the psychic attempts to move. Failing to soak the damage results in a disastrous fate for the cargo, such as psychoporting the contents to the wrong location, into a solid object, or the nearest body of water. On rare occasions the cargo seemingly ceases to exist. To travel to a place via psychoportation, the psychic must see the intended destination with mundane senses or psychic abilities — their own or someone else’s.\n\nA psychoportation botch typically means the psychic misjudged the jump and landed inside a solid object — or worse, a person. This causes 8 dice of aggravated damage to the psychic and the unsuspecting object. Occasionally, a botch might transport a psychic to a hazardous or unfamiliar location, or the psychic might leave or inadvertently bring something they weren’t supposed to.",
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "pyrokinesis",
+    "name": "Pyrokinesis",
+    "page": 74,
+    "description": "Parapsychological lore speaks of “Firestarters,” individuals able to psychically start and sometimes control flame. Some parapsychologists suspect Pyrokinesis is a variant of Psychokinesis, where the psychic causes molecules to vibrate at high speeds, generating combustion rather than moving entire objects cohesively.\n\nPyrokinesis is one of the more dangerous Psychic Phenomena to the psychics themselves; most psychics have no more defense against the flames they create than any other human. Botches can be spectacularly disastrous, and several pyrokinetics have gone out in a literal blaze of glory.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "Spark",
+        "text": "The pyrokinetic can generate small sparks, usually from their fingertips. These sparks are typically only able to light highly flammable substances on fire, such as paper or gasoline, but with 3 or more successes, the psychic’s sparks can light materials on fire as a match could. The sparks can light anything within the pyrokinetic’s reach, though they don’t have to touch the target. Even with many successes, the sparks aren’t hot enough to directly light a person on fire, though the effect of a flame appearing can startle someone. After activation, treat the sparks as a thrown attack with a weapon dealing no damage. This can be dodged normally. If the attack succeeds, the target rolls Willpower at difficulty 6 to avoid being stunned for one turn. On a botch, the target panics. The target may instead spend one Willpower point to suppress a startle response."
+      },
+      {
+        "level": 2,
+        "name": "Combustion",
+        "text": "The psychic concentrates on an object within 10 yards, causing it to burst into flame. The psychic can reliably light flammable materials like gasoline, dry wood, charcoal, and vampires on fire. At 3 or more successes, the psychic can light anything combustible, such as people, on fire. The initial fire is as big as a torch and behaves and spreads normally. If the psychic targets a person or person’s clothing, the target may attempt to dodge as normal, treating activation successes as the targeting roll."
+      },
+      {
+        "level": 3,
+        "name": "Sun’s Fury",
+        "text": "The psychic can now turn small balls of air into plasma and flame, which readily lights nearly anything it touches on fire. This power causes bonfire-sized fires up to 10 yards away dealing two aggravated damage per turn from the intense heat. Targets may attempt to dodge as normal, treating activation successes as the targeting roll. If hit, the target must spend a Willpower point or roll Willpower at difficulty 6 to be able to avoid panic. If they remain calm, the target may immediately use their action to roll Dexterity + Athletics at difficulty 5, extinguishing themselves on a success."
+      },
+      {
+        "level": 4,
+        "name": "Pyrotechnics",
+        "text": "The pyrokinetic gains control over flames, including those produced by lower levels of Pyrokinesis. The psychic can grow, shrink, direct, and shape flames within their line of sight at will. With one success, the psychic may control a torch-sized portion of flames. With three successes, the psychic wrestles control of a bonfire. At five or more successes, the psychic may command even an inferno. Targeting individuals with flame is a Wits + Athletics attack at difficulty 7, with +1 difficulty to avoid harming nearby bystanders in the process. This attack can be dodged. A psychic may extinguish a flame at will. A bonfire or smaller flame is extinguished instantly, but any larger flame takes an entire turn of concentration to extinguish."
+      },
+      {
+        "level": 5,
+        "name": "Inferno",
+        "text": "The pyrokinetic now commands larger and faster-growing flames, which may appear anywhere in the psychic’s line of sight. The flames consume anything inside them with 3 aggravated damage per turn, though targets on the outer edges may dodge as Sun’s Fury. At one success, the starting flame is a small fire, but at three successes the flames fill a large room, to a maximum of Willpower times 3 square yards. If the psychic maintains concentration, the flames are resistant to being extinguished by mundane means, taking rounds equal to the successes gained on the activation roll to extinguish through smothering, water, or flame retardant chemicals. If the psychic breaks concentration, such as by sustaining damage or being knocked out, the flames lose all supernatural properties and may be extinguished normally."
+      }
+    ],
+    "system": "",
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "shadow",
+    "name": "Shadow",
+    "page": 75,
+    "description": "We live in a world of light and shadow. The psychic that understands this and learns to manipulate one side of that coin is taking advantage of an ever-present resource. Whether it is under an overhang, behind a stack of boxes, or simply within the cracks and crevices of one’s face, the psychic manipulating shadows can put them to use to conceal and confound.\n\nSuperstitious theories abound concerning what the psychic wielding Shadows is actually doing. The simple fact is they are manipulating light — and sound to a limited degree — to dampen the world around them. It may seem like the Shadow psychic is wielding darkness, but it all boils down to simple science. Darkness grows darker and sound becomes muffled as the psychic’s sheer will smothers active waveforms in the environment. The spooky atmosphere and reputation are just bonus.\n\nAs much as shadows can hide, proper utilization of this Phenomenon can provide significant distractions. Light and sound are intercepted before they can reach the target’s senses, giving the victim the feeling that their head is wrapped in an invisible blanket. As the psychic’s power rises, this is more and more harrowing as the brain can interpret this loss of sense as impending suffocation. While cruel by the reckoning of some, it can be an especially useful tool when getting someone off your back.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "Scattering the edges of cast shadows and disrupting sound is only sufficient to increase the effectiveness of concealment and demoralization. Shadows become slightly longer, reach somewhat further, while sounds are all unnervingly stifled. All Intimidation and Stealth rolls have their difficulty adjusted by −1. Targets distracted by darkening shadows and muffled sounds suffer a +1 difficulty to all rolls reliant on sight and hearing."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "The shadows now grow and bend to the will of the psychic. Sounds now baffle and distort, having the quality of being played through a blown speaker. The psychic embodies the idiom of “to darken a doorstep,” as rooms lose light when they arrive. Intimidation and Stealth rolls are made at −2 difficulty."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "Not only do shadows grow darker, but now the psychic’s efforts causes light sources to lose their power. Sound travels through a room in erratic warbles, and the words that are intelligible have a perceptible delay with the speaker. Attempts to see the concealed psychic suffer a +3 difficulty. The harrowed begin to feel a swelling anxiety and must make a Willpower roll (difficulty 7) to avoid panic, suffering a -1 penalty to all actions that don’t involve leaving the scene if they fail."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "Spreading their gift of dark refuge, the psychic can now cloak a small gathering of three or four people, possibly even a small coupe or sedan.\n\nVictims of shadowy harassment must make a Willpower roll (difficulty 8) to avoid panicking and immediately leaving the scene to escape the darkness. Intimidation and Stealth have a −4 difficulty in conditions that are ripe for exploitation. An already dark warehouse, a shadowy forest in the night, or a poorly lit parking garage all beg to have their deep shadows emboldened by the psychic. This amount of shadow manipulation has an inverse effect in brighter setting, like midday in an open car park or standing on a school sports field with all the lights on. The darkness around the psychic draws more attention in the brightness of noon than it diverts."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "In settings where darkness already lives, the psychic is master. Standing in a location where conditions favor shadows gives the psychic the chance to smother all light around them out to 50 feet. The darkness is near impenetrable for those without mystic sight, as even high-powered handheld lights are swallowed by the inky black. All within are completely shrouded and invisible to the outside and others within, save the psychic. The darkness is their own after all."
+      }
+    ],
+    "system": "",
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "synergy",
+    "name": "Synergy",
+    "page": 75,
+    "description": "A subtle ability, synergistic psychics often don’t know they have any psychic talent until after meeting other psychics — it’s unusual but not unheard of for them to develop other Psychic Phenomena. This phenomenon is considered rare, but the power’s subtle nature may conceal the true number of synergists in the world. Synergy allows psychics to work together to build effects more powerful than either psychic could create on their own.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "Like Knows Like",
+        "text": "The synergist can sense other psychics. This automatically succeeds if the psychic touches another, but the synergist can roll activation to scan for psychics in line of sight. With 3 or more successes, the synergist can sense the relative power of the other psychics."
+      },
+      {
+        "level": 2,
+        "name": "Share Will",
+        "text": "The synergist forms a weak psychic link to enhance the power of the participants. Each psychic can either spend a point of Willpower for an automatic success on another’s effect or allow the psychic to “borrow” the Willpower and temporarily add the point to their pool, up to a maximum of 10. If the Willpower isn’t spent, it can be traded multiple times between the psychics in the link. Any sensory Phenomena (Telepathy, Precognition, etc.) allow all the psychics in the link to share the results."
+      },
+      {
+        "level": 3,
+        "name": "Share Powers",
+        "text": "The synergist forms a stronger link, allowing all psychics to use their powers as a group. Each psychic may donate up to two powers, points of Willpower, or one of each. Only one activation roll is necessary for group powers."
+      },
+      {
+        "level": 4,
+        "name": "Power Gestalt",
+        "text": "As Share Powers, but now psychics in the link may combine ability effects to form one shared power. For example, the group could combine Animal Psychics and Psychic Invisibility to be able to sneak past guard dogs unnoticed."
+      },
+      {
+        "level": 5,
+        "name": "Power Network",
+        "text": "The synergist may link other psychics and remove the need for the psychics to touch, or even be in the same place. A psychic with this level of Synergy first links everyone as with lower abilities, spending 10 minutes on combined focus and meditation to cement the ties. Once the link forms, the networked psychics remain linked and able to use any of the lower abilities for a number of hours equal to activation successes. This link does not fade with distance, but if a psychic in the link takes their Stamina or more in damage from a single source, all psychics in the network must make a Willpower roll at difficulty 7 or be ejected from the network. If the psychic who formed the network is ejected, knocked unconscious, or killed, the network automatically collapses."
+      }
+    ],
+    "system": "Psychics must be touching to form a synergistic link. The synergist may link a number of psychics equal to twice the dots they have in Synergy. Every success above one adds automatic successes that can be spent on actions the linked psychics take using Phenomena. Botches can cause backlashes for all involved, with the best-case scenario being a headache or nosebleed, where the worst case can cause the psychic phenomena of those in the link to activate uncontrollably.",
+    "sidebars": [],
+    "notes": ""
+  },
+  {
+    "id": "telepathy",
+    "name": "Telepathy",
+    "page": 76,
+    "description": "It is said that there are two kinds of people in the world: people who wish they could read minds and liars. That statement, in and of itself, is a lie. That is because there are people in the world that can actually read minds and they’re known as telepaths. Once they sense the mind of a target, these psychics can plumb their thoughts for opinions, desires, fantasies, and emotions.\n\nAs skill and power improve, the telepath can learn to broadcast their thoughts into others. Communication in this manner can be unsettling at best to the unprepared and potentially outright scarring. Compassionate telepaths take time to inform those they intend to telepathically communicate with of what is coming, to avoid possible screaming and incoherent confusion caused by unannounced mental invasion.\n\nThose who have mastered their talent go one step further and make those broadcasts seem like original thoughts, implanting ideas into the minds of their targets. This is not any kind of mental control or hypnosis as one might think. At its core, this ability is more akin to ventriloquism — a form of ventriloquism essentially akin to psychic gaslighting, and a very dangerous and immoral act, but ventriloquism nonetheless. The telepath mimics the inner dialogue of the target and makes suggestions as though the thought came from the subject’s own mind. The uses of this talent range from the relatively benign thought of “I could use a snack” to projections far more sinister. Reading the target’s thoughts, then mimicking and repeating their darkest impulses to exigence, is but one troubling example of the potential for telepathic abuse.",
+    "levels": [
+      {
+        "level": 1,
+        "name": "",
+        "text": "All telepaths begin by sensing the surface thoughts and emotions of a subject. Emotions include current mood, immediate desire, and mental wellbeing. Surface thoughts are songs stuck in their head, active recollection of things like a grocery list or a keycode as it’s punched in, or what they think that smell was that they just sniffed."
+      },
+      {
+        "level": 2,
+        "name": "",
+        "text": "Inner thoughts open to the telepath. With every success on the activation roll, the telepath may ask a single question about the target’s subsurface ruminations. These responses are one sentence in length and as straightforward as possible. Inner thoughts include political leanings, favorite books or movies, or recent memories.\n\nThe beginnings of telepathic communication open at this level as well. For every success on the activation roll, the telepath can send or receive one sentence of mental communication. These communications happen at the speed of thought, and as such do not take up any time within a round or require any dice pool splitting for multiple actions."
+      },
+      {
+        "level": 3,
+        "name": "",
+        "text": "Deeper thoughts are laid bare to the telepath. As with previous levels, every success on the activation roll allows for a single question that is answered by the target These responses can be more detailed when the subject of the question is not a closely guarded secret. Deeper thoughts include memories from the last 5 years, passwords to social media accounts and bank cards, and the names of everyone from their immediate to extended family.\n\nTelepathic communication comes much easier at this stage. For every success on the activation roll, the telepath can send and receive several sentences (two or three) worth of communication. Again, these communications happen at the speed of thought and follow the same rules as above."
+      },
+      {
+        "level": 4,
+        "name": "",
+        "text": "Subconscious thoughts and the deepest recesses of the mind are within reach of the telepath. Every success on the activation roll allows for a single question that is answered by the Storyteller. Nothing within the mind is off limits at this point. Memories back to their childhood, forgotten codes to facilities they used to work at, and even thoughts they have that they deny to themselves about their loved ones are all fair game.\n\nConversations over telepathic connections are no longer held to sentences. Full conversations between two people happen in the blink of an eye. The more impressive improvement is that telepathic links can be widened to a net. Each success on the activation roll allows another mind to be added to the conversation. When multiple minds are added to the psychic’s link, the excess telepathic bandwidth slows down as the psychic’s mind is acting as a routing hub. Conversations like this happen in real time, as though everyone involved were speaking to each other around a table."
+      },
+      {
+        "level": 5,
+        "name": "",
+        "text": "Insidious as it may be, the telepath can now implant subversive thoughts into the minds of their targets. These thoughts can be of anything, but any train of thought that wasn’t already present in the mind of the target requires a Manipulation + Subterfuge roll (difficulty 7) to implant thoughts that complement the target’s personality and desires. Implanted thoughts that run contrary to the target’s personality and desires suffer a +2 difficulty to the roll. Should these thoughts take root, the target will begin to act on them at the nearest opportune time, convinced the thoughts are their own."
+      }
+    ],
+    "system": "",
+    "sidebars": [],
+    "notes": ""
+  }
+]
