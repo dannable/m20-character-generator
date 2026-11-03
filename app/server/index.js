@@ -72,6 +72,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/admin',      require('./routes/admin'));
+app.use('/api/wizard',     require('./routes/wizard'));
 app.use('/api/characters', requireAuth, require('./routes/characters'));
 app.use('/api/chronicles', requireAuth, require('./routes/chronicles'));
 app.use('/api/settings',  requireAuth, require('./routes/settings'));

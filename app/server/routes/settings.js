@@ -8,7 +8,7 @@ const router  = express.Router();
 router.get('/', (req, res) => {
   try {
     const user = db.prepare(
-      `SELECT id, username, email, role, timezone, default_focus_mode FROM users WHERE id = ?`
+      `SELECT id, username, email, role, timezone, default_focus_mode, wizard_enabled FROM users WHERE id = ?`
     ).get(req.session.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -26,12 +26,15 @@ router.get('/', (req, res) => {
 // ── PUT /api/settings — update timezone and/or default focus mode ────────────
 router.put('/', (req, res) => {
   try {
-    const { timezone, default_focus_mode } = req.body;
-    if (!timezone && default_focus_mode === undefined) return res.status(400).json({ error: 'Nothing to update' });
+    const { timezone, default_focus_mode, wizard_enabled } = req.body;
+    if (!timezone && default_focus_mode === undefined && wizard_enabled === undefined) return res.status(400).json({ error: 'Nothing to update' });
     if (timezone) db.prepare(`UPDATE users SET timezone = ? WHERE id = ?`).run(timezone, req.session.userId);
     if (default_focus_mode !== undefined) {
       if (!FOCUS_MODES.has(default_focus_mode)) return res.status(400).json({ error: 'default_focus_mode must be core or prism' });
       db.prepare(`UPDATE users SET default_focus_mode = ? WHERE id = ?`).run(default_focus_mode, req.session.userId);
+    }
+    if (wizard_enabled !== undefined) {
+      db.prepare(`UPDATE users SET wizard_enabled = ? WHERE id = ?`).run(wizard_enabled ? 1 : 0, req.session.userId);
     }
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }

@@ -565,4 +565,24 @@ if (!existingAdmin) {
   }
 }
 
+// ── Wizard Darrell easter egg ────────────────────────────────────────────────
+// Per-user on/off switch, plus the speech-balloon messages (admin-editable).
+try { db.exec(`ALTER TABLE users ADD COLUMN wizard_enabled INTEGER NOT NULL DEFAULT 1`); } catch {}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS wizard_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    text       TEXT    NOT NULL,
+    enabled    INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT);
+`);
+// Seed the shipped messages once. After that the admin owns the list, even if it is emptied.
+if (!db.prepare(`SELECT 1 FROM app_meta WHERE key = 'wizard_seeded'`).get()) {
+  const seed = require('./wizard-defaults.json');
+  const ins = db.prepare(`INSERT INTO wizard_messages (text, sort_order) VALUES (?, ?)`);
+  db.transaction(() => { seed.forEach((t, i) => ins.run(t, i + 1)); db.prepare(`INSERT INTO app_meta (key, value) VALUES ('wizard_seeded', '1')`).run(); })();
+}
+
 module.exports = db;
