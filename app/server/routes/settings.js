@@ -8,7 +8,7 @@ const router  = express.Router();
 router.get('/', (req, res) => {
   try {
     const user = db.prepare(
-      `SELECT id, username, email, role, timezone, default_focus_mode, wizard_enabled FROM users WHERE id = ?`
+      `SELECT id, username, email, role, timezone, default_focus_mode, wizard_enabled, has_password, discord_id, discord_username, discord_avatar, discord_linked_at FROM users WHERE id = ?`
     ).get(req.session.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -19,7 +19,10 @@ router.get('/', (req, res) => {
       `SELECT COUNT(*) AS c FROM chronicles WHERE user_id = ?`
     ).get(req.session.userId).c;
 
-    res.json({ ...user, character_count, chronicle_count });
+    const { discord_id, ...rest } = user;
+    res.json({ ...rest, discord_linked: !!discord_id, discord_id: discord_id || null,
+      discord_available: !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
+      character_count, chronicle_count });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
@@ -40,23 +43,36 @@ router.put('/', (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
+// ── DELETE /api/settings/discord — unlink Discord (only if another way to sign in exists) ──
+router.delete('/discord', (req, res) => {
+  try {
+    const user = db.prepare(`SELECT has_password, discord_id FROM users WHERE id = ?`).get(req.session.userId);
+    if (!user || !user.discord_id) return res.status(400).json({ error: 'Discord is not linked' });
+    if (user.has_password === 0) return res.status(400).json({ error: 'Set a password first, otherwise you would be locked out of this account.' });
+    db.prepare(`UPDATE users SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL, discord_linked_at = NULL WHERE id = ?`).run(req.session.userId);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
+});
+
 // ── PUT /api/settings/password — change password ──────────────────────────────
 router.put('/password', (req, res) => {
   try {
     const { current_password, new_password } = req.body;
-    if (!current_password || !new_password) {
+    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.session.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    // Accounts created through Discord have no password yet, so there is nothing to confirm.
+    const needsCurrent = user.has_password !== 0;
+    if (!new_password || (needsCurrent && !current_password)) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     if (new_password.length < 6) {
       return res.status(400).json({ error: 'New password must be at least 6 characters' });
     }
-    const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.session.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (!bcrypt.compareSync(current_password, user.password_hash)) {
+    if (needsCurrent && !bcrypt.compareSync(current_password, user.password_hash)) {
       return res.status(400).json({ error: 'Current password is incorrect' });
     }
     const hash = bcrypt.hashSync(new_password, 12);
-    db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, req.session.userId);
+    db.prepare(`UPDATE users SET password_hash = ?, has_password = 1 WHERE id = ?`).run(hash, req.session.userId);
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });

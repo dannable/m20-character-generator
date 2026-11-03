@@ -70,6 +70,7 @@ app.use(require('./dist-static')(path.join(__dirname, '..', 'public'), path.join
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/auth',       require('./routes/discord'));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/admin',      require('./routes/admin'));
 app.use('/api/wizard',     require('./routes/wizard'));

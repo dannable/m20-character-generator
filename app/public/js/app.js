@@ -2048,6 +2048,41 @@ const App = {
    AUTH — Login / Registration
    ═══════════════════════════════════════════════════════════════ */
 const Auth = {
+  // Which sign-in providers the server has configured (Discord buttons stay hidden otherwise)
+  async loadProviders() {
+    try {
+      const r = await fetch('/api/auth/providers');
+      const p = r.ok ? await r.json() : {};
+      this.providers = p;
+      $('#discord-login-wrap').style.display    = p.discord ? '' : 'none';
+      $('#discord-register-wrap').style.display = p.discord ? '' : 'none';
+    } catch {}
+  },
+
+  // Full-page redirect to Discord; the server brings the user back to /
+  discord(mode) {
+    const stay = mode === 'login' && $('#login-remember')?.checked ? '&stay=1' : '';
+    window.location.href = `/api/auth/discord/start?mode=${mode}${stay}`;
+  },
+
+  // Shown after Discord redirects back with ?discord=<code>
+  discordMessage(code) {
+    const m = {
+      linked: 'Discord linked to your account.',
+      not_linked: 'No account is linked to that Discord user. Register with Discord, or sign in and link it from Settings.',
+      email_taken: 'An account with your Discord email already exists. Sign in with your password, then link Discord from Settings.',
+      already_linked: 'That Discord account is already linked to a different user.',
+      disabled: 'This account has been disabled.',
+      need_signin: 'Sign in first, then link Discord from Settings.',
+      guest: 'Guests cannot link Discord. Create an account first.',
+      denied: 'Discord sign-in was cancelled.',
+      expired: 'That Discord sign-in expired. Please try again.',
+      failed: 'Discord sign-in failed. Please try again.',
+      not_configured: 'Discord sign-in is not set up on this server.',
+    };
+    return m[code] || '';
+  },
+
   showTab(tab) {
     $('#form-login').style.display    = tab === 'login'    ? 'flex' : 'none';
     $('#form-register').style.display = tab === 'register' ? 'flex' : 'none';
@@ -14358,14 +14393,17 @@ const Settings = {
           </div>
         </div>
 
+        ${this._discordSectionHTML(data)}
+
         <!-- Change Password -->
         <div class="settings-section">
-          <h3 class="settings-section-title">Change Password</h3>
+          <h3 class="settings-section-title">${data.has_password === 0 ? 'Set a Password' : 'Change Password'}</h3>
+          ${data.has_password === 0 ? '<p class="settings-hint">Your account was created with Discord, so it has no password yet. Set one to be able to sign in without Discord.</p>' : ''}
           <div class="settings-form">
-            <div class="form-group">
+            ${data.has_password === 0 ? '' : `<div class="form-group">
               <label class="form-label">Current Password</label>
               <input type="password" id="settings-current-pw" class="form-input" autocomplete="current-password" />
-            </div>
+            </div>`}
             <div class="form-group">
               <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
               <input type="password" id="settings-new-pw" class="form-input" autocomplete="new-password" />
@@ -14374,7 +14412,7 @@ const Settings = {
               <label class="form-label">Confirm New Password</label>
               <input type="password" id="settings-confirm-pw" class="form-input" autocomplete="new-password" />
             </div>
-            <button class="btn-primary" id="btn-save-password">Update Password</button>
+            <button class="btn-primary" id="btn-save-password">${data.has_password === 0 ? 'Set Password' : 'Update Password'}</button>
           </div>
         </div>
 
@@ -14412,7 +14450,38 @@ const Settings = {
       </div>`;
   },
 
+  _discordSectionHTML(data) {
+    if (!data.discord_available && !data.discord_linked) return '';
+    const linked = !!data.discord_linked;
+    const avatar = linked && data.discord_avatar
+      ? `<img class="settings-discord-avatar" src="https://cdn.discordapp.com/avatars/${encodeURIComponent(data.discord_id)}/${encodeURIComponent(data.discord_avatar)}.png?size=64" alt="" width="32" height="32" />` : '';
+    return `
+        <div class="settings-section" id="settings-discord">
+          <h3 class="settings-section-title">Discord</h3>
+          ${linked
+            ? `<p class="settings-hint">Linked to Discord. You can sign in with it from the sign-in page.</p>
+               <div class="settings-row" style="align-items:center;gap:0.6rem">
+                 ${avatar}<strong>${escHtml(data.discord_username || 'Discord user')}</strong>
+                 <button class="btn-ghost" id="btn-unlink-discord" ${data.has_password === 0 ? 'disabled title="Set a password first"' : ''}>Unlink</button>
+               </div>
+               ${data.has_password === 0 ? '<p class="settings-hint" style="margin-top:0.5rem">Set a password below before unlinking, otherwise you would be locked out.</p>' : ''}`
+            : `<p class="settings-hint">Link your Discord account to sign in with it, and for upcoming Discord features.</p>
+               <button class="btn-discord btn-discord-inline" id="btn-link-discord">Link Discord</button>`}
+        </div>`;
+  },
+
   _attachListeners(data) {
+    $('#btn-link-discord')?.addEventListener('click', () => { window.location.href = '/api/auth/discord/start?mode=link'; });
+    $('#btn-unlink-discord')?.addEventListener('click', async () => {
+      try {
+        const r = await fetch('/api/settings/discord', { method: 'DELETE' });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'Failed to unlink Discord.');
+        toast('Discord unlinked.');
+        Settings.show();
+      } catch (e) { toast(e.message, 'error'); }
+    });
+
     // ── Save timezone ────────────────────────────────────────────────────────
     $('#btn-save-timezone')?.addEventListener('click', async () => {
       const tz = $('#settings-timezone')?.value;
@@ -14463,7 +14532,8 @@ const Settings = {
       const current = $('#settings-current-pw')?.value;
       const next    = $('#settings-new-pw')?.value;
       const confirm = $('#settings-confirm-pw')?.value;
-      if (!current || !next || !confirm) { toast('Please fill in all password fields.', 'error'); return; }
+      const needsCurrent = !!$('#settings-current-pw');
+      if ((needsCurrent && !current) || !next || !confirm) { toast('Please fill in all password fields.', 'error'); return; }
       if (next !== confirm) { toast('New passwords do not match.', 'error'); return; }
       if (next.length < 6)  { toast('New password must be at least 6 characters.', 'error'); return; }
       const btn = $('#btn-save-password');
@@ -14477,6 +14547,7 @@ const Settings = {
         const json = await r.json();
         if (!r.ok) { toast(json.error || 'Failed to update password.', 'error'); return; }
         toast('Password updated successfully.');
+        if (!needsCurrent) { Settings.show(); return; }
         ['settings-current-pw','settings-new-pw','settings-confirm-pw'].forEach(id => {
           const el = $(`#${id}`);
           if (el) el.value = '';
@@ -15193,17 +15264,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  Auth.loadProviders();
+
+  // Back from Discord? (?discord=<code>) — strip it from the URL and report the outcome after boot.
+  const discordCode = new URLSearchParams(window.location.search).get('discord');
+  if (discordCode) history.replaceState({}, '', location.pathname);
+
   // Check if already logged in
   try {
     const r = await fetch('/api/auth/me');
     if (r.ok) {
       const user = await r.json();
       App.setUser(user);
-      App.showDashboard();
+      if (discordCode === 'linked') await Settings.show(); else App.showDashboard();
     } else {
       App.showPage('auth');
+      if (discordCode) Auth.showTab('login');
     }
   } catch {
     App.showPage('auth');
+  }
+  if (discordCode) {
+    const msg = Auth.discordMessage(discordCode);
+    if (msg) toast(msg, discordCode === 'linked' ? 'success' : 'error');
   }
 });
