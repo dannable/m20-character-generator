@@ -16,7 +16,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Chantry" />
-  <link rel="stylesheet" href="/css/style.css?v=80" />
+  <link rel="stylesheet" href="/css/style.css?v=81" />
   <!-- Quill (Storyteller notes editor) is injected by loadQuill() in app.js the first time a note form opens -->
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -249,6 +249,13 @@
           <div class="char-type-card-desc">A hunter, witness, or ordinary soul. Mortal but no less dangerous — your faith, training, and resolve are your only edge against the Damned.</div>
           <div class="char-type-card-cta">Take Up the Hunt →</div>
         </button>
+        <button class="char-type-card" data-char-type="sorcerer">
+          <div class="char-type-card-icon">☿</div>
+          <div class="char-type-card-name">Sorcerer</div>
+          <div class="char-type-card-rules">M20 Sorcerer</div>
+          <div class="char-type-card-desc">A hedge wizard or psychic — unawakened, but gifted. Linear Paths learned through study, or Phenomena born of raw will, with no Paradox to pay.</div>
+          <div class="char-type-card-cta">Walk the Path →</div>
+        </button>
       </div>
       <div class="char-type-footer">
         <button class="btn-ghost" onclick="App.showDashboard()">← Cancel</button>
@@ -440,9 +447,10 @@
 <script src="/js/data-sorcerer.js?v=1"></script>
 <script src="/js/validate-character.js?v=1"></script>
 <script src="/js/tarot.js?v=5"></script>
-<script src="/js/app.js?v=79"></script>
+<script src="/js/app.js?v=80"></script>
 <script src="/js/prism-ui.js?v=4"></script>
 <script src="/js/free-edit-extras.js?v=1"></script>
+<script src="/js/sorcerer-ui.js?v=1"></script>
 <script>
 (function() {
   var wizard      = document.getElementById('wizard-darrell');

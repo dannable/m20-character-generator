@@ -1838,7 +1838,7 @@ const App = {
     document.querySelectorAll('#page-char-type .char-type-card').forEach(card => {
       card.onclick = () => {
         const t = card.dataset.charType;
-        if (t !== 'mortal' && t !== 'awakened') return;
+        if (t !== 'mortal' && t !== 'awakened' && t !== 'sorcerer') return;
         this.newCharacterOfType(t);
       };
     });
@@ -7220,10 +7220,26 @@ const Creator = {
     { id: 'finishing',  label: 'Finishing Touches',    renderer: 'renderStep4Mortal' },
   ],
 
+  STEPS_SORCERER: [
+    { id: 'concept',     label: 'Concept & Affiliation', renderer: 'renderStep0Sorcerer' },
+    { id: 'attributes',  label: 'Attributes',            renderer: 'renderStep1Mortal' },
+    { id: 'abilities',   label: 'Abilities',             renderer: 'renderStep2Mortal' },
+    { id: 'backgrounds', label: 'Backgrounds',           renderer: 'renderStep3Sorcerer' },
+    { id: 'numina',      label: 'Numina',                renderer: 'renderStep4Sorcerer' },
+    { id: 'finishing',   label: 'Finishing Touches',     renderer: 'renderStep5Sorcerer' },
+  ],
+
   // Active step list for the current charType. Use everywhere instead of STEPS_*.
   _steps() {
-    return this.charType === 'mortal' ? this.STEPS_MORTAL : this.STEPS_AWAKENED;
+    if (this.charType === 'mortal')   return this.STEPS_MORTAL;
+    if (this.charType === 'sorcerer') return this.STEPS_SORCERER;
+    return this.STEPS_AWAKENED;
   },
+  // Mortal and Sorcerer share the HH II-style Attribute/Ability steps; the pools differ.
+  _mortalLike()     { return this.charType === 'mortal' || this.charType === 'sorcerer'; },
+  _mortalCreation() { return this.charType === 'sorcerer' ? SORCERER.CREATION : M20.CREATION_MORTAL; },
+  _mortalCosts()    { return this.charType === 'sorcerer' ? SORCERER.FREEBIE_COSTS : M20.FREEBIE_COSTS_MORTAL; },
+  _charTypeOf(t)    { return (t === 'mortal' || t === 'sorcerer') ? t : 'awakened'; },
 
   defaultChar(charType = 'awakened') {
     const base = {
@@ -7268,12 +7284,18 @@ const Creator = {
       base.willpower = 1;       // mortals derive WP from Courage (1 by default)
       base.arete = 0;           // mortals have no Arete/Spheres
     }
+    if (charType === 'sorcerer') {
+      // M20 Sorcerer: affiliation = Sorcerer Affiliation id, faction = Ascension War alignment
+      base.affiliation = ''; base.faction = ''; base.willpower = SORCERER.CREATION.startWillpower; base.arete = 0;
+      base.numina_style = ''; base.numina_secondary = ''; base.casting_attribute = ''; base.affinity_path = '';
+      base.rituals = []; base.artifacts = [];
+    }
     return base;
   },
 
   init(opts = {}) {
     this.step = 0;
-    this.charType = opts.charType === 'mortal' ? 'mortal' : 'awakened';
+    this.charType = this._charTypeOf(opts.charType);
     this._lockedBaselines = null;
     this.char = this.defaultChar(this.charType);
     this.editId = null;
@@ -7295,14 +7317,14 @@ const Creator = {
       </li>`).join('');
     // Update the sidebar ref tag too
     const ref = document.querySelector('.creator-sidebar .sidebar-ref');
-    if (ref) ref.textContent = this.charType === 'mortal' ? 'Hunters Hunted II p. 35' : 'M20 p. 254–260';
+    if (ref) ref.textContent = this.charType === 'mortal' ? 'Hunters Hunted II p. 35' : this.charType === 'sorcerer' ? 'M20 Sorcerer p. 103–105' : 'M20 p. 254–260';
     // The step-list click handler is bound globally on DOMContentLoaded and uses
     // event delegation on the <ol>, so it still works after this innerHTML swap.
   },
 
   loadCharacter(char) {
     this.step = 0;
-    this.charType = (char.character_type === 'mortal') ? 'mortal' : 'awakened';
+    this.charType = this._charTypeOf(char.character_type);
     this._lockedBaselines = null;
     this.char = {
       ...this.defaultChar(this.charType),
@@ -7463,6 +7485,7 @@ const Creator = {
   getStepIncomplete(step) {
     const c = this.char;
     const issues = [];
+    if (this.charType === 'sorcerer') return SorcererUI.stepIssues(this, step);
     // ── Mortal flow validation (5 steps) ──────────────────────────────────
     if (this.charType === 'mortal') {
       if (step === 0) {
@@ -7623,6 +7646,7 @@ const Creator = {
   // ── Freebie point calculation ─────────────────────────────────
   calcFreebieBreakdown() {
     const c = this.char;
+    if (this.charType === 'sorcerer') return SorcererUI.breakdownLines(this);
     const lines = [];
     const attrCost = this.calcAttrFreebies();
     if (attrCost)  lines.push({ label: 'Attributes',   cost: attrCost });
@@ -7675,6 +7699,7 @@ const Creator = {
   },
 
   calcFreebies() {
+    if (this.charType === 'sorcerer') return { total: SorcererUI.calcFreebies(this) };
     if (this.charType === 'mortal') {
       return { total: this.calcMortalFreebies() };
     }
@@ -7696,9 +7721,9 @@ const Creator = {
   },
 
   updateFreebieDisplay() {
-    // Mortal flow: simpler — pool stays fixed at 21, no chronicle Arete bonus.
-    if (this.charType === 'mortal') {
-      const total     = this.calcMortalFreebies();
+    // Mortal / Sorcerer flow: simpler — pool stays fixed at 21, no chronicle Arete bonus.
+    if (this._mortalLike()) {
+      const total     = this.calcFreebies().total;
       const remaining = this.freebiesPool() - total;
       const el = $('#freebie-display');
       if (el) {
@@ -7782,6 +7807,7 @@ const Creator = {
     // Snapshot allocation baselines so that any over-allocation in steps II/III/IV
     // already shows up as "freebies spent" in step V, and any further raises in
     // step V cost additional freebies via the standard fbRow / dot-click path.
+    if (this.charType === 'sorcerer') { SorcererUI.lockBaselines(this); return; }
     if (this.charType === 'mortal') {
       // Greedy: distribute `pool` points across `ids` (lowest current value last
       // to fill), capped at each id's current value. Returns id→baseline map.
@@ -9526,8 +9552,12 @@ const Creator = {
         </div>`;
     }).join('');
 
+    const sorc = this.charType === 'sorcerer';
     return `
-      ${this.stepHeader('Step I — Concept',
+      ${sorc ? this.stepHeader('Step I — Concept &amp; Affiliation',
+        '"Hedge wizards and psychics dwell on the edges of those shadows and of human society."',
+        'Choose your sorcerer\'s concept, the society that taught them, their Nature, Demeanor and Essence. <span class="page-ref">Sorcerer p. 103</span>')
+      : this.stepHeader('Step I — Concept',
         '"It takes uncommon strength of will to fight monsters alone in the night."',
         'Choose your hunter\'s concept, motivation, and the two masks they wear: Nature (inner self) and Demeanor (outward face).')}
 
@@ -9578,11 +9608,12 @@ const Creator = {
         </div>
       </div>
 
+      ${sorc ? SorcererUI.conceptExtrasHTML(c) : ''}
       <div class="step-section">
-        <div class="step-section-title">Motivation
-          <span class="info-tip" data-tip="Why does your hunter risk acceptance, freedom, and life to fight the Damned? Saved to Notes.">?</span>
+        <div class="step-section-title">${sorc ? 'Background &amp; Motivation' : 'Motivation'}
+          <span class="info-tip" data-tip="${sorc ? 'How did your sorcerer come to the Art, and what do they want from it? Saved to Notes.' : 'Why does your hunter risk acceptance, freedom, and life to fight the Damned? Saved to Notes.'}">?</span>
         </div>
-        <p class="step-instructions" style="margin-top:0">How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?</p>
+        <p class="step-instructions" style="margin-top:0">${sorc ? 'Who taught them? What did the Art cost them? Do they know about the Ascension War, and do they care?' : 'How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?'}</p>
         <textarea class="form-input" id="f-mortal-motivation" rows="4" maxlength="1000"
           placeholder="A few sentences describing what drives your hunter…">${escHtml(c.notes || '')}</textarea>
       </div>
@@ -9625,10 +9656,16 @@ const Creator = {
       </div>`;
   },
 
+  /* ── Sorcerer steps (M20 Sorcerer) — see sorcerer-ui.js ─────── */
+  renderStep0Sorcerer() { return this.renderStep0Mortal(); },
+  renderStep3Sorcerer() { return SorcererUI.renderBackgrounds(this); },
+  renderStep4Sorcerer() { return SorcererUI.renderNumina(this); },
+  renderStep5Sorcerer() { return SorcererUI.renderFinishing(this); },
+
   /* ── Mortal Step 1 — Attributes (6/4/3 default) ────────────── */
   renderStep1Mortal() {
     const c = this.char;
-    const pools = M20.CREATION_MORTAL.attrPoints; // {primary:6, secondary:4, tertiary:3}
+    const pools = this._mortalCreation().attrPoints; // {primary:6, secondary:4, tertiary:3}
     const groups = {
       Physical: M20.ATTRIBUTES.physical,
       Social:   M20.ATTRIBUTES.social,
@@ -9671,7 +9708,7 @@ const Creator = {
       return `<div class="mortal-attr-group ${tier}">
         <div class="mortal-attr-group-header">
           <span class="mortal-attr-group-name">${cat}</span>
-          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), M20.FREEBIE_COSTS_MORTAL.attribute.cost)}
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), this._mortalCosts().attribute.cost)}
         </div>
         ${attrs.map(dotRow).join('')}
       </div>`;
@@ -9694,14 +9731,14 @@ const Creator = {
           ${groupHTML('Social')}
           ${groupHTML('Mental')}
         </div>
-        <p class="step-note">Going over a category's pool is allowed — the overage will be paid from freebies in Step V.</p>
+        <p class="step-note">Going over a category's pool is allowed — the overage will be paid from freebies in the final step.</p>
       </div>`;
   },
 
   /* ── Mortal Step 2 — Abilities (13/9/5, cap 3 at creation) ── */
   renderStep2Mortal() {
     const c = this.char;
-    const pools = M20.CREATION_MORTAL.abilityPoints;
+    const pools = this._mortalCreation().abilityPoints;
     const cats = { Talents: M20.TALENTS, Skills: M20.SKILLS, Knowledges: M20.KNOWLEDGES };
     const secCats = {
       Talents:    M20.SECONDARY_TALENTS    || [],
@@ -9787,7 +9824,7 @@ const Creator = {
       return `<div class="mortal-attr-group ${tier}">
         <div class="mortal-attr-group-header">
           <span class="mortal-attr-group-name">${cat}</span>
-          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), M20.FREEBIE_COSTS_MORTAL.ability.cost)}
+          ${this._mortalPoolCounter('', usedForCat(cat), poolForCat(cat), this._mortalCosts().ability.cost)}
         </div>
         ${list.map(a => dotRow(a, key)).join('')}
         ${secAdded.map(a => dotRow(a, key, { isSecondary: true })).join('')}
@@ -9802,7 +9839,7 @@ const Creator = {
     return `
       ${this.stepHeader('Step III — Abilities',
         '"Skills are the tools of the hunt — without them you are prey, however brave."',
-        `Distribute <strong>13 / 9 / 5</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in Step V. Hover the <strong>?</strong> for the Ability's meaning; the line beneath the name shows the flavor for the dots you have. Need an ability not on the list? Use the secondary or custom-ability adders at the bottom of each column.`)}
+        `Distribute <strong>${pools.primary} / ${pools.secondary} / ${pools.tertiary}</strong> dots across Talents, Skills, and Knowledges. No Ability may exceed <strong>3</strong> at creation; the fourth and fifth dots can only be bought with freebies in the final step. Hover the <strong>?</strong> for the Ability's meaning; the line beneath the name shows the flavor for the dots you have. Need an ability not on the list? Use the secondary or custom-ability adders at the bottom of each column.`)}
 
       <div class="step-section">
         <div class="step-section-title">Category Priority</div>
@@ -10391,7 +10428,7 @@ const Creator = {
         const id   = grp.dataset.mortalAbil;
         const key  = grp.dataset.cat;
         const val  = parseInt(dot.dataset.val);
-        if (val > M20.CREATION_MORTAL.abilityMax) {
+        if (val > this._mortalCreation().abilityMax) {
           toast('Abilities are capped at 3 dots at creation. Use Free Edit later to raise further.', 'error');
           return;
         }
@@ -10451,6 +10488,7 @@ const Creator = {
 
     // Mortal-flow listeners (no-op when the matching DOM isn't in the current step)
     this._attachMortalListeners(content);
+    if (this.charType === 'sorcerer') { SorcererUI.attachStep0(content, this); SorcererUI.attachBackgrounds(content, this); SorcererUI.attachNumina(content, this); }
     // Prism of Focus listeners (Step 0 mode picker, Step 4 focus section; no-op elsewhere)
     PrismUI.attachStep0(content, this);
     PrismUI.attachStep4(content, this);
@@ -12093,6 +12131,11 @@ const Creator = {
     this.updateSectionCost('fb-cost-abilities', this.calcAbilityFreebies());
     this.updateSectionCost('fb-cost-bgs', this.calcBgFreebies());
     this.updateSectionCost('fb-cost-spheres', this.calcSphereFreebies());
+    if (this.charType === 'sorcerer') {
+      const c = this.char, lb = this._lockedBaselines || {};
+      this.updateSectionCost('fb-cost-corestats', Math.max(0, (c.willpower || 5) - (lb.willpower || 5)) * SORCERER.FREEBIE_COSTS.willpower.cost);
+      this.updateSectionCost('fb-cost-numina', SorcererUI.numinaFreebieCost(c));
+    }
     // Mortal-only sections (no-op when not in mortal step V)
     if (this.charType === 'mortal') {
       const c = this.char;
@@ -12312,8 +12355,8 @@ const Creator = {
 
   // ── Chronicle rules helpers ───────────────────────────────────────────────
   freebiesPool() {
-    if (this.charType === 'mortal') {
-      return this.char._chronicleRules?.freebiePoints ?? M20.CREATION_MORTAL.freebiePoints;
+    if (this._mortalLike()) {
+      return this.char._chronicleRules?.freebiePoints ?? this._mortalCreation().freebiePoints;
     }
     return this.char._chronicleRules?.freebiePoints ?? M20.CREATION.freebiePoints;
   },
@@ -12705,7 +12748,9 @@ const Creator = {
 
   effectiveMerits() {
     const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
-    const builtins = M20.MERITS.filter(m => isMortal ? true : !m.mortalOnly);
+    const isSorc   = this.charType === 'sorcerer' || this.char.character_type === 'sorcerer';
+    const restrict = isSorc && !!(this.char._chronicleRules?.sorcerer?.restrictMerits);
+    const builtins = restrict ? SorcererUI.merits() : [...M20.MERITS.filter(m => (isMortal || isSorc) ? true : !m.mortalOnly), ...(isSorc ? SorcererUI.merits() : [])];
     const chronicleCustoms = (this.char._chronicleRules?.customMerits || [])
       .filter(m => m.name)
       .map(m => ({ id: m.id, name: m.name, cost: m.cost || 1, category: m.category || 'Social', description: m.description || '', custom: true }));
@@ -12717,7 +12762,9 @@ const Creator = {
 
   effectiveFlaws() {
     const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
-    const builtins = M20.FLAWS.filter(f => isMortal ? true : !f.mortalOnly);
+    const isSorc   = this.charType === 'sorcerer' || this.char.character_type === 'sorcerer';
+    const restrict = isSorc && !!(this.char._chronicleRules?.sorcerer?.restrictMerits);
+    const builtins = restrict ? SorcererUI.flaws() : [...M20.FLAWS.filter(f => (isMortal || isSorc) ? true : !f.mortalOnly), ...(isSorc ? SorcererUI.flaws() : [])];
     const chronicleCustoms = (this.char._chronicleRules?.customFlaws || [])
       .filter(f => f.name)
       .map(f => ({ id: f.id, name: f.name, cost: f.cost || 1, category: f.category || 'Social', description: f.description || '', custom: true }));
