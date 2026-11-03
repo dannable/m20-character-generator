@@ -37,7 +37,7 @@ function getResend() {
 // GET /api/auth/me
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone, default_focus_mode, wizard_enabled FROM users WHERE id = ?`).get(req.session.userId);
+  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone, default_focus_mode, wizard_enabled, discord_id IS NOT NULL AS discord_linked FROM users WHERE id = ?`).get(req.session.userId);
   if (!user || !user.is_active) {
     req.session.destroy(() => {});
     return res.status(401).json({ error: 'Account not found or disabled' });
@@ -200,7 +200,7 @@ router.post('/reset-password', resetLimiter, (req, res) => {
   if (!record) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
 
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
-  db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, record.user_id);
+  db.prepare(`UPDATE users SET password_hash = ?, has_password = 1 WHERE id = ?`).run(hash, record.user_id);
   db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE id = ?`).run(record.id);
 
   res.json({ ok: true });

@@ -156,7 +156,7 @@ router.put('/users/:id/password', (req, res) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
-  db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hash, id);
+  db.prepare(`UPDATE users SET password_hash = ?, has_password = 1 WHERE id = ?`).run(hash, id);
   res.json({ ok: true });
 });
 

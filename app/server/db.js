@@ -585,4 +585,14 @@ if (!db.prepare(`SELECT 1 FROM app_meta WHERE key = 'wizard_seeded'`).get()) {
   db.transaction(() => { seed.forEach((t, i) => ins.run(t, i + 1)); db.prepare(`INSERT INTO app_meta (key, value) VALUES ('wizard_seeded', '1')`).run(); })();
 }
 
+// ── Discord sign-in ───────────────────────────────────────────────────────────
+// discord_id is Discord's immutable snowflake (the key for sign-in and the later bot integration);
+// username/avatar are cached for display. has_password = 0 for accounts created through Discord.
+try { db.exec(`ALTER TABLE users ADD COLUMN discord_id TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN discord_username TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN discord_avatar TEXT`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN discord_linked_at DATETIME`); } catch {}
+try { db.exec(`ALTER TABLE users ADD COLUMN has_password INTEGER NOT NULL DEFAULT 1`); } catch {}
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id) WHERE discord_id IS NOT NULL`);
+
 module.exports = db;
