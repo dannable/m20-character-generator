@@ -522,6 +522,20 @@ const SCALAR_TRAIT_COLS = new Set([
   'perception','intelligence','wits','arete','willpower',
 ]);
 const JSON_TRAIT_COLS = new Set(['talents','skills','knowledges','backgrounds','spheres','practice_ratings']);
+const ABILITY_COLS = new Set(['talents','skills','knowledges']);
+const M20DATA = require(require('path').join(__dirname, '..', '..', 'public', 'js', 'data.js'));
+const KNOWN_ABILITY_IDS = new Set(['TALENTS','SKILLS','KNOWLEDGES','SECONDARY_TALENTS','SECONDARY_SKILLS','SECONDARY_KNOWLEDGES']
+  .flatMap(k => (M20DATA[k] || []).map(a => a.id)));
+function isKnownAbilityKey(charRow, col, key) {
+  if (KNOWN_ABILITY_IDS.has(key)) return true;
+  try { if (Object.prototype.hasOwnProperty.call(JSON.parse(charRow.custom_ability_names || '{}'), key)) return true; } catch {}
+  try { const cur = JSON.parse(charRow[col] || '{}'); if (Object.prototype.hasOwnProperty.call(cur, key)) return true; } catch {}
+  if (charRow.chronicle_id) {
+    const chron = db.prepare('SELECT rules FROM chronicles WHERE id = ?').get(charRow.chronicle_id);
+    try { if ((JSON.parse(chron?.rules || '{}').customAbilities || []).some(a => a.id === key)) return true; } catch {}
+  }
+  return false;
+}
 
 // ── POST /api/characters/:id/xp/award — add XP to character pool ─────────────
 router.post('/:id/xp/award', (req, res) => {
@@ -568,6 +582,11 @@ router.post('/:id/xp/spend', (req, res) => {
     if (toVal !== fromVal + 1) return res.status(400).json({ error: 'Can only raise one dot at a time' });
     if (cost < 1) return res.status(400).json({ error: 'Invalid cost' });
     if (trait_col && !JSON_TRAIT_COLS.has(trait_col)) return res.status(400).json({ error: 'Invalid trait column' });
+    // Ability columns: the key must be a known ability, one of the character's custom abilities,
+    // or a chronicle custom ability — never an arbitrary string.
+    if (trait_col && ABILITY_COLS.has(trait_col) && !isKnownAbilityKey(char, trait_col, trait_key)) {
+      return res.status(400).json({ error: 'Unknown ability' });
+    }
     if (!trait_col && trait_group !== 'resonance' && !SCALAR_TRAIT_COLS.has(trait_key)) {
       return res.status(400).json({ error: 'Invalid trait key' });
     }
