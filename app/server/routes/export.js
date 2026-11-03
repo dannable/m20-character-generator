@@ -3,20 +3,23 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+const SORCERER = require('../../public/js/data-sorcerer.js');
+const M20DATA  = require('../../public/js/data.js');
 
 /* ── Field parsing ──────────────────────────────────────────────────────────── */
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
   'instruments','freebie_spent','attr_priority','ability_priority',
-  'merits','flaws','specialties','custom_ability_names','wonders'];
+  'merits','flaws','specialties','custom_ability_names','wonders','numina','rituals','artifacts'];
+const ARRAY_FIELDS = ['instruments','wonders','rituals','artifacts'];
 
 function parseRow(row) {
   if (!row) return null;
   const c = { ...row };
   JSON_FIELDS.forEach(f => {
     if (typeof c[f] === 'string') {
-      try { c[f] = JSON.parse(c[f]); } catch { c[f] = ['instruments','wonders'].includes(f) ? [] : {}; }
+      try { c[f] = JSON.parse(c[f]); } catch { c[f] = ARRAY_FIELDS.includes(f) ? [] : {}; }
     } else if (c[f] == null) {
-      c[f] = ['instruments','wonders'].includes(f) ? [] : {};
+      c[f] = ARRAY_FIELDS.includes(f) ? [] : {};
     }
   });
   return c;
@@ -243,6 +246,8 @@ async function buildCharacterPDF(c) {
     HL(x + lw - 1, y - 1.5, availW - lw + 1, 0.3, ink.rule);
   };
 
+  const isSorc = c.character_type === 'sorcerer';
+
   /* ── Column geometry ─────────────────────────────────────────────────────── */
   const ML = 28;
   const CW = Math.floor((W - ML * 2 - 16) / 3);  // ≈ 180 pts per column
@@ -254,7 +259,8 @@ async function buildCharacterPDF(c) {
      TITLE BANNER
   ══════════════════════════════════════════════════════════════════════════ */
   FR(ML - 5, H - 39, W - (ML - 5) * 2, 28, ink.dark);
-  const banner = 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Character Record';
+  const banner = isSorc ? 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Sorcerer Record'
+                        : 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Character Record';
   const bw = fB.widthOfTextAtSize(banner, 9.5);
   T(banner, (W - bw) / 2, H - 30, 9.5, fB, ink.white);
 
@@ -267,12 +273,14 @@ async function buildCharacterPDF(c) {
   IF('Chronicle',   c.chronicle,                     C3,       iy, CW);
   iy -= 13;
   IF('Concept',     c.concept,                       C1,       iy, 190);
-  IF('Tradition',   c.tradition,                     C2,       iy, CW);
+  const sorcAff = isSorc ? SORCERER.affiliationById(c.affiliation) : null;
+  const sorcAlign = isSorc ? ((SORCERER.ALIGNMENTS || []).find(a => a.id === c.faction) || {}).name || '' : '';
+  IF(isSorc ? 'Alignment' : 'Tradition', isSorc ? sorcAlign : c.tradition, C2, iy, CW);
   IF('Essence',     c.essence,                       C3,       iy, CW);
   iy -= 13;
   IF('Nature',      c.nature,                        C1,       iy, 105);
   IF('Demeanor',    c.demeanor,                      C1 + 112, iy, CW - 14);
-  IF('Affiliation', c.affiliation || c.tradition,    C3,       iy, CW);
+  IF('Affiliation', isSorc ? (sorcAff ? sorcAff.name : '') : (c.affiliation || c.tradition), C3, iy, CW);
   iy -= 11;
   HL(ML - 5, iy + 2, W - (ML - 5) * 2, 1.2, ink.dark);
 
@@ -343,7 +351,7 @@ async function buildCharacterPDF(c) {
   /* ══════════════════════════════════════════════════════════════════════════
      BAND 3  —  SPHERES
   ══════════════════════════════════════════════════════════════════════════ */
-  y = SH_full(y, 'Spheres');
+  y = SH_full(y, isSorc ? 'Numina' : 'Spheres');
   y1 = y; y2 = y; y3 = y;
 
   const sph = c.spheres || {};
@@ -360,6 +368,56 @@ async function buildCharacterPDF(c) {
   };
   const spName = (name, id) => SPH_NAME[id] || name;
 
+  if (isSorc) {
+    const num = c.numina || {};
+    const cols = [C1, C2, C3];
+    const ys = [y, y, y];
+    const ids = Object.keys(num).filter(id => (parseInt(num[id].rating, 10) || 0) > 0);
+    const kindOf = id => (SORCERER.isPath(id) || num[id].kind === 'hedge') ? 'path' : 'phen';
+    const nameOf = id => { const n = SORCERER.numenById(id); return n ? n.name : (num[id].custom_name || id); };
+    const abName = a => (a ? a.charAt(0).toUpperCase() + a.slice(1) : '');
+    const paths = ids.filter(id => kindOf(id) === 'path');
+    const phens = ids.filter(id => kindOf(id) === 'phen');
+    let ci = 0;
+    const place = (id, label) => {
+      const rating = parseInt(num[id].rating, 10) || 0;
+      const ab = num[id].ability && kindOf(id) === 'path' ? ` (${abName(num[id].ability)})` : '';
+      const lbl = label + ab;
+      ys[ci] = id === c.affinity_path ? TR_AFF(cols[ci], ys[ci], CW, lbl, rating) : TR(cols[ci], ys[ci], CW, lbl, rating);
+      ci = (ci + 1) % 3;
+    };
+    // Paths flow across the three columns, then Phenomena under their own subheader.
+    paths.forEach(id => place(id, nameOf(id)));
+    if (phens.length) {
+      const lowest = Math.min(...ys);
+      const gy = paths.length ? lowest - 2 : ys[0];
+      const ny = GH(ML - 5, gy, W - (ML - 5) * 2, 'Psychic Phenomena');
+      ys[0] = ys[1] = ys[2] = ny;
+      ci = 0;
+      phens.forEach(id => place(id, nameOf(id)));
+    }
+    if (!ids.length) { T('No Numina chosen', C1 + 2, ys[0] + 2, 6.5, fI, ink.dim); ys[0] -= RH; }
+    y1 = ys[0]; y2 = ys[1]; y3 = ys[2];
+
+    // Rituals, three columns: "N  Name (Path)"
+    const rits = (Array.isArray(c.rituals) ? c.rituals : []).filter(r => r && r.name)
+      .sort((a, b) => (parseInt(a.level, 10) || 0) - (parseInt(b.level, 10) || 0));
+    if (rits.length) {
+      let ry = Math.min(y1, y2, y3) - 3;
+      ry = SH_full(ry, 'Rituals');
+      const rys = [ry, ry, ry]; const per = Math.ceil(rits.length / 3);
+      rits.forEach((r, i) => {
+        const k = Math.min(2, Math.floor(i / per));
+        const pn = nameOf(r.path);
+        const lbl = `${r.level || '?'}  ${r.name}${pn && pn !== r.path ? ` (${pn})` : ''}`;
+        T(fit(lbl, CW - 4, fR, 7), cols[k] + 2, rys[k] + 2.5, 7, fR, ink.black);
+        HL(cols[k], rys[k], CW, 0.3, ink.rule);
+        rys[k] -= RH;
+      });
+      y1 = rys[0]; y2 = rys[1]; y3 = rys[2];
+    }
+    y = Math.min(y1, y2, y3) - 4;
+  } else {
   // Col 1: Correspondence, Entropy, Forces
   [['Correspondence','correspondence'],['Entropy','entropy'],['Forces','forces']].forEach(([name, id]) => {
     y1 = isAff(id) ? TR_AFF(C1, y1, CW, spName(name, id), sph[id] || 0) : TR(C1, y1, CW, spName(name, id), sph[id] || 0);
@@ -376,6 +434,7 @@ async function buildCharacterPDF(c) {
   });
 
   y = Math.min(y1, y2, y3) - 4;
+  }
 
   /* ══════════════════════════════════════════════════════════════════════════
      BAND 4  —  ADVANTAGES / CORE STATS
@@ -401,11 +460,22 @@ async function buildCharacterPDF(c) {
     });
   }
 
+  const mfName = (id, table) => {
+    if (isSorc) { const m = SORCERER.meritById && SORCERER.meritById(id); if (m) return m.name; }
+    return table[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+  if (isSorc) {
+    const arts = (Array.isArray(c.artifacts) ? c.artifacts : []).filter(a => a && a.name);
+    if (arts.length) {
+      y1 -= 2; y1 = GH(C1, y1, CW, 'Artifacts');
+      arts.forEach(a => { y1 = TR(C1, y1, CW, a.name, parseInt(a.rating, 10) || 0); });
+    }
+  }
   const merits = Object.entries(c.merits || {});
   if (merits.length) {
     y1 -= 2; y1 = GH(C1, y1, CW, 'Merits');
     merits.forEach(([id, cost]) => {
-      const nm = MERIT_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      const nm = mfName(id, MERIT_NAMES);
       y1 = TR(C1, y1, CW, `${nm} (${cost})`, cost, 5);
     });
   }
@@ -414,11 +484,27 @@ async function buildCharacterPDF(c) {
   if (flaws.length) {
     y1 -= 2; y1 = GH(C1, y1, CW, 'Flaws');
     flaws.forEach(([id, cost]) => {
-      const nm = FLAW_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      const nm = mfName(id, FLAW_NAMES);
       y1 = TR(C1, y1, CW, `${nm} (${cost})`, cost, 5);
     });
   }
 
+  if (isSorc) {
+    y1 -= 4; y1 = GH(C1, y1, CW, 'Casting');
+    const attrName = c.casting_attribute ? c.casting_attribute.charAt(0).toUpperCase() + c.casting_attribute.slice(1) : '';
+    const styles = [c.numina_style, c.numina_secondary].filter(Boolean).map(x => x === 'hedge' ? 'Hedge Magic' : x === 'psychic' ? 'Psychic' : x).join(' + ');
+    const ap = SORCERER.numenById(c.affinity_path);
+    const line = (lbl, val) => { T(lbl, C1 + 2, y1, 6.5, fB, ink.mid); T(fit(val || '', CW - 62, fR, 7), C1 + 60, y1, 7, fR, ink.black); HL(C1 + 60, y1 - 1.5, CW - 62, 0.3, ink.rule); y1 -= 11; };
+    line('Style:', styles);
+    line('Casting Attr.:', attrName);
+    line('Affinity Path:', ap ? ap.name : '');
+    const prac = Object.entries(c.numina || {}).filter(([id, n]) => n && n.practice && (SORCERER.isPath(id) || n.kind === 'hedge'))
+      .map(([id, n]) => { const pr = (M20DATA.PRACTICES || []).find(p => p.id === n.practice); const nm = (SORCERER.numenById(id) || {}).name || n.custom_name || id; return `${nm}: ${pr ? pr.name : n.practice}`; });
+    if (prac.length) {
+      y1 -= 2; T('Practices:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
+      wrapText(prac.join('; '), CW - 5, fR, 6.5, 6).forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; });
+    }
+  } else {
   y1 -= 4; y1 = GH(C1, y1, CW, 'Magical Focus');
   T('Paradigm:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
   const pLines = wrapText(c.paradigm || '', CW - 5, fI, 6.5, 3);
@@ -435,6 +521,8 @@ async function buildCharacterPDF(c) {
   if (iLines.length) { iLines.forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; }); }
   else { T('None selected', C1 + 3, y1, 6.5, fI, ink.dim); y1 -= 8; }
 
+  }
+
   /* ── C2: Arete + Willpower + Q/P Wheel (vertically stacked) ── */
   {
     const dotsR = 4, dotsSp = 16;
@@ -442,12 +530,14 @@ async function buildCharacterPDF(c) {
     const dotsW = (dotsMax - 1) * dotsSp + 2 * dotsR;  // 9×16+8 = 152 pts
     const dotsX = C2 + (CW - dotsW) / 2;
 
-    // Arete
-    const arLbl = 'Arete';
-    T(arLbl, C2 + (CW - fB.widthOfTextAtSize(arLbl, 7)) / 2, y2, 7, fB, ink.mid);
-    y2 -= 14;
-    DOTS(dotsX, y2, Math.min(c.arete || 1, dotsMax), dotsMax, dotsR, dotsSp);
-    y2 -= 14;
+    // Arete (Sorcerers have none)
+    if (!isSorc) {
+      const arLbl = 'Arete';
+      T(arLbl, C2 + (CW - fB.widthOfTextAtSize(arLbl, 7)) / 2, y2, 7, fB, ink.mid);
+      y2 -= 14;
+      DOTS(dotsX, y2, Math.min(c.arete || 1, dotsMax), dotsMax, dotsR, dotsSp);
+      y2 -= 14;
+    }
 
     // Willpower
     const wpLbl = 'Willpower';
@@ -462,9 +552,12 @@ async function buildCharacterPDF(c) {
     }
     y2 -= 22;
 
-    // Q/P Wheel — label above, wheel, label below
+    // Q/P Wheel — label above, wheel, label below. Sorcerers only get one when something stores Quintessence, and never Paradox.
+    const sorcQuint = isSorc && ((c.merits && (c.merits.the_flow_of_ki !== undefined || c.merits.force_of_spirit !== undefined || c.merits.strength_of_psyche !== undefined))
+      || ((c.numina || {}).quintessence_manipulation || {}).rating > 0 || (c.quintessence || 0) > 0);
+    if (!isSorc || sorcQuint) {
     const qVal = c.quintessence || 0;
-    const pVal = c.paradox || 0;
+    const pVal = isSorc ? 0 : (c.paradox || 0);
     const wMax = 20, wR = 22, wDotR = 2.8;
     const wCx = C2 + Math.round(CW / 2);
 
@@ -484,9 +577,12 @@ async function buildCharacterPDF(c) {
     }
     y2 = wCy - wR - wDotR - 6;
 
-    const pLbl = `Paradox: ${pVal}`;
-    T(pLbl, C2 + (CW - fR.widthOfTextAtSize(pLbl, 6.5)) / 2, y2, 6.5, fB, ink.mid);
-    y2 -= 8;
+    if (!isSorc) {
+      const pLbl = `Paradox: ${pVal}`;
+      T(pLbl, C2 + (CW - fR.widthOfTextAtSize(pLbl, 6.5)) / 2, y2, 6.5, fB, ink.mid);
+      y2 -= 8;
+    }
+    }
   }
 
   /* ── C3: Health track ── */
@@ -522,7 +618,7 @@ async function buildCharacterPDF(c) {
 
     // Left: Notes / Rotes
     let bL = botSep - 2;
-    bL = SH(ML, bL, HW, 'Notes / Rotes');
+    bL = SH(ML, bL, HW, isSorc ? 'Notes' : 'Notes / Rotes');
     const nLines = wrapText(c.notes || '', HW - 5, fR, 7, 18);
     if (nLines.length) { nLines.forEach(l => { T(l, ML + 2, bL, 7, fR, ink.black); bL -= 9; }); }
     else { T('--', ML + 2, bL, 7, fI, ink.dim); }
@@ -767,3 +863,4 @@ router.get('/foundry/:id', async (req, res) => {
 router.get('/:id', (req, res) => res.redirect(307, `/api/export/pdf/${req.params.id}`));
 
 module.exports = router;
+module.exports.buildCharacterPDF = buildCharacterPDF;
