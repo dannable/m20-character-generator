@@ -181,7 +181,7 @@ function computeDiff(originalRow, proposed) {
 }
 
 const SUMMARY_COLS = `characters.id, characters.user_id, characters.name, characters.player, characters.chronicle, characters.concept, characters.affiliation,
-  characters.tradition, characters.essence, characters.arete, characters.willpower, characters.willpower_spent, characters.quintessence, characters.paradox, characters.health_track, characters.is_draft, characters.created_at, characters.updated_at, characters.chronicle_id`;
+  characters.tradition, characters.essence, characters.character_type, characters.numina_style, characters.arete, characters.willpower, characters.willpower_spent, characters.quintessence, characters.paradox, characters.health_track, characters.is_draft, characters.created_at, characters.updated_at, characters.chronicle_id`;
 
 // Chronicle join columns & clause (used in list queries)
 const CHRON_COLS = `chr.name AS linked_chronicle_name, cu.username AS chronicle_storyteller, chr.next_session AS chronicle_next_session, chr.allow_bg_xp AS chronicle_allow_bg_xp`;
