@@ -227,7 +227,7 @@ function showChronicleWelcomeModal(chronicleName, rules) {
   const hasPoolChange = (fp !== undefined && fp !== 15)
                      || (mc !== undefined && mc !== null)
                      || (fc !== undefined && fc !== 7);
-  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac || capEntries.length || PrismUI.stRulesActive(rules);
+  const hasCustom = bds.length || cBgs.length || cAbils.length || cMerits.length || cFlaws.length || normFac || capEntries.length || PrismUI.stRulesActive(rules) || SorcererUI.stRulesActive(rules);
   if (!hasPoolChange && !hasCustom) return;
 
   function fmtBd(bd) {
@@ -247,7 +247,7 @@ function showChronicleWelcomeModal(chronicleName, rules) {
     </div>`;
   }
 
-  let body = PrismUI.welcomeSectionHTML(rules, section);
+  let body = PrismUI.welcomeSectionHTML(rules, section) + SorcererUI.welcomeSectionHTML(rules, section);
   if (hasPoolChange) {
     let rows = '';
     if (fp !== undefined && fp !== 15) rows += `<div class="cw-item"><span class="cw-label">Freebie Points:</span> <strong>${fp}</strong> <span class="cw-note">(default 15)</span></div>`;
@@ -3910,6 +3910,7 @@ const Chronicle = {
               </div>
 
               ${PrismUI.stRulesCardHTML(rules)}
+              ${SorcererUI.stRulesCardHTML(rules)}
 
               <div class="chron-rules-group">
                 <h4 class="chron-rules-heading">Allowed Factions
@@ -3984,7 +3985,7 @@ const Chronicle = {
           <div class="chronicle-member-row chronicle-member-clickable" data-char-id="${m.id}">
             <div class="chronicle-member-info">
               <span class="chronicle-member-name">${escHtml(m.name)}</span>
-              <span class="chronicle-member-meta">${escHtml(charAffiliationLabel(m))} · ${m.character_type === 'sorcerer' ? (m.numina_style === 'psychic' ? 'Psychic' : 'Hedge wizard') : m.character_type === 'mortal' ? 'Mortal' : `Arete ${m.arete}`} ${PrismUI.memberBadgeHTML(m, detailRules)}</span>
+              <span class="chronicle-member-meta">${escHtml(charAffiliationLabel(m))} · ${m.character_type === 'sorcerer' ? (m.numina_style === 'psychic' ? 'Psychic' : 'Hedge wizard') : m.character_type === 'mortal' ? 'Mortal' : `Arete ${m.arete}`} ${m.character_type === 'sorcerer' || m.character_type === 'mortal' ? '' : PrismUI.memberBadgeHTML(m, detailRules)}</span>
               ${m.owner_username ? `<span class="chronicle-member-owner">Player: ${escHtml(m.owner_username)}</span>` : ''}
             </div>
             ${xpTrack}
@@ -4199,7 +4200,7 @@ const Chronicle = {
                        || (mc !== undefined && mc !== null)
                        || (fc !== undefined && fc !== 7);
     const hasContent = hasPoolChange || capPills || bds.length || cBgs.length || cAbils.length
-                    || cMerits.length || cFlaws.length || normFacDetail || PrismUI.stRulesActive(rules);
+                    || cMerits.length || cFlaws.length || normFacDetail || PrismUI.stRulesActive(rules) || SorcererUI.stRulesActive(rules);
     if (!hasContent) return '';
 
     const sec = (label, rows) => rows ? `
@@ -4229,6 +4230,7 @@ const Chronicle = {
       html += sec('Allowed Factions', facPills);
     }
     html += PrismUI.stDetailRulesHTML(rules, sec);
+    html += SorcererUI.stDetailRulesHTML(rules, sec);
     if (cAbils.length) html += sec('Custom Abilities',
       cAbils.map(a => `<span class="chron-dr-pill">${escHtml(a.name)} <em>${abilCat[a.category]||a.category}</em></span>`).join(''));
     if (cBgs.length) html += sec('Custom Backgrounds',
@@ -4556,6 +4558,7 @@ const Chronicle = {
     }
 
     PrismUI.attachSTForm(document);
+    SorcererUI.attachSTForm(document);
 
     document.querySelectorAll('.chron-faction-cb').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -4735,6 +4738,7 @@ const Chronicle = {
         customFlaws:        rulesState.customFlaws.filter(f => f.name),
         allowedFactions,
         ...PrismUI.collectSTRules(),
+        ...SorcererUI.collectSTRules(),
       };
     }
 
@@ -10596,6 +10600,7 @@ const Creator = {
             // Show customization summary popup if the chronicle has any
             showChronicleWelcomeModal(result.name, c._chronicleRules);
             PrismUI.applyChronicleMode(c, Creator);
+            if (Creator.charType === 'sorcerer') SorcererUI.applyChronicleRules(c, Creator);
           } else {
             joinStatus.textContent = '✗ Invalid code';
             joinStatus.className = 'join-code-status invalid';
