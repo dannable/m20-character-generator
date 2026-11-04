@@ -5961,6 +5961,7 @@ const Sheet = {
     const BIO_FIELDS = [
       { key: 'age',       label: 'Age' },
       { key: 'gender',    label: 'Gender' },
+      { key: 'pronouns',  label: 'Pronouns' },
       { key: 'hair',      label: 'Hair' },
       { key: 'eyes',      label: 'Eyes' },
       { key: 'height',    label: 'Height' },
@@ -5977,6 +5978,12 @@ const Sheet = {
       </div>`;
     }).join('');
 
+    const motiv = char.motivation || '';
+    const motivBody = ro
+      ? (motiv ? `<div class="sheet-motivation"><span class="sheet-bio-label">Motivation</span><p class="sheet-desc-text">${escHtml(motiv).replace(/\n/g, '<br>')}</p></div>` : '')
+      : `<div class="sheet-motivation"><label class="sheet-bio-label" for="sheet-motiv-input">Motivation</label>
+          <textarea class="sheet-desc-input" id="sheet-motiv-input" rows="3" maxlength="1000"
+            placeholder="What drives your character?">${escHtml(motiv)}</textarea></div>`;
     const desc = char.description || '';
     const descBody = ro
       ? (desc
@@ -5990,6 +5997,7 @@ const Sheet = {
         <div class="sheet-band-title">Description</div>
         <div class="sheet-description-body">
           <div class="sheet-bio-grid">${bioCells}</div>
+          ${motivBody}
           ${descBody}
         </div>
       </div>`;
@@ -6938,6 +6946,15 @@ const Sheet = {
       });
     });
 
+    const motivInp = $('#sheet-motiv-input');
+    if (motivInp) {
+      motivInp.addEventListener('blur', () => {
+        if (this.char.motivation === motivInp.value) return;
+        this.char.motivation = motivInp.value;
+        this.saveMotivation();
+      });
+    }
+
     const descInp = $('#sheet-desc-input');
     if (descInp) {
       descInp.addEventListener('blur', () => {
@@ -7151,12 +7168,24 @@ const Sheet = {
         body: JSON.stringify({
           age:       this.char.age || '',
           gender:    this.char.gender || '',
+          pronouns:  this.char.pronouns || '',
           hair:      this.char.hair || '',
           eyes:      this.char.eyes || '',
           height:    this.char.height || '',
           weight:    this.char.weight || '',
           ethnicity: this.char.ethnicity || '',
         }),
+      });
+    } catch { /* silent */ }
+  },
+
+  async saveMotivation() {
+    if (!this.char?.id) return;
+    try {
+      await fetch(`/api/characters/${this.char.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ motivation: this.char.motivation || '' }),
       });
     } catch { /* silent */ }
   },
@@ -7377,6 +7406,7 @@ const Creator = {
   defaultChar(charType = 'awakened') {
     const base = {
       name: '', player: '', chronicle: '', concept: '',
+      gender: '', pronouns: '', motivation: '', description: '',
       character_type: charType,
       affiliation: 'Traditions', tradition: '', faction: '',
       essence: '', nature: '', demeanor: '',
@@ -7564,6 +7594,40 @@ const Creator = {
     const sphPool = Math.max(M20.CREATION.sphereDots, rawSphUsed);
 
     return { attrAllocs, abilAllocs, bgPool, sphPool };
+  },
+
+  // ── Faction emblem watermark in the builder frame ──────────────────────────
+  // /emblems/<slug>.svg, .png or .webp per Tradition / Convention / Craft; falls back to
+  // the group emblem (traditions, technocracy, disparates) and, for Sorcerers, sorcerer-<affiliation>
+  // then sorcerer. Drop a file with the right name into app/public/emblems to replace any of them.
+  emblemSlug(name) { return String(name || '').replace(/\(.*?\)/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); },
+  emblemCandidates() {
+    const c = this.char || {};
+    if (this.charType === 'mortal' || c.character_type === 'mortal') return [];
+    if (this.charType === 'sorcerer' || c.character_type === 'sorcerer') return c.affiliation ? [`sorcerer-${c.affiliation}`, 'sorcerer'] : [];
+    if (!c.tradition) return [];
+    return [this.emblemSlug(c.tradition), { Traditions: 'traditions', Technocracy: 'technocracy', Disparates: 'disparates' }[c.affiliation]].filter(Boolean);
+  },
+  updateEmblem() {
+    const frame = document.querySelector('.creator-content');
+    if (!frame) return;
+    const cands = this.emblemCandidates();
+    const key = cands.join('|');
+    if (frame.dataset.emblemKey === key) return;
+    frame.dataset.emblemKey = key;
+    if (!cands.length) { frame.style.removeProperty('--emblem'); frame.classList.remove('has-emblem'); return; }
+    // For each candidate name try .svg, .png, .webp, .jpg before falling back to the next name.
+    const exts = ['svg', 'png', 'webp', 'jpg'];
+    const tryNext = (i, e) => {
+      if (i >= cands.length) { frame.style.removeProperty('--emblem'); frame.classList.remove('has-emblem'); return; }
+      if (e >= exts.length) return tryNext(i + 1, 0);
+      const url = `/emblems/${cands[i]}.${exts[e]}`;
+      const img = new Image();
+      img.onload = () => { if (frame.dataset.emblemKey !== key) return; frame.style.setProperty('--emblem', `url("${url}")`); frame.classList.add('has-emblem'); };
+      img.onerror = () => tryNext(i, e + 1);
+      img.src = url;
+    };
+    tryNext(0, 0);
   },
 
   renderStep(opts = {}) {
@@ -8418,6 +8482,7 @@ const Creator = {
         <input type="text" id="f-concept" value="${escHtml(c.concept)}" placeholder="Or type your own concept..." style="margin-top:0.35rem" />
       </div>
     </div>
+    ${this.aboutBlockHTML(c, 'mage')}
 
     <div class="ornate-divider">— Affiliation —</div>
 
@@ -9508,10 +9573,7 @@ const Creator = {
     <!-- ── Notes ── -->
     <div class="summary-section" style="margin-top:1.5rem">
       <div class="summary-section-title">Character Description & Notes</div>
-      <div class="form-group" style="margin-bottom:1rem">
-        <label>Physical Description & Background</label>
-        <textarea id="f-description" rows="4" placeholder="Describe your mage's appearance, history, and personality...">${escHtml(c.description)}</textarea>
-      </div>
+      <p class="step-instructions" style="margin:0 0 0.75rem">Gender, pronouns, motivation and description live on Step I, and on your sheet afterwards.</p>
       <div class="form-group">
         <label>Storyteller Notes / Additional Details</label>
         <textarea id="f-notes" rows="3" placeholder="Goals, connections, hooks, special notes...">${escHtml(c.notes)}</textarea>
@@ -9639,6 +9701,41 @@ const Creator = {
   // Reuses Mage's renderPrioritySorter (id-compatible dropzones / chips).
 
   /* ── Mortal Step 0 — Concept ───────────────────────────────── */
+  // Step I "About your character": gender, pronouns, motivation, description. All optional.
+  aboutBlockHTML(c, kind = 'mage') {
+    const who = { mage: 'mage', hunter: 'hunter', sorcerer: 'sorcerer' }[kind] || 'character';
+    const motivHint = {
+      mage: 'What pulled them toward the Awakening, and what do they want from the Ascension War?',
+      hunter: 'What drives your hunter to keep going when everything says to stop?',
+      sorcerer: 'How did they come to the Art, and what do they want from it?',
+    }[kind] || '';
+    return `
+    <div class="step-section about-block">
+      <div class="step-section-title">About Your ${kind === 'mage' ? 'Mage' : kind === 'sorcerer' ? 'Sorcerer' : 'Hunter'} <span class="about-optional">optional</span></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Gender</label>
+          <input type="text" id="f-gender" maxlength="80" value="${escHtml(c.gender || '')}" placeholder="In their own words" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label>Pronouns</label>
+          <input type="text" id="f-pronouns" maxlength="40" list="pronoun-options" value="${escHtml(c.pronouns || '')}" placeholder="e.g. she/her, he/him, they/them" autocomplete="off" />
+          <datalist id="pronoun-options">
+            <option value="she/her"><option value="he/him"><option value="they/them"><option value="she/they"><option value="he/they"><option value="any pronouns"><option value="it/its">
+          </datalist>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Motivation</label>
+        <textarea id="f-motivation" rows="3" maxlength="1000" placeholder="${escHtml(motivHint)}">${escHtml(c.motivation || '')}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="f-description" rows="4" maxlength="4000" placeholder="Appearance, mannerisms, history: whatever you want others to see of your ${who}.">${escHtml(c.description || '')}</textarea>
+      </div>
+    </div>`;
+  },
+
   renderStep0Mortal() {
     const c = this.char;
     if (!c.customArchetypes) c.customArchetypes = [];
@@ -9742,14 +9839,7 @@ const Creator = {
       </div>
 
       ${sorc ? SorcererUI.conceptExtrasHTML(c) : ''}
-      <div class="step-section">
-        <div class="step-section-title">${sorc ? 'Background &amp; Motivation' : 'Motivation'}
-          <span class="info-tip" data-tip="${sorc ? 'How did your sorcerer come to the Art, and what do they want from it? Saved to Notes.' : 'Why does your hunter risk acceptance, freedom, and life to fight the Damned? Saved to Notes.'}">?</span>
-        </div>
-        <p class="step-instructions" style="margin-top:0">${sorc ? 'Who taught them? What did the Art cost them? Do they know about the Ascension War, and do they care?' : 'How was your hunter introduced to the supernatural? Why fight rather than run? What do they think of the Damned?'}</p>
-        <textarea class="form-input" id="f-mortal-motivation" rows="4" maxlength="1000"
-          placeholder="${sorc ? 'A few sentences on how they came to the Art and what they want from it…' : 'A few sentences describing what drives your hunter…'}">${escHtml(c.notes || '')}</textarea>
-      </div>
+      ${this.aboutBlockHTML(c, sorc ? 'sorcerer' : 'hunter')}
 
       <div class="ornate-divider">— Nature &amp; Demeanor —</div>
       <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0.6rem">
@@ -10533,11 +10623,11 @@ const Creator = {
   _attachMortalListeners(content) {
     const c = this.char;
 
-    // Mortal motivation textarea → save to c.notes
-    const motiv = content.querySelector('#f-mortal-motivation');
-    if (motiv) {
-      motiv.addEventListener('input', () => { c.notes = motiv.value; });
-    }
+    // Step I "About" fields (gender, pronouns, motivation, description), all optional
+    ['gender', 'pronouns', 'motivation', 'description'].forEach(f => {
+      const el = content.querySelector(`#f-${f}`);
+      if (el) el.addEventListener('input', () => { c[f] = el.value; });
+    });
 
     // Mortal attribute dots
     content.querySelectorAll('[data-mortal-attr]').forEach(grp => {
@@ -10625,6 +10715,13 @@ const Creator = {
     // Prism of Focus listeners (Step 0 mode picker, Step 4 focus section; no-op elsewhere)
     PrismUI.attachStep0(content, this);
     PrismUI.attachStep4(content, this);
+
+    this.updateEmblem();
+    if (!content._emblemBound) {
+      content._emblemBound = true;
+      content.addEventListener('change', () => this.updateEmblem());
+      content.addEventListener('click', () => setTimeout(() => this.updateEmblem(), 0));
+    }
 
     // Step 0 — Basic fields
     const bind = (id, field, transform) => {
@@ -10909,7 +11006,6 @@ const Creator = {
         paradigmSel.value = '';
       });
     }
-    bind('#f-description', 'description');
     bind('#f-notes', 'notes');
 
 
@@ -13509,6 +13605,14 @@ const FreeEdit = {
     <!-- Description & Notes -->
     <div class="fe-section">
       <div class="fe-section-title">Description & Notes</div>
+      <div class="fe-row" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <div class="fe-field" style="flex:1 1 12rem"><label>Gender</label>${this._input('gender', c.gender)}</div>
+        <div class="fe-field" style="flex:1 1 12rem"><label>Pronouns</label>${this._input('pronouns', c.pronouns)}</div>
+      </div>
+      <div class="fe-field" style="margin-bottom:0.75rem">
+        <label>Motivation</label>
+        ${this._textarea('motivation', c.motivation, 3)}
+      </div>
       <div class="fe-field" style="margin-bottom:0.75rem">
         <label>Description</label>
         ${this._textarea('description', c.description, 5)}
@@ -14066,6 +14170,8 @@ const Obsidian = {
       char.player    && `player: "${e(char.player)}"`,
       char.chronicle && `chronicle: "${e(char.chronicle)}"`,
       char.concept   && `concept: "${e(char.concept)}"`,
+      char.gender    && `gender: "${e(char.gender)}"`,
+      char.pronouns  && `pronouns: "${e(char.pronouns)}"`,
       aff            && `affiliation: "${e(aff)}"`,
       trad           && `tradition: "${e(trad)}"`,
       char.essence   && `essence: "${e(char.essence)}"`,
@@ -14246,6 +14352,9 @@ const Obsidian = {
     }
 
     // ── Description & Notes ──────────────────────────────────────────────────
+    const who = [char.gender, char.pronouns].filter(Boolean).join(' · ');
+    if (who)             { md += `**Gender / pronouns:** ${who}\n\n`; }
+    if (char.motivation) { md += `## Motivation\n\n${char.motivation}\n\n`; }
     if (char.description) { md += `## Description\n\n${char.description}\n\n---\n\n`; }
     if (char.notes)        { md += `## Notes\n\n${char.notes}\n\n---\n\n`; }
 

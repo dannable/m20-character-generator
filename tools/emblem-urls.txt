@@ -1,0 +1,17 @@
+# slug  image-URL (one per line). Run tools/fetch-emblems.sh where the wiki CDN is reachable.
+# No wiki logo found for: traditions, disparates, sorcerer (keep the placeholders).
+akashic-brotherhood https://static.wikia.nocookie.net/whitewolf/images/3/3f/LogoTradAkashicBrotherhood.png/revision/latest
+celestial-chorus https://static.wikia.nocookie.net/whitewolf/images/4/4c/LogoTradCelestialChorus.png/revision/latest
+cult-of-ecstasy https://static.wikia.nocookie.net/whitewolf/images/f/fb/LogoTradCultofEcstasy.png/revision/latest
+dreamspeakers https://static.wikia.nocookie.net/whitewolf/images/6/6e/LogoTradDreamspeakers.png/revision/latest
+euthanatoi https://static.wikia.nocookie.net/whitewolf/images/2/2e/LogoTradEuthanatos.png/revision/latest
+order-of-hermes https://static.wikia.nocookie.net/whitewolf/images/0/0e/LogoTradOrderofHermes.png/revision/latest
+society-of-ether https://static.wikia.nocookie.net/whitewolf/images/1/1f/LogoTradSonsofEther.png/revision/latest
+verbena https://static.wikia.nocookie.net/whitewolf/images/b/bb/LogoTradVerbena.png/revision/latest
+virtual-adepts https://static.wikia.nocookie.net/whitewolf/images/9/99/PERFECTADEPTLOGO2.0.png/revision/latest
+iteration-x https://static.wikia.nocookie.net/whitewolf/images/d/d4/LogoConvIterationX.png/revision/latest
+new-world-order https://static.wikia.nocookie.net/whitewolf/images/2/27/LogoConvNewWorldOrder.png/revision/latest
+progenitors https://static.wikia.nocookie.net/whitewolf/images/5/58/LogoConvProgenitors.png/revision/latest
+syndicate https://static.wikia.nocookie.net/whitewolf/images/5/5e/LogoConvSyndicate.png/revision/latest
+void-engineers https://static.wikia.nocookie.net/whitewolf/images/7/7f/LogoConvVoidEngineers.png/revision/latest
+technocracy https://static.wikia.nocookie.net/whitewolf/images/4/46/Faction-Technocracy.png/revision/latest

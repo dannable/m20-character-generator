@@ -765,6 +765,7 @@ a:hover { color: var(--gold-bright); }
 
 /* ─── Creator Content ────────────────────────────────────────── */
 .creator-content {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-lg);
@@ -773,7 +774,7 @@ a:hover { color: var(--gold-bright); }
   flex-direction: column;
 }
 
-#step-content { padding: 2rem; flex: 1; }
+#step-content { padding: 2rem; flex: 1; position: relative; z-index: 1; }
 
 .creator-nav {
   display: flex;
@@ -10463,3 +10464,23 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .btn-discord-inline { width: auto; padding: 0.55rem 1.2rem; }
 .settings-discord-avatar { border-radius: 50%; }
 #discord-register-wrap { margin-bottom: 0.25rem; }
+
+/* ── Step I: About your character ───────────────────────────────────────── */
+.about-block { margin-top: 1.25rem; }
+.about-optional { margin-left: 0.5rem; font-size: 0.68rem; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+.about-block textarea { width: 100%; resize: vertical; }
+.sheet-motivation { margin-bottom: 0.75rem; }
+.sheet-motivation .sheet-desc-input { width: 100%; }
+
+/* ── Faction emblem watermark in the creator frame ──────────────────────── */
+/* A zero-height sticky strip keeps the emblem pinned to the bottom-right of the visible part of the frame. */
+.creator-emblem { position: sticky; top: 0; height: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.creator-emblem::before {
+  content: ''; position: absolute; right: 1.5rem; top: calc(100vh - 31rem);
+  width: min(38%, 340px); aspect-ratio: 1; background: var(--emblem, none) center / contain no-repeat;
+  opacity: 0; transition: opacity 0.4s ease;
+}
+.creator-content.has-emblem .creator-emblem::before { opacity: 0.14; }
+html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { opacity: 0.15; filter: brightness(0.6) saturate(1.2); }
+@media (max-width: 700px) { .creator-emblem::before { right: 50%; transform: translateX(50%); width: 60%; top: calc(100vh - 28rem); } .creator-content.has-emblem .creator-emblem::before { opacity: 0.07; } }
+@media print { .creator-emblem { display: none; } }

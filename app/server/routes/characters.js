@@ -60,7 +60,7 @@ const EDITABLE_FIELDS = new Set([
   'talents','skills','knowledges','backgrounds','spheres','instruments','specialties',
   'merits','flaws','merit_labels','resonance','rotes','customArchetypes','custom_ability_names',
   'freebie_spent','attr_priority','ability_priority','description','notes','wonders',
-  'age','gender','hair','eyes','height','weight','ethnicity','gear','weapons',
+  'age','gender','pronouns','motivation','hair','eyes','height','weight','ethnicity','gear','weapons',
   'character_type','virtues','humanity','numina',
   // Sorcerer (see server/sorcerer.js)
   'numina_style','numina_secondary','casting_attribute','affinity_path','rituals','artifacts',
@@ -73,7 +73,7 @@ const EDITABLE_FIELDS = new Set([
 // even on chronicle-linked characters (health, Willpower spent, gear, bio …).
 const SHEET_STATE_FIELDS = new Set([
   'health_track','health_dead','willpower_spent','quintessence','paradox','resonance',
-  'rotes','description','notes','age','gender','hair','eyes','height','weight','ethnicity',
+  'rotes','description','notes','age','gender','pronouns','motivation','hair','eyes','height','weight','ethnicity',
   'gear','weapons','allow_bg_xp',
 ]);
 // Everything a direct write may touch. Deliberately excludes xp_earned / xp_log
