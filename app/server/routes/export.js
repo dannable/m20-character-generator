@@ -619,17 +619,26 @@ async function buildCharacterPDF(c) {
     // Left: Notes / Rotes
     let bL = botSep - 2;
     bL = SH(ML, bL, HW, isSorc ? 'Notes' : 'Notes / Rotes');
-    const nLines = wrapText(c.notes || '', HW - 5, fR, 7, 18);
+    const room = () => Math.max(0, Math.floor((bL - (BOT_MARGIN + 2)) / 9));
+    if (c.motivation) {
+      const mLines = wrapText(c.motivation, HW - 5, fR, 7, 4);
+      T('Motivation:', ML + 2, bL, 7, fB, ink.mid); bL -= 9;
+      mLines.forEach(l => { T(l, ML + 2, bL, 7, fR, ink.black); bL -= 9; });
+      bL -= 4;
+    }
+    const nLines = wrapText(c.notes || '', HW - 5, fR, 7, Math.min(18, room()));
     if (nLines.length) { nLines.forEach(l => { T(l, ML + 2, bL, 7, fR, ink.black); bL -= 9; }); }
-    else { T('--', ML + 2, bL, 7, fI, ink.dim); }
+    else if (!c.motivation) { T('--', ML + 2, bL, 7, fI, ink.dim); }
 
     // Right: Description / Background
     const DX = ML + HW + 8;
     let bR = botSep - 2;
     bR = SH(DX, bR, HW, 'Description / Background');
-    const dLines = wrapText(c.description || '', HW - 5, fR, 7, 18);
+    const who = [c.gender && `Gender: ${c.gender}`, c.pronouns && `Pronouns: ${c.pronouns}`].filter(Boolean).join('   ');
+    if (who) { T(fit(who, HW - 5, fB, 7), DX + 2, bR, 7, fB, ink.mid); bR -= 11; }
+    const dLines = wrapText(c.description || '', HW - 5, fR, 7, Math.min(18, Math.max(0, Math.floor((bR - (BOT_MARGIN + 2)) / 9))));
     if (dLines.length) { dLines.forEach(l => { T(l, DX + 2, bR, 7, fR, ink.black); bR -= 9; }); }
-    else { T('--', DX + 2, bR, 7, fI, ink.dim); }
+    else if (!who) { T('--', DX + 2, bR, 7, fI, ink.dim); }
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
