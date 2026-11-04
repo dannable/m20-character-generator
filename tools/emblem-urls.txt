@@ -1,0 +1,4 @@
+# slug  image-URL        (slugs: akashic-brotherhood celestial-chorus cult-of-ecstasy dreamspeakers euthanatoi
+#                         order-of-hermes society-of-ether verbena virtual-adepts iteration-x new-world-order
+#                         progenitors syndicate void-engineers, plus groups: traditions technocracy disparates sorcerer)
+virtual-adepts https://static.wikia.nocookie.net/whitewolf/images/9/99/PERFECTADEPTLOGO2.0.png/revision/latest?cb=20190911103530

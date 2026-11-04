@@ -7597,7 +7597,7 @@ const Creator = {
   },
 
   // ── Faction emblem watermark in the builder frame ──────────────────────────
-  // /emblems/<slug>.svg (or .png/.webp via EMBLEM_EXT) per Tradition / Convention / Craft; falls back to
+  // /emblems/<slug>.svg, .png or .webp per Tradition / Convention / Craft; falls back to
   // the group emblem (traditions, technocracy, disparates) and, for Sorcerers, sorcerer-<affiliation>
   // then sorcerer. Drop a file with the right name into app/public/emblems to replace any of them.
   emblemSlug(name) { return String(name || '').replace(/\(.*?\)/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); },
@@ -7616,15 +7616,18 @@ const Creator = {
     if (frame.dataset.emblemKey === key) return;
     frame.dataset.emblemKey = key;
     if (!cands.length) { frame.style.removeProperty('--emblem'); frame.classList.remove('has-emblem'); return; }
-    const tryNext = i => {
+    // For each candidate name try .svg, .png, .webp, .jpg before falling back to the next name.
+    const exts = ['svg', 'png', 'webp', 'jpg'];
+    const tryNext = (i, e) => {
       if (i >= cands.length) { frame.style.removeProperty('--emblem'); frame.classList.remove('has-emblem'); return; }
-      const url = `/emblems/${cands[i]}.svg`;
+      if (e >= exts.length) return tryNext(i + 1, 0);
+      const url = `/emblems/${cands[i]}.${exts[e]}`;
       const img = new Image();
       img.onload = () => { if (frame.dataset.emblemKey !== key) return; frame.style.setProperty('--emblem', `url("${url}")`); frame.classList.add('has-emblem'); };
-      img.onerror = () => tryNext(i + 1);
+      img.onerror = () => tryNext(i, e + 1);
       img.src = url;
     };
-    tryNext(0);
+    tryNext(0, 0);
   },
 
   renderStep(opts = {}) {
