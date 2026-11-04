@@ -595,4 +595,15 @@ try { db.exec(`ALTER TABLE users ADD COLUMN discord_linked_at DATETIME`); } catc
 try { db.exec(`ALTER TABLE users ADD COLUMN has_password INTEGER NOT NULL DEFAULT 1`); } catch {}
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id) WHERE discord_id IS NOT NULL`);
 
+// ── About-your-character fields (Step I) ─────────────────────────────────────
+// gender and description already exist; pronouns and motivation are new. Mortal and Sorcerer
+// Step I used to keep their motivation text in notes, so move it across once.
+try { db.exec(`ALTER TABLE characters ADD COLUMN pronouns TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN motivation TEXT DEFAULT ''`); } catch {}
+if (!db.prepare(`SELECT 1 FROM app_meta WHERE key = 'motivation_migrated'`).get()) {
+  db.prepare(`UPDATE characters SET motivation = notes, notes = ''
+              WHERE character_type IN ('mortal','sorcerer') AND COALESCE(motivation,'') = '' AND COALESCE(notes,'') != ''`).run();
+  db.prepare(`INSERT INTO app_meta (key, value) VALUES ('motivation_migrated', '1')`).run();
+}
+
 module.exports = db;
