@@ -10484,3 +10484,12 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { opacity: 0.15; filter: brightness(0.6) saturate(1.2); }
 @media (max-width: 700px) { .creator-emblem::before { right: 50%; transform: translateX(50%); width: 60%; top: calc(100vh - 28rem); } .creator-content.has-emblem .creator-emblem::before { opacity: 0.07; } }
 @media print { .creator-emblem { display: none; } }
+
+/* Prism Advancement */
+.adv-block-note { font-size: 0.75rem; color: var(--text-dim); font-style: italic; flex-basis: 100%; }
+.prism-adv-tenet { row-gap: 0.35rem; }
+.prism-adv-tenet .adv-trait-name { flex: 0 0 7.5rem; }
+.prism-adv-tenet .adv-sec-tag { display: block; margin-left: 0; }
+.prism-adv-tenet-cur { flex: 1 1 8rem; min-width: 0; font-size: 0.9rem; }
+.prism-adv-tenet-cur em { color: var(--text-faint); }
+.prism-adv-tenet select { flex: 1 1 11rem; max-width: 16rem; }

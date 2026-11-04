@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { PRISM, normalizeCharacterFocus } = require('../prism');
+const PrismXp = require('../prism');
 const Sorc = require('../sorcerer');
 const { normalizeCharacterSorcerer } = Sorc;
 const Rules = require('../validate');
@@ -529,7 +530,7 @@ const SCALAR_TRAIT_COLS = new Set([
   'strength','dexterity','stamina','charisma','manipulation','appearance',
   'perception','intelligence','wits','arete','willpower',
 ]);
-const JSON_TRAIT_COLS = new Set(['talents','skills','knowledges','backgrounds','spheres','practice_ratings']);
+const JSON_TRAIT_COLS = new Set(['talents','skills','knowledges','backgrounds','spheres']);
 const ABILITY_COLS = new Set(['talents','skills','knowledges']);
 const M20DATA = require(require('path').join(__dirname, '..', '..', 'public', 'js', 'data.js'));
 const KNOWN_ABILITY_IDS = new Set(['TALENTS','SKILLS','KNOWLEDGES','SECONDARY_TALENTS','SECONDARY_SKILLS','SECONDARY_KNOWLEDGES']
@@ -588,16 +589,28 @@ router.post('/:id/xp/spend', (req, res) => {
       return res.status(400).json({ error: 'Invalid request body' });
     }
     if (toVal !== fromVal + 1) return res.status(400).json({ error: 'Can only raise one dot at a time' });
-    if (cost < 1) return res.status(400).json({ error: 'Invalid cost' });
+    const isPrismSpend = PrismXp.XP_GROUPS.has(trait_group);
+    // Adding a tenet to an empty category is free; every other spend costs at least 1 XP
+    if (cost < 1 && !(trait_group === 'tenet' && cost === 0)) return res.status(400).json({ error: 'Invalid cost' });
+    if (cost < 0) return res.status(400).json({ error: 'Invalid cost' });
     const isSorcSpend = Sorc.XP_GROUPS.has(trait_group);
+    if (isPrismSpend) {
+      let prismRules = {};
+      if (char.chronicle_id) {
+        const chron = db.prepare('SELECT rules FROM chronicles WHERE id = ?').get(char.chronicle_id);
+        try { prismRules = JSON.parse(chron?.rules || '{}').prism || {}; } catch {}
+      }
+      const err = PrismXp.validateXpSpend(char, req.body, prismRules, isAdmin);
+      if (err) return res.status(400).json({ error: err });
+    }
     if (isSorcSpend) { const err = Sorc.validateXpSpend(char, req.body); if (err) return res.status(400).json({ error: err }); }
-    if (!isSorcSpend && trait_col && !JSON_TRAIT_COLS.has(trait_col)) return res.status(400).json({ error: 'Invalid trait column' });
+    if (!isSorcSpend && !isPrismSpend && trait_col && !JSON_TRAIT_COLS.has(trait_col)) return res.status(400).json({ error: 'Invalid trait column' });
     // Ability columns: the key must be a known ability, one of the character's custom abilities,
     // or a chronicle custom ability — never an arbitrary string.
     if (trait_col && ABILITY_COLS.has(trait_col) && !isKnownAbilityKey(char, trait_col, trait_key)) {
       return res.status(400).json({ error: 'Unknown ability' });
     }
-    if (!isSorcSpend && !trait_col && trait_group !== 'resonance' && !SCALAR_TRAIT_COLS.has(trait_key)) {
+    if (!isSorcSpend && !isPrismSpend && !trait_col && trait_group !== 'resonance' && !SCALAR_TRAIT_COLS.has(trait_key)) {
       return res.status(400).json({ error: 'Invalid trait key' });
     }
 
@@ -608,7 +621,13 @@ router.post('/:id/xp/spend', (req, res) => {
     if (cost > xpAvailable) return res.status(400).json({ error: `Not enough XP (have ${xpAvailable}, need ${cost})` });
 
     // Apply trait update
-    if (isSorcSpend) {
+    const prismEntry = isPrismSpend ? {
+      trait_group, trait_key, from: fromVal, to: toVal,
+      ...(trait_group === 'tenet' ? { tenet_from: String(req.body.tenet_from || ''), tenet_to: String(req.body.tenet || ''), preset_before: char.paradigm_preset || '' } : {}),
+    } : null;
+    if (isPrismSpend) {
+      PrismXp.writeXpUpdates(db, char.id, PrismXp.applyXpSpend(char, prismEntry, 1));
+    } else if (isSorcSpend) {
       const entry = { trait_group, trait_key, from: fromVal, to: toVal, ritual: req.body.ritual, value: req.body.value };
       const up = Sorc.applyXpSpend(char, entry, 1);
       if (up) db.prepare(`UPDATE characters SET ${up.col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(up.value, char.id);
@@ -637,6 +656,7 @@ router.post('/:id/xp/spend', (req, res) => {
       from: fromVal, to: toVal, cost, date: new Date().toISOString(),
       ...(isSorcSpend && trait_group === 'ritual' ? { ritual: { id: String(req.body.ritual.id || ''), path: String(req.body.ritual.path), name: String(req.body.ritual.name || '').slice(0, 80), level: parseInt(req.body.ritual.level, 10) || 1, notes: String(req.body.ritual.notes || '').slice(0, 2000) } } : {}),
       ...(isSorcSpend && trait_group === 'numina_style' ? { value: req.body.value } : {}),
+      ...(isPrismSpend && trait_group === 'tenet' ? { tenet_from: prismEntry.tenet_from, tenet_to: prismEntry.tenet_to, preset_before: prismEntry.preset_before } : {}),
     });
     db.prepare(`UPDATE characters SET xp_log = ? WHERE id = ?`).run(JSON.stringify(xpLog), char.id);
     res.json({ ok: true, xp_log: xpLog });
@@ -663,7 +683,9 @@ router.delete('/:id/xp/:logIndex', (req, res) => {
 
     // Revert trait to the pre-spend value stored in the log entry
     const { trait_group, trait_col, trait_key, from: fromVal } = entry;
-    if (Sorc.XP_GROUPS.has(trait_group)) {
+    if (PrismXp.XP_GROUPS.has(trait_group)) {
+      PrismXp.writeXpUpdates(db, char.id, PrismXp.applyXpSpend(char, entry, -1));
+    } else if (Sorc.XP_GROUPS.has(trait_group)) {
       const up = Sorc.applyXpSpend(char, entry, -1);
       if (up) db.prepare(`UPDATE characters SET ${up.col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(up.value, char.id);
     } else if (trait_col && JSON_TRAIT_COLS.has(trait_col)) {
