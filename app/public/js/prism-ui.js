@@ -420,6 +420,101 @@ const PrismUI = {
    member badges, settings default. Mirrors server/prism.js sanitizeChronicleRules.
    ═══════════════════════════════════════════════════════════════════════════ */
 Object.assign(PrismUI, {
+  /* ── Advancement (XP) ────────────────────────────────────────────────────── */
+  /** Is the ability requirement a hard block for this character right now? */
+  _advHard(c) { return this.rules(c).enforceAbilityRequirement !== false && App.currentUser?.role !== 'admin'; },
+
+  /** Practices and Tenets for the Advancement page (Prism characters only). */
+  advSection(adv, c, rem) {
+    if (!this.isPrism(c)) return '';
+    this.ensure(c);
+    const hard = this._advHard(c);
+    const need2 = PRISM.COSTS.abilityDotsPerPracticeDot;
+    const ids = Object.keys(c.practice_ratings).filter(id => (c.practice_ratings[id] || 0) > 0 && PRISM.practiceById(id))
+      .sort((a, b) => PRISM.practiceById(a).name.localeCompare(PRISM.practiceById(b).name));
+    const rows = ids.map(id => {
+      const p = PRISM.practiceById(id); const cur = c.practice_ratings[id];
+      const spec = c.practice_specialties[id] && PRISM.specialtyById(c.practice_specialties[id]);
+      const have = PRISM.associatedAbilityDots(c, id);
+      const block = (hard && cur < 5 && have < (cur + 1) * need2) ? `Needs ${(cur + 1) * need2} Associated Ability dots (have ${have})` : '';
+      const label = spec ? `${escHtml(spec.name)} <span class="prism-base">(${escHtml(p.name)})</span>` : escHtml(p.name);
+      return adv._advRow('practice', 'practice_ratings', id, label, cur, 5, rem, false, block);
+    }).join('');
+    const learnable = this.allowedPractices(c).filter(p => !(c.practice_ratings[p.id] > 0));
+    const newCost = PRISM.COSTS.practice.xpNew;
+    const learn = learnable.length ? `
+      <div class="adv-trait-row adv-learn-row">
+        <select class="prism-adv-learn" ${rem < newCost ? 'disabled' : ''}>
+          <option value="">＋ Learn a new Practice… (${newCost} XP)</option>
+          ${learnable.map(p => {
+            const have = PRISM.associatedAbilityDots(c, p.id);
+            const short = hard && have < need2;
+            return `<option value="${p.id}" ${short ? 'disabled' : ''}>${escHtml(p.name)}${short ? ` — needs ${need2} Associated Ability dots (have ${have})` : ''}</option>`;
+          }).join('')}
+        </select>
+      </div>` : '';
+
+    const count = this.tenetCount(c);
+    const cap = PRISM.areteCap(c.tenets);
+    const tenetRows = PRISM.TENET_CATEGORIES.map(cat => {
+      const curId = c.tenets[cat.id] || '';
+      const cur = curId && PRISM.tenetById(curId);
+      const cost = curId ? count : 0;
+      const opts = this.tenetsFor(c, cat.id).filter(t => t.id !== curId);
+      const canRemove = !!curId && !cat.required && count - 1 >= PRISM.COSTS.minTenets && (parseInt(c.arete, 10) || 0) <= PRISM.areteCap({ ...c.tenets, [cat.id]: undefined });
+      const afford = rem >= cost;
+      return `<div class="adv-trait-row prism-adv-tenet" data-cat="${cat.id}" style="flex-wrap:wrap;gap:0.4rem">
+        <span class="adv-trait-name">${escHtml(cat.name)}${cat.required ? '' : ' <em class="adv-sec-tag">optional</em>'}</span>
+        <span class="prism-adv-tenet-cur">${cur ? escHtml(cur.name) : '<em>none</em>'}</span>
+        ${opts.length ? `<select class="prism-adv-tenet-select" data-cat="${cat.id}">
+            <option value="">${curId ? 'Replace with…' : 'Add a tenet…'}</option>
+            ${opts.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('')}
+          </select>
+          <button type="button" class="btn-ghost btn-sm prism-adv-tenet-apply" data-cat="${cat.id}" data-cost="${cost}" disabled>${curId ? `Replace (${cost} XP)` : 'Add (free)'}</button>` : ''}
+        ${canRemove ? `<button type="button" class="btn-ghost btn-sm prism-adv-tenet-remove" data-cat="${cat.id}" data-cost="${cost}" ${afford ? '' : 'disabled'}>Remove (${cost} XP)</button>` : ''}
+        ${!afford && curId ? '<span class="adv-block-note">Not enough XP</span>' : ''}
+      </div>`;
+    }).join('');
+
+    return `<div class="adv-section" id="adv-prism">
+      <h3 class="adv-section-title">Practices <span class="adv-sec-tag">Prism of Focus</span></h3>
+      <p class="adv-info-note">A new Practice costs ${newCost} XP; raising one costs its current rating. Each dot needs ${need2} dots in its Associated Abilities${hard ? '' : ' (not enforced for this character)'}.</p>
+      ${rows || '<p class="adv-info-note">No Practices yet.</p>'}${learn}
+      <h3 class="adv-section-title" style="margin-top:1rem">Tenets</h3>
+      <p class="adv-info-note">Adding a tenet to an empty category is free. Replacing or removing a tenet costs XP equal to your current number of tenets (${count}). Tenets cap Arete at ${cap} until you hold ${PRISM.COSTS.areteCapByTenetsUntil}.</p>
+      ${tenetRows}
+    </div>`;
+  },
+
+  attachAdvancement(adv) {
+    const root = document.getElementById('adv-prism'); if (!root) return;
+    const c = adv.char;
+    const learn = root.querySelector('.prism-adv-learn');
+    if (learn) learn.addEventListener('change', () => {
+      const id = learn.value; if (!id) return; learn.value = '';
+      const p = PRISM.practiceById(id);
+      adv._spendXP({ group: 'practice', col: 'practice_ratings', key: id, label: p.name, from: '0', to: '1', cost: String(PRISM.COSTS.practice.xpNew) });
+    });
+    root.querySelectorAll('.prism-adv-tenet-select').forEach(sel => sel.addEventListener('change', () => {
+      const btn = root.querySelector(`.prism-adv-tenet-apply[data-cat="${sel.dataset.cat}"]`);
+      if (btn) btn.disabled = !sel.value || adv._xpRemaining() < parseInt(btn.dataset.cost, 10);
+    }));
+    const swap = (cat, to, cost) => {
+      const catDef = PRISM.TENET_CATEGORIES.find(x => x.id === cat);
+      const from = c.tenets[cat] || '';
+      const fromName = from ? PRISM.tenetById(from).name : 'none';
+      const toName = to ? PRISM.tenetById(to).name : 'none';
+      const detail = `${catDef.name} tenet: ${fromName} → ${toName}`;
+      if (cost > 0 && !confirm(`${detail}\n\nThis costs ${cost} XP. Continue?`)) return;
+      adv._spendXP({ group: 'tenet', col: 'tenets', key: cat, label: detail, from: '0', to: '1', cost: String(cost), tenet: to, tenet_from: from });
+    };
+    root.querySelectorAll('.prism-adv-tenet-apply').forEach(btn => btn.addEventListener('click', () => {
+      const sel = root.querySelector(`.prism-adv-tenet-select[data-cat="${btn.dataset.cat}"]`);
+      if (sel && sel.value) swap(btn.dataset.cat, sel.value, parseInt(btn.dataset.cost, 10));
+    }));
+    root.querySelectorAll('.prism-adv-tenet-remove').forEach(btn => btn.addEventListener('click', () => swap(btn.dataset.cat, '', parseInt(btn.dataset.cost, 10))));
+  },
+
   FOCUS_MODE_LABELS: { player_choice: 'Player’s choice', core: 'M20 Core only', prism: 'Prism of Focus only' },
 
   stRulesActive(rules) {

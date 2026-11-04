@@ -2,6 +2,7 @@ const express = require('express');
 const db      = require('../db');
 const { sanitizeChronicleRules: sanitizePrismRules } = require('../prism');
 const Sorc = require('../sorcerer');
+const PrismXp = require('../prism');
 const { sanitizeSorcererRules } = Sorc;
 // Chronicle rules pass through every rule-set sanitiser (Prism of Focus, Sorcerer)
 function sanitizeChronicleRules(rules) {
@@ -302,7 +303,9 @@ router.post('/:id/members/:charId/xp/review', (req, res) => {
         'perception','intelligence','wits','arete','willpower']);
       const { trait_group, trait_col, trait_key, from: fromVal } = entry;
 
-      if (Sorc.XP_GROUPS.has(trait_group)) {
+      if (PrismXp.XP_GROUPS.has(trait_group)) {
+        PrismXp.writeXpUpdates(db, char.id, PrismXp.applyXpSpend(char, entry, -1));
+      } else if (Sorc.XP_GROUPS.has(trait_group)) {
         const up = Sorc.applyXpSpend(char, entry, -1);
         if (up) db.prepare(`UPDATE characters SET ${up.col} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(up.value, char.id);
       } else if (trait_col && JSON_TRAIT_COLS.has(trait_col)) {

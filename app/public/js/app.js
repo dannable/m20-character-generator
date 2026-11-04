@@ -319,6 +319,7 @@ function xpCost(traitGroup, currentVal, isAffinitySphere = false) {
     case 'arete':      return currentVal * 8;
     case 'willpower':  return currentVal * 1;
     case 'resonance':  return currentVal * 2;
+    case 'practice':   return currentVal === 0 ? PRISM.COSTS.practice.xpNew : currentVal;           // Prism of Focus: new 3, raise = current rating
     default: return null;
   }
 }
@@ -14716,6 +14717,13 @@ const Advancement = {
     this.char = JSON.parse(JSON.stringify(char)); // deep copy
     App.showPage('advancement');
     this._render();
+    // Prism spends depend on the chronicle's focus rules; load them if the sheet did not carry them
+    if (this.char.chronicle_id && !this.char._chronicleRules) {
+      const id = this.char.id;
+      fetch(`/api/chronicles/${this.char.chronicle_id}`).then(r => r.ok ? r.json() : null).then(chron => {
+        if (chron && this.char && this.char.id === id) { this.char._chronicleRules = chron.rules || {}; this._render(); }
+      }).catch(() => {});
+    }
     document.getElementById('btn-adv-back')?.addEventListener('click', () => {
       App.viewCharacter(this.char.id);
     });
@@ -14806,6 +14814,7 @@ const Advancement = {
           </div>
 
           ${char.character_type === 'sorcerer' ? SorcererUI.advNuminaSection(this, char, remaining) : this._sphereSection(char, remaining)}
+          ${PrismUI.advSection(this, char, remaining)}
           ${this._otherSection(char, remaining)}
         </div>
 
@@ -14847,8 +14856,8 @@ const Advancement = {
           <div class="adv-log-main">
             <span class="adv-log-date">${d}</span>
             <span class="adv-log-desc">${escHtml(e.trait_label || e.trait_key)}
-              <span class="adv-log-arrow">${e.from}→${e.to}</span>
-              <strong class="adv-log-cost">−${e.cost}</strong>
+              ${e.trait_group === 'tenet' ? '' : `<span class="adv-log-arrow">${e.from}→${e.to}</span>`}
+              <strong class="adv-log-cost">${e.cost ? `−${e.cost}` : 'free'}</strong>
             </span>
           </div>
           ${stateHTML}
@@ -14872,10 +14881,10 @@ const Advancement = {
   },
 
   // ── Row builder ─────────────────────────────────────────────────────────────
-  _advRow(traitGroup, traitCol, traitKey, traitLabel, currentVal, maxVal, xpRemaining, isAffinitySphere = false) {
+  _advRow(traitGroup, traitCol, traitKey, traitLabel, currentVal, maxVal, xpRemaining, isAffinitySphere = false, blockReason = '') {
     const cost    = xpCost(traitGroup, currentVal, isAffinitySphere);
     const atMax   = currentVal >= maxVal;
-    const canAfford = !atMax && cost != null && xpRemaining >= cost;
+    const canAfford = !atMax && cost != null && xpRemaining >= cost && !blockReason;
 
     const dotCount = Math.min(maxVal, 10);
     const dotSpans = Array.from({length: dotCount}, (_, i) =>
@@ -14886,6 +14895,7 @@ const Advancement = {
       ? `<span class="adv-at-max">Max</span>`
       : cost == null ? ''
       : `<span class="adv-cost${canAfford ? '' : ' adv-unaffordable'}">${cost} XP</span>`;
+    const blockNote = (!atMax && blockReason) ? `<span class="adv-block-note">${escHtml(blockReason)}</span>` : '';
 
     const btn = (atMax || cost == null) ? '' :
       `<button class="btn-ghost btn-sm adv-raise-btn"
@@ -14907,6 +14917,7 @@ const Advancement = {
       ${costLabel}
       ${btn}
       ${undoBtn}
+      ${blockNote}
     </div>`;
   },
 
@@ -14985,7 +14996,9 @@ const Advancement = {
 
   _otherSection(char, rem) {
     const noArete  = char.character_type === 'sorcerer' || char.character_type === 'mortal';
-    const areteRow = noArete ? '' : this._advRow('arete', null, 'arete', 'Arete', char.arete || 1, 10, rem);
+    const areteMax = PrismUI.isPrism(char) ? Math.max(char.arete || 1, PRISM.areteCap(char.tenets)) : 10;   // Prism: tenet count caps Arete until 6 tenets
+    const areteNote = (PrismUI.isPrism(char) && areteMax < 10 && (char.arete || 1) >= areteMax) ? `<p class="adv-info-note">Arete is capped at ${areteMax} by the number of tenets (${PrismUI.tenetCount(char)}); more tenets lift the cap.</p>` : '';
+    const areteRow = noArete ? '' : this._advRow('arete', null, 'arete', 'Arete', char.arete || 1, areteMax, rem) + areteNote;
     const wpRow    = this._advRow('willpower', null, 'willpower', 'Willpower', char.willpower || 5, 10, rem);
 
     const resonances = Array.isArray(char.resonance) ? char.resonance : [];
@@ -15050,6 +15063,7 @@ const Advancement = {
     });
 
     if (this.char.character_type === 'sorcerer') SorcererUI.attachAdvancement(this);
+    PrismUI.attachAdvancement(this);
     this._attachRaiseBtns();
   },
 
@@ -15122,6 +15136,7 @@ const Advancement = {
           from: fromVal, to: toVal, cost,
           ...(dataset.ritual ? { ritual: dataset.ritual } : {}),
           ...(dataset.value ? { value: dataset.value } : {}),
+          ...(group === 'tenet' ? { tenet: dataset.tenet || '', tenet_from: dataset.tenet_from || '' } : {}),
         }),
       });
       if (!r.ok) {
@@ -15131,7 +15146,7 @@ const Advancement = {
       const data = await r.json();
       this.char.xp_log = data.xp_log;
       this._applyTraitUpdate(group, col || null, key, toVal, dataset);
-      toast(`${label.replace(/<[^>]+>/g,'')} raised to ${toVal} (−${cost} XP).`);
+      toast(group === 'tenet' ? `${label.replace(/<[^>]+>/g,'')} (${cost ? `−${cost} XP` : 'free'}).` : `${label.replace(/<[^>]+>/g,'')} raised to ${toVal} (−${cost} XP).`);
       this._render();
     } catch { toast('Failed to spend XP.', 'error'); }
   },
@@ -15210,6 +15225,13 @@ const Advancement = {
       if (dataset.ritual) this.char.rituals.push(dataset.ritual);
     } else if (group === 'numina_style') {
       this.char.numina_secondary = dataset.value || '';
+    } else if (group === 'practice') {
+      if (!this.char.practice_ratings) this.char.practice_ratings = {};
+      this.char.practice_ratings[key] = newVal;
+    } else if (group === 'tenet') {
+      if (!this.char.tenets) this.char.tenets = {};
+      if (dataset.tenet) this.char.tenets[key] = dataset.tenet; else delete this.char.tenets[key];
+      this.char.paradigm_preset = '';
     } else if (group === 'attribute' || group === 'arete' || group === 'willpower') {
       this.char[key] = newVal;
     } else if (col && ['talents','skills','knowledges','backgrounds','spheres'].includes(col)) {

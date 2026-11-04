@@ -5,6 +5,7 @@ const db      = require('../db');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const SORCERER = require('../../public/js/data-sorcerer.js');
 const M20DATA  = require('../../public/js/data.js');
+const PRISM    = require('../../public/js/data-prism.js');
 
 /* ── Field parsing ──────────────────────────────────────────────────────────── */
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
@@ -504,6 +505,34 @@ async function buildCharacterPDF(c) {
       y1 -= 2; T('Practices:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
       wrapText(prac.join('; '), CW - 5, fR, 6.5, 6).forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; });
     }
+  } else if (c.focus_mode === 'prism') {
+  // Prism of Focus: Tenets by category, then rated Practices (Instruments are not used in this mode)
+  const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : (() => { try { const o = JSON.parse(v); return (o && typeof o === 'object') ? o : {}; } catch { return {}; } })();
+  const tenets = obj(c.tenets), ratings = obj(c.practice_ratings), specs = obj(c.practice_specialties);
+  y1 -= 4; y1 = GH(C1, y1, CW, 'Magical Focus (Prism)');
+  T('Tenets:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;
+  let anyTenet = false;
+  PRISM.TENET_CATEGORIES.forEach(cat => {
+    const t = tenets[cat.id] && PRISM.tenetById(tenets[cat.id]);
+    if (!t) return;
+    anyTenet = true;
+    const lines = wrapText(`${cat.name}: ${t.name}`, CW - 5, fR, 6.5, 2);
+    lines.forEach(l => { T(l, C1 + 3, y1, 6.5, fR, ink.black); y1 -= 8; });
+  });
+  if (!anyTenet) { T('None chosen', C1 + 3, y1, 6.5, fI, ink.dim); y1 -= 8; }
+  y1 -= 3;
+  T('Practices:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 10;
+  const pr = Object.entries(ratings).filter(([id, r]) => PRISM.practiceById(id) && r > 0)
+    .sort((a, b) => b[1] - a[1] || PRISM.practiceById(a[0]).name.localeCompare(PRISM.practiceById(b[0]).name));
+  pr.forEach(([id, r]) => {
+    const base = PRISM.practiceById(id);
+    const sp = specs[id] && PRISM.specialtyById(specs[id]);
+    const name = sp ? `${sp.name} (${base.name})` : base.name;
+    T(fit(name, CW - 48, fR, 6.5), C1 + 3, y1, 6.5, fR, ink.black);
+    DOTS(C1 + CW - 40, y1 - 1, Math.min(5, r), 5, 2.2, 7.5);
+    y1 -= 9;
+  });
+  if (!pr.length) { T('None', C1 + 3, y1, 6.5, fI, ink.dim); y1 -= 8; }
   } else {
   y1 -= 4; y1 = GH(C1, y1, CW, 'Magical Focus');
   T('Paradigm:', C1 + 2, y1, 6.5, fB, ink.mid); y1 -= 9;

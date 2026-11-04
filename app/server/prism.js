@@ -162,8 +162,111 @@ function sanitizeChronicleRules(rules) {
   return rules;
 }
 
+// ── XP spends on Prism traits (Phase 6) ──────────────────────────────────────
+// trait_group 'practice' → practice_ratings[key] from→to (col 'practice_ratings'); new = 3 XP, raise = current rating
+// trait_group 'tenet'    → tenets[category] = body.tenet ('' removes); free when the category is empty,
+//                          otherwise the current number of tenets (replace or remove). from/to are 0/1 placeholders.
+const XP_GROUPS = new Set(['practice', 'tenet']);
+const REQUIRED_TENET_CATEGORIES = new Set(PRISM.TENET_CATEGORIES.filter(c => c.required).map(c => c.id));
+
+function practiceXpCost(current) { return current === 0 ? PRISM.COSTS.practice.xpNew : current; }
+function tenetXpCost(tenets, category) {
+  const t = cleanTenets(tenets);
+  return t[category] ? Object.keys(t).length : 0;
+}
+
+/**
+ * Validate a Prism XP spend body against the stored character.
+ * @param rules  the chronicle's rules.prism object ({} outside chronicles)
+ * @param bypass true for admins: skips chronicle restrictions and the ability requirement
+ * Returns an error string or null.
+ */
+function validateXpSpend(charRow, body, rules = {}, bypass = false) {
+  if (charRow.focus_mode !== 'prism') return 'Only Prism of Focus characters can spend XP on Practices and Tenets';
+  const { trait_group, trait_key, from, to, cost } = body;
+  if (trait_group === 'practice') {
+    if (body.trait_col !== 'practice_ratings') return 'Invalid trait column';
+    if (!PRACTICE_IDS.has(trait_key)) return 'Unknown Practice';
+    const ratings = cleanPracticeRatings(charRow.practice_ratings);
+    const cur = ratings[trait_key] || 0;
+    if (from !== cur) return `Rating mismatch (have ${cur})`;
+    if (to !== cur + 1) return 'Can only raise one dot at a time';
+    if (to > 5) return 'Rating cannot exceed 5';
+    if (cur === 0 && !bypass && Array.isArray(rules.allowedPractices) && !rules.allowedPractices.includes(trait_key)) return 'That Practice is not allowed in this chronicle';
+    if (cost !== practiceXpCost(cur)) return `Wrong cost (should be ${practiceXpCost(cur)})`;
+    if (!bypass && rules.enforceAbilityRequirement !== false) {
+      const have = { talents: asObj(charRow.talents), skills: asObj(charRow.skills), knowledges: asObj(charRow.knowledges) };
+      if (PRISM.maxPracticeRating(have, trait_key) < to) return `Not enough Associated Abilities for ${PRISM.practiceById(trait_key).name} ${to} (needs ${to * PRISM.COSTS.abilityDotsPerPracticeDot} dots)`;
+    }
+    return null;
+  }
+  if (trait_group === 'tenet') {
+    if (body.trait_col !== 'tenets') return 'Invalid trait column';
+    if (!TENET_CATEGORY_IDS.has(trait_key)) return 'Unknown tenet category';
+    if (from !== 0 || to !== 1) return 'Invalid range';
+    const tenets = cleanTenets(charRow.tenets);
+    const cur = tenets[trait_key] || '';
+    const next = typeof body.tenet === 'string' ? body.tenet : '';
+    if ((body.tenet_from || '') !== cur) return 'The current tenet has changed; reload and try again';
+    if (next === cur) return 'No change';
+    const after = { ...tenets };
+    if (next) {
+      const t = PRISM.tenetById(next);
+      if (!t || t.category !== trait_key) return 'Unknown tenet for that category';
+      const allow = rules.allowedTenets && Array.isArray(rules.allowedTenets[trait_key]) ? rules.allowedTenets[trait_key] : null;
+      if (!bypass && allow && !allow.includes(next)) return 'That tenet is not allowed in this chronicle';
+      after[trait_key] = next;
+    } else {
+      if (REQUIRED_TENET_CATEGORIES.has(trait_key)) return 'That tenet category is required';
+      delete after[trait_key];
+      if (Object.keys(after).length < PRISM.COSTS.minTenets) return `A character needs at least ${PRISM.COSTS.minTenets} tenets`;
+    }
+    if (!bypass && (parseInt(charRow.arete, 10) || 0) > PRISM.areteCap(after)) return `Arete ${charRow.arete} needs more tenets (cap ${PRISM.areteCap(after)})`;
+    if (cost !== tenetXpCost(tenets, trait_key)) return `Wrong cost (should be ${tenetXpCost(tenets, trait_key)})`;
+    return null;
+  }
+  return 'Unknown trait group';
+}
+
+/**
+ * Apply (direction +1) or revert (direction -1) a Prism XP log entry.
+ * Returns { column: value } updates to persist, including the regenerated
+ * paradigm / practice text columns.
+ */
+function applyXpSpend(charRow, entry, direction = 1) {
+  let tenets = cleanTenets(charRow.tenets);
+  let ratings = cleanPracticeRatings(charRow.practice_ratings);
+  let preset = charRow.paradigm_preset || '';
+  const up = {};
+  if (entry.trait_group === 'practice') {
+    const rating = direction > 0 ? entry.to : entry.from;
+    if (rating > 0) ratings[entry.trait_key] = rating; else delete ratings[entry.trait_key];
+    up.practice_ratings = JSON.stringify(ratings);
+  } else if (entry.trait_group === 'tenet') {
+    const id = direction > 0 ? entry.tenet_to : entry.tenet_from;
+    if (id) tenets[entry.trait_key] = id; else delete tenets[entry.trait_key];
+    // A book paradigm is a fixed triple of tenets, so changing one detaches the preset
+    preset = direction > 0 ? '' : (entry.preset_before || '');
+    up.tenets = JSON.stringify(tenets);
+    up.paradigm_preset = preset;
+  } else return null;
+  const proj = projectFocus({ tenets, paradigm_preset: preset, practice_ratings: ratings, practice_specialties: charRow.practice_specialties });
+  up.paradigm = proj.paradigm;
+  up.practice = proj.practice;
+  return up;
+}
+
+/** Persist the column updates returned by applyXpSpend. Column names come from applyXpSpend only. */
+function writeXpUpdates(db, charId, up) {
+  const cols = Object.keys(up);
+  if (!cols.length) return;
+  db.prepare(`UPDATE characters SET ${cols.map(c => `${c} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+    .run(...cols.map(c => up[c]), charId);
+}
+
 module.exports = {
   PRISM, FOCUS_MODES, CHRONICLE_FOCUS_MODES,
   cleanTenets, cleanPracticeRatings, cleanPracticeSpecialties,
   projectFocus, normalizeCharacterFocus, sanitizeChronicleRules,
+  XP_GROUPS, validateXpSpend, applyXpSpend, writeXpUpdates, practiceXpCost, tenetXpCost,
 };
