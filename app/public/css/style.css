@@ -10586,3 +10586,26 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
 .discord-warn { background: var(--crimson-dim); border: 1px solid var(--crimson); color: #ffb3b3; border-radius: var(--radius-sm); padding: .4rem .6rem; font-size: .8rem; }
 .discord-actions { display: flex; gap: .5rem; margin: .5rem 0; flex-wrap: wrap; }
 .session-note-announce { white-space: nowrap; }
+
+
+/* ─── Session screen: desktop only, wide layout ──────────────── */
+/* The Storyteller's session screen uses the full window width (the normal page is capped at 1280px). */
+#app-main:has(.session-page-wide) { max-width: 1840px; padding-top: 1rem; }
+#chronicle-content:has(.session-page-wide) { max-width: none; padding: 0 0 1rem; }
+.session-main { display: flex; flex-direction: column; gap: .75rem; }
+.session-desktop-only, .session-desktop-hint { display: none; }
+.session-top .session-title-input { flex: 1 1 18rem; min-width: 12rem; width: auto; }
+.session-top #session-end, .session-top #session-delete { margin-left: auto; }
+.session-grid-wide { grid-template-columns: minmax(300px, 22rem) minmax(0, 1fr) minmax(340px, 1.1fr); gap: 1.25rem;
+  height: calc(100vh - 13rem); min-height: 560px; align-items: stretch; }
+.session-col { min-width: 0; overflow-y: auto; padding-right: .35rem; scrollbar-width: thin; scrollbar-color: var(--border-bright) transparent; }
+.session-col .ornate-divider { margin-top: 0; }
+.session-col-notes .session-end { margin-top: 1rem; }
+.session-recap-head { display: flex; justify-content: space-between; align-items: center; }
+.session-col-log .roll-entry { margin-bottom: .4rem; }
+@media (max-width: 1023px) {
+  .session-main { display: none; }
+  .session-desktop-only { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; padding: 1.5rem 0; color: var(--text-mid); }
+  .session-desktop-ctl { display: none; }
+  .session-desktop-hint { display: block; font-size: .85rem; color: var(--text-dim); line-height: 1.4; margin: .5rem 0 0; }
+}
