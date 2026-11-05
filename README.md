@@ -129,6 +129,28 @@ See `.gitignore`. In short:
   `patch_*.py` scripts). Kept on disk for recovery, not in git.
 - `*.bak-*` and `*.orig` working copies.
 
+## Discord bot (session mode)
+
+Optional. Session events and dice rolls can be posted to a Discord channel. The bot
+is REST-only (no always-on connection); slash commands arrive as signed HTTPS requests,
+so the app's public HTTPS URL must be reachable from Discord (your sign-in redirect
+already needs that).
+
+1. In the Discord developer portal, use the application that already provides sign-in
+   (or create one). Under **Bot**, reset the token and put it in `.env` as
+   `DISCORD_BOT_TOKEN`. Under **General Information**, copy the **Public Key** into
+   `DISCORD_PUBLIC_KEY`. `DISCORD_CLIENT_ID` is reused as the application id.
+2. Set **Interactions Endpoint URL** to `<APP_URL>/api/discord/interactions`. Discord
+   sends a signed test request when you save; it only saves if the app answers, so
+   deploy with the two variables above first.
+3. Rebuild/restart, then register the slash commands once (and again whenever the
+   command list in `app/server/discord-bot.js` changes):
+   `docker compose exec <service> node scripts/register-discord-commands.js`
+4. A Storyteller then uses the **Discord** card on the chronicle page: invite the bot,
+   get a link code, and run `/m20 link CODE` in the channel to use. Rolls (except hidden
+   ones) and session start/end are posted there. If the bot loses access, the card shows
+   a warning; rolls are always saved first and never blocked by Discord.
+
 ## Tests
 
 ```bash
@@ -146,7 +168,8 @@ app/
   server/        Express app: index.js, db.js, routes/*.js, rotes-seed.json
   public/        Static frontend: index.html, manifest.webmanifest, js/, css/, data/,
                  img/ (logos, icons), images/, tarot/ (+ webp/, thumb/ derivatives)
-  scripts/       check-syntax.js (npm test), build-dist.js (Dockerfile minify stage)
+  scripts/       check-syntax.js (npm test), build-dist.js (Dockerfile minify stage),
+                 register-discord-commands.js
 data/            SQLite database (bind-mounted, git-ignored)
 tools/           Data-cleanup scripts and their reports
 Dockerfile, docker-compose.yml

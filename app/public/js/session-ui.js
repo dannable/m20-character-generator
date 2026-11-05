@@ -91,6 +91,7 @@ const SessionUI = {
         <input type="text" class="form-input session-note-title" value="${escHtml(n.title)}" maxlength="200"
                placeholder="${sc ? 'Scene title' : n.kind === 'handout' ? 'Handout title' : 'Title (optional)'}">
         <span class="session-save-state" aria-live="polite"></span>
+        ${sc && this._data.session.status === 'active' ? '<button class="btn-ghost btn-sm session-note-announce" title="Post this scene to the linked Discord channel">Post</button>' : ''}
         <button class="btn-ghost btn-sm session-note-del" title="Delete">✕</button>
       </div>
       ${sc ? '' : `<textarea class="form-input session-note-body" rows="${n.kind === 'handout' ? 4 : 6}"
@@ -232,6 +233,12 @@ const SessionUI = {
     };
     el.querySelectorAll('.session-note-title, .session-note-body').forEach(i => i.addEventListener('input', () => this._debounce('n' + nid, save)));
     el.querySelectorAll('.session-share-cb').forEach(i => i.addEventListener('change', save));
+    el.querySelector('.session-note-announce')?.addEventListener('click', async e => {
+      e.currentTarget.disabled = true;
+      try { await this._api('POST', `${this._base()}/${this._sid}/notes/${nid}/announce`); toast('Posted to Discord.'); }
+      catch (err) { toast(err.message, 'error'); }
+      e.currentTarget.disabled = false;
+    });
     el.querySelector('.session-note-del').addEventListener('click', async () => {
       if (!confirm('Delete this ' + (kind === 'scene' ? 'scene marker' : kind) + '?')) return;
       try { await this._api('DELETE', `${this._base()}/${this._sid}/notes/${nid}`); el.remove(); }
@@ -431,3 +438,50 @@ Object.assign(SessionUI, {
     } catch {}
   },
 });
+
+
+// ═════════════════════════ Phase 3: Discord card ════════════════════════════
+const DiscordCard = {
+  html() {
+    return `<div class="chronicle-join-block session-card" id="discord-card">
+      <div class="chronicle-info-label">Discord</div>
+      <div id="discord-card-body"><p class="chronicle-join-hint">Loading…</p></div>
+    </div>`;
+  },
+  async attach(c) {
+    this._c = c; await this.refresh();
+  },
+  async _call(method, path) {
+    const r = await fetch(`/api/chronicles/${this._c.id}/discord${path || ''}`, { method });
+    const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.error || 'Request failed'); return b;
+  },
+  async refresh(st) {
+    const body = $('#discord-card-body'); if (!body) return;
+    try { st = st || await this._call('GET'); } catch { body.innerHTML = '<p class="chronicle-join-hint">Discord status unavailable.</p>'; return; }
+    if (!st.configured) {
+      body.innerHTML = '<p class="chronicle-join-hint">The Discord bot is not set up on this server yet. An administrator needs to add the bot settings (see the README).</p>';
+      return;
+    }
+    const mins = st.code_expires ? Math.max(1, Math.ceil((new Date(st.code_expires) - Date.now()) / 60000)) : 0;
+    body.innerHTML = st.linked ? `
+      <p class="discord-linked">Linked to <strong>#${escHtml(st.channel_name || 'channel')}</strong>${st.guild_name ? ` on <strong>${escHtml(st.guild_name)}</strong>` : ''}.</p>
+      ${st.error ? `<p class="discord-warn">${escHtml(st.error)}</p>` : ''}
+      <div class="discord-actions"><button class="btn-secondary btn-sm" id="dc-test">Send test message</button>
+        <button class="btn-ghost btn-sm" id="dc-unlink">Unlink</button></div>
+      <p class="chronicle-join-hint">Session events and every roll except hidden ones are posted to that channel.</p>`
+    : `
+      <ol class="discord-steps">
+        <li><a href="${escHtml(st.invite_url)}" target="_blank" rel="noopener noreferrer" class="btn-secondary btn-sm">Invite the bot</a> to your server.</li>
+        <li><button class="btn-secondary btn-sm" id="dc-code">Get a link code</button></li>
+        <li>In the channel you want, type <code>/m20 link</code> and paste the code.</li>
+      </ol>
+      ${st.code ? `<div class="discord-code"><code>/m20 link ${escHtml(st.code)}</code><span class="chronicle-join-hint">Valid for about ${mins} minute${mins === 1 ? '' : 's'}.</span></div>` : ''}`;
+    $('#dc-code')?.addEventListener('click', async e => { e.currentTarget.disabled = true; try { await this.refresh(await this._call('POST', '/link-code')); } catch (err) { toast(err.message, 'error'); e.currentTarget.disabled = false; } });
+    $('#dc-unlink')?.addEventListener('click', async () => { if (!confirm('Unlink this chronicle from the Discord channel?')) return; try { await this.refresh(await this._call('DELETE')); } catch (err) { toast(err.message, 'error'); } });
+    $('#dc-test')?.addEventListener('click', async e => {
+      e.currentTarget.disabled = true;
+      try { await this._call('POST', '/test'); toast('Test message sent.'); } catch (err) { toast(err.message, 'error'); }
+      await this.refresh();
+    });
+  },
+};

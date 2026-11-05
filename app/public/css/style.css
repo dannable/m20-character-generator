@@ -10576,3 +10576,13 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
 .roll-degree { color: var(--text-dim); font-size: .8rem; }
 .roll-void-note { color: var(--text-faint); font-size: .75rem; font-style: italic; }
 .roll-void-btn { margin-left: auto; }
+
+/* ─── Session mode Phase 3: Discord card ─────────────────────── */
+.discord-steps { margin: .5rem 0 0 1.1rem; padding: 0; display: flex; flex-direction: column; gap: .5rem; font-size: .85rem; color: var(--text-mid); }
+.discord-steps code, .discord-code code { background: var(--bg-void); border: 1px solid var(--border-bright); border-radius: 4px; padding: .1rem .4rem; color: var(--gold-bright); }
+.discord-code { margin-top: .6rem; display: flex; flex-direction: column; gap: .25rem; }
+.discord-code code { font-size: 1rem; align-self: flex-start; user-select: all; }
+.discord-linked { font-size: .9rem; color: var(--text-bright); margin: .4rem 0; }
+.discord-warn { background: var(--crimson-dim); border: 1px solid var(--crimson); color: #ffb3b3; border-radius: var(--radius-sm); padding: .4rem .6rem; font-size: .8rem; }
+.discord-actions { display: flex; gap: .5rem; margin: .5rem 0; flex-wrap: wrap; }
+.session-note-announce { white-space: nowrap; }

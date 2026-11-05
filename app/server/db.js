@@ -434,6 +434,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_session_rolls_session ON session_rolls(session_id, id);
 `);
 
+// ── Discord link for chronicles (session mode Phase 3) ────────────────────────
+['discord_guild_id', 'discord_guild_name', 'discord_channel_id', 'discord_channel_name',
+ 'discord_link_code', 'discord_link_expires', 'discord_error'].forEach(col => {
+  try { db.exec(`ALTER TABLE chronicles ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`); } catch {}
+});
+
 // ── User login tracking migrations ───────────────────────────────────────────
 try { db.exec(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0`); } catch {}
