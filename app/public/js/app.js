@@ -4143,6 +4143,7 @@ const Chronicle = {
             ${isST && c.members.length ? RulesUI.panelHTML() : ''}
           </div>
           <div class="chronicle-detail-sidebar">
+            ${isST ? SessionUI.cardHTML(c) : ''}
             ${isActive ? `
             <div class="chronicle-join-block">
               <div class="chronicle-info-label">Join Code</div>
@@ -5001,6 +5002,7 @@ const Chronicle = {
 
     // Grant XP to members
     $('#btn-grant-xp')?.addEventListener('click', () => this._showGrantXpModal(c));
+    SessionUI.attachCard(c);
 
     // Remove members
     $$('.chronicle-remove-member').forEach(btn => {

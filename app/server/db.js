@@ -375,6 +375,35 @@ db.exec(`
   );
 `);
 
+// ── Chronicle sessions (session mode) ────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chronicle_sessions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    chronicle_id INTEGER NOT NULL REFERENCES chronicles(id) ON DELETE CASCADE,
+    number       INTEGER NOT NULL,
+    title        TEXT NOT NULL DEFAULT '',
+    status       TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','ended')),
+    recap        TEXT NOT NULL DEFAULT '',
+    started_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at     DATETIME,
+    UNIQUE(chronicle_id, number)
+  );
+  -- At most one active session per chronicle
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_session
+    ON chronicle_sessions(chronicle_id) WHERE status = 'active';
+
+  CREATE TABLE IF NOT EXISTS session_notes (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id       INTEGER NOT NULL REFERENCES chronicle_sessions(id) ON DELETE CASCADE,
+    kind             TEXT NOT NULL DEFAULT 'note' CHECK (kind IN ('note','handout','scene')),
+    title            TEXT NOT NULL DEFAULT '',
+    body             TEXT NOT NULL DEFAULT '',
+    chronicle_note_id INTEGER REFERENCES chronicle_notes(id) ON DELETE SET NULL,
+    created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // ── User login tracking migrations ───────────────────────────────────────────
 try { db.exec(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0`); } catch {}
