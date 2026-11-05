@@ -17,7 +17,11 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === DEFAULT_SECRET
 // ── Trust reverse proxy (nginx) — required for correct IP in rate limiting ────
 app.set('trust proxy', 1);
 
-app.use(express.json({ limit: '2mb' }));
+// The Discord interactions endpoint must verify a signature over the exact bytes
+// Discord sent, so keep the raw body for that one route.
+app.use(express.json({ limit: '2mb', verify: (req, res, buf) => {
+  if (req.originalUrl.startsWith('/api/discord/interactions')) req.rawBody = buf;
+} }));
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 app.use(session({
@@ -71,12 +75,14 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth',       require('./routes/discord'));
+app.use('/api/discord',    require('./routes/discord-interactions'));
 app.use('/api/auth',       require('./routes/auth'));
 app.use('/api/admin',      require('./routes/admin'));
 app.use('/api/wizard',     require('./routes/wizard'));
 app.use('/api/characters', requireAuth, require('./routes/characters'));
 app.use('/api/chronicles', requireAuth, require('./routes/chronicles'));
 app.use('/api/chronicles', requireAuth, require('./routes/sessions'));
+app.use('/api/chronicles', requireAuth, require('./routes/chronicle-discord'));
 app.use('/api/settings',  requireAuth, require('./routes/settings'));
 app.use('/api/feedback',  requireAuth, require('./routes/feedback'));
 app.use('/api/export',     require('./routes/export'));

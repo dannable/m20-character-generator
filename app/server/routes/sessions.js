@@ -5,6 +5,7 @@ const db      = require('../db');
 const router  = express.Router();
 const Dice    = require('../dice');
 const Events  = require('../session-events');
+const Bot     = require('../discord-bot');
 
 const NOTE_KINDS = ['note', 'handout', 'scene'];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -114,6 +115,7 @@ router.post('/:id/sessions', (req, res) => {
       .run(c.id, num, title).lastInsertRowid;
     const created = db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(id);
     Events.publish(c.id, 'session', { status: 'active', session: created });
+    Bot.postSessionStart(c.id, created);
     res.status(201).json(created);
   } catch (err) { fail(res, err); }
 });
@@ -150,6 +152,7 @@ router.post('/:id/sessions/:sid/end', (req, res) => {
       .run(recap, s.id);
     const ended = db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(s.id);
     Events.publish(c.id, 'session', { status: 'ended', session: ended });
+    Bot.postSessionEnd(c.id, ended, db.prepare('SELECT COUNT(*) n FROM session_rolls WHERE session_id = ? AND hidden = 0 AND voided = 0').get(s.id).n);
     res.json(ended);
   } catch (err) { fail(res, err); }
 });
@@ -209,6 +212,20 @@ router.put('/:id/sessions/:sid/notes/:nid', (req, res) => {
       }
     })();
     res.json(notesWithShares(s.id).find(x => x.id === n.id));
+  } catch (err) { fail(res, err); }
+});
+
+// Post a scene marker to the linked Discord channel (explicit, so half-typed titles never go out)
+router.post('/:id/sessions/:sid/notes/:nid/announce', async (req, res) => {
+  try {
+    const c = loadChronicle(req, res); if (!c) return;
+    const s = loadSession(req, res, c); if (!s) return;
+    const n = db.prepare('SELECT * FROM session_notes WHERE id = ? AND session_id = ?').get(req.params.nid, s.id);
+    if (!n) return res.status(404).json({ error: 'Note not found' });
+    if (n.kind !== 'scene') return res.status(400).json({ error: 'Only scene markers can be announced.' });
+    if (!c.discord_channel_id || !Bot.configured()) return res.status(400).json({ error: 'This chronicle is not linked to a Discord channel.' });
+    await Bot.postScene(c.id, n.title);
+    res.json({ ok: true });
   } catch (err) { fail(res, err); }
 });
 
@@ -359,6 +376,7 @@ router.post('/:id/session/rolls', (req, res) => {
     const row = shapeRoll(db.prepare('SELECT * FROM session_rolls WHERE id = ?').get(id));
     row.degree = result.degree;
     Events.publish(a.c.id, 'roll', row, { stOnly: hidden });
+    Bot.postRoll(a.c.id, row, s);
     res.status(201).json(row);
   } catch (err) { fail(res, err); }
 });
@@ -387,6 +405,7 @@ router.post('/:id/session/rolls/:rid/void', (req, res) => {
     })();
     const row = shapeRoll(db.prepare('SELECT * FROM session_rolls WHERE id = ?').get(r.id));
     Events.publish(a.c.id, 'void', row, { stOnly: !!r.hidden });
+    Bot.postVoid(a.c.id, row);
     res.json(row);
   } catch (err) { fail(res, err); }
 });
