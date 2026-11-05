@@ -76,6 +76,7 @@ app.use('/api/admin',      require('./routes/admin'));
 app.use('/api/wizard',     require('./routes/wizard'));
 app.use('/api/characters', requireAuth, require('./routes/characters'));
 app.use('/api/chronicles', requireAuth, require('./routes/chronicles'));
+app.use('/api/chronicles', requireAuth, require('./routes/sessions'));
 app.use('/api/settings',  requireAuth, require('./routes/settings'));
 app.use('/api/feedback',  requireAuth, require('./routes/feedback'));
 app.use('/api/export',     require('./routes/export'));
