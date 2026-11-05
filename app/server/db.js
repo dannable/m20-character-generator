@@ -404,6 +404,36 @@ db.exec(`
   );
 `);
 
+// ── Session rolls (session mode Phase 2) ─────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS session_rolls (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id   INTEGER NOT NULL REFERENCES chronicle_sessions(id) ON DELETE CASCADE,
+    chronicle_id INTEGER NOT NULL REFERENCES chronicles(id) ON DELETE CASCADE,
+    character_id INTEGER REFERENCES characters(id) ON DELETE SET NULL,
+    user_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    source       TEXT NOT NULL DEFAULT 'web',
+    label        TEXT NOT NULL DEFAULT '',
+    roller_name  TEXT NOT NULL DEFAULT '',
+    pool         TEXT NOT NULL DEFAULT '{}',
+    pool_size    INTEGER NOT NULL DEFAULT 0,
+    difficulty   INTEGER NOT NULL DEFAULT 6,
+    specialty    INTEGER NOT NULL DEFAULT 0,
+    willpower    INTEGER NOT NULL DEFAULT 0,
+    threshold    INTEGER NOT NULL DEFAULT 0,
+    hidden       INTEGER NOT NULL DEFAULT 0,
+    dice         TEXT NOT NULL DEFAULT '[]',
+    successes    INTEGER NOT NULL DEFAULT 0,
+    ones         INTEGER NOT NULL DEFAULT 0,
+    outcome      TEXT NOT NULL DEFAULT 'failure',
+    wp_spent     INTEGER NOT NULL DEFAULT 0,
+    voided       INTEGER NOT NULL DEFAULT 0,
+    void_reason  TEXT NOT NULL DEFAULT '',
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_session_rolls_session ON session_rolls(session_id, id);
+`);
+
 // ── User login tracking migrations ───────────────────────────────────────────
 try { db.exec(`ALTER TABLE users ADD COLUMN last_login DATETIME`); } catch {}
 try { db.exec(`ALTER TABLE users ADD COLUMN login_count INTEGER NOT NULL DEFAULT 0`); } catch {}

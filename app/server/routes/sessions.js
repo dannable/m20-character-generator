@@ -3,6 +3,8 @@
 const express = require('express');
 const db      = require('../db');
 const router  = express.Router();
+const Dice    = require('../dice');
+const Events  = require('../session-events');
 
 const NOTE_KINDS = ['note', 'handout', 'scene'];
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -110,7 +112,9 @@ router.post('/:id/sessions', (req, res) => {
     const num = (db.prepare('SELECT MAX(number) AS n FROM chronicle_sessions WHERE chronicle_id = ?').get(c.id).n || 0) + 1;
     const id = db.prepare('INSERT INTO chronicle_sessions (chronicle_id, number, title) VALUES (?, ?, ?)')
       .run(c.id, num, title).lastInsertRowid;
-    res.status(201).json(db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(id));
+    const created = db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(id);
+    Events.publish(c.id, 'session', { status: 'active', session: created });
+    res.status(201).json(created);
   } catch (err) { fail(res, err); }
 });
 
@@ -119,7 +123,7 @@ router.get('/:id/sessions/:sid', (req, res) => {
   try {
     const c = loadChronicle(req, res); if (!c) return;
     const s = loadSession(req, res, c); if (!s) return;
-    res.json({ session: s, roster: roster(c.id), notes: notesWithShares(s.id) });
+    res.json({ session: s, roster: roster(c.id), notes: notesWithShares(s.id), rolls: listRolls(s.id, true), characters: rollCharacters(c.id) });
   } catch (err) { fail(res, err); }
 });
 
@@ -144,7 +148,9 @@ router.post('/:id/sessions/:sid/end', (req, res) => {
     const recap = req.body?.recap !== undefined ? String(req.body.recap).slice(0, 10000) : s.recap;
     db.prepare("UPDATE chronicle_sessions SET status = 'ended', ended_at = CURRENT_TIMESTAMP, recap = ? WHERE id = ?")
       .run(recap, s.id);
-    res.json(db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(s.id));
+    const ended = db.prepare('SELECT * FROM chronicle_sessions WHERE id = ?').get(s.id);
+    Events.publish(c.id, 'session', { status: 'ended', session: ended });
+    res.json(ended);
   } catch (err) { fail(res, err); }
 });
 
@@ -218,6 +224,182 @@ router.delete('/:id/sessions/:sid/notes/:nid', (req, res) => {
     })();
     res.json({ deleted: true });
   } catch (err) { fail(res, err); }
+});
+
+// ═══════════════════════════ Phase 2: rolling ═══════════════════════════════
+const ATTRS = ['strength', 'dexterity', 'stamina', 'charisma', 'manipulation', 'appearance', 'perception', 'intelligence', 'wits'];
+const titleize = k => String(k).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+const jsonObj = v => { try { const o = typeof v === 'string' ? JSON.parse(v || '{}') : v; return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch { return {}; } };
+
+function damagedLevels(ch) {
+  let t = []; try { t = JSON.parse(ch.health_track || '[]'); } catch {}
+  return Array.isArray(t) ? t.filter(x => x && x !== 'empty').length : 0;
+}
+function wpCurrent(ch) { return Math.max(0, (ch.willpower || 0) - (ch.willpower_spent || 0)); }
+
+// Everything a roll panel can offer for one character. Keys are what the client
+// sends back; the server re-reads the ratings so a client cannot invent dots.
+function traitsFor(ch) {
+  const out = [];
+  ATTRS.forEach(k => out.push({ key: 'attr.' + k, label: titleize(k), group: 'Attributes', value: ch[k] || 0 }));
+  [['talents', 'Talents'], ['skills', 'Skills'], ['knowledges', 'Knowledges']].forEach(([col, group]) => {
+    Object.entries(jsonObj(ch[col])).forEach(([k, v]) => { if (Number(v) > 0) out.push({ key: 'abil.' + k, label: titleize(k), group, value: Number(v) }); });
+  });
+  if (ch.character_type !== 'mortal' && ch.character_type !== 'sorcerer' && (ch.arete || 0) > 0) out.push({ key: 'arete', label: 'Arete', group: 'Magick', value: ch.arete });
+  Object.entries(jsonObj(ch.spheres)).forEach(([k, v]) => { if (Number(v) > 0) out.push({ key: 'sphere.' + k, label: titleize(k), group: 'Magick', value: Number(v) }); });
+  if ((ch.willpower || 0) > 0) out.push({ key: 'willpower', label: 'Willpower', group: 'Other', value: ch.willpower });
+  return out;
+}
+function rollCharacters(chronicleId, userId = null) {
+  const rows = db.prepare(`SELECT * FROM characters WHERE chronicle_id = ?${userId ? ' AND user_id = ?' : ''} ORDER BY name`)
+    .all(...(userId ? [chronicleId, userId] : [chronicleId]));
+  return rows.map(ch => ({
+    id: ch.id, name: ch.name, willpower_current: wpCurrent(ch), willpower: ch.willpower || 0,
+    wound_penalty: Dice.woundPenalty(damagedLevels(ch)), damaged: damagedLevels(ch), traits: traitsFor(ch),
+  }));
+}
+
+function shapeRoll(r) {
+  return { ...r, pool: jsonObj(r.pool), dice: (() => { try { return JSON.parse(r.dice); } catch { return []; } })(),
+           specialty: !!r.specialty, willpower: !!r.willpower, hidden: !!r.hidden, voided: !!r.voided, wp_spent: !!r.wp_spent };
+}
+function listRolls(sessionId, includeHidden) {
+  const rows = db.prepare(`SELECT * FROM session_rolls WHERE session_id = ? ${includeHidden ? '' : 'AND hidden = 0'} ORDER BY id`).all(sessionId);
+  return rows.map(shapeRoll);
+}
+
+// Storyteller or admin: 'st'. A player with a character in the chronicle: 'player'.
+function accessFor(req, res) {
+  const c = db.prepare('SELECT * FROM chronicles WHERE id = ?').get(req.params.id);
+  if (!c) { res.status(404).json({ error: 'Chronicle not found' }); return null; }
+  if (c.user_id === req.session.userId || req.session.role === 'admin') return { c, role: 'st' };
+  const mine = db.prepare('SELECT id FROM characters WHERE chronicle_id = ? AND user_id = ?').get(c.id, req.session.userId);
+  if (!mine) { res.status(403).json({ error: 'Forbidden' }); return null; }
+  return { c, role: 'player' };
+}
+const activeSession = cid => db.prepare("SELECT * FROM chronicle_sessions WHERE chronicle_id = ? AND status = 'active'").get(cid);
+
+// ── GET /:id/session — the running session as this user may see it ──────────
+router.get('/:id/session', (req, res) => {
+  try {
+    const a = accessFor(req, res); if (!a) return;
+    const s = activeSession(a.c.id);
+    if (!s) return res.json({ session: null, role: a.role });
+    const st = a.role === 'st';
+    res.json({
+      session: { id: s.id, number: s.number, title: s.title, started_at: s.started_at },
+      role: a.role,
+      characters: rollCharacters(a.c.id, st ? null : req.session.userId),
+      rolls: listRolls(s.id, st),
+    });
+  } catch (err) { fail(res, err); }
+});
+
+// ── POST /:id/session/rolls — make a roll in the running session ────────────
+router.post('/:id/session/rolls', (req, res) => {
+  try {
+    const a = accessFor(req, res); if (!a) return;
+    const s = activeSession(a.c.id);
+    if (!s) return res.status(409).json({ error: 'No session is running.' });
+    const st = a.role === 'st';
+    const b = req.body || {};
+    const label = String(b.label || '').trim().slice(0, 120);
+    const modifier = Math.max(-10, Math.min(10, Math.floor(Number(b.modifier) || 0)));
+    const difficulty = Math.max(2, Math.min(10, Math.floor(Number(b.difficulty) || 6)));
+    const threshold = Math.max(0, Math.min(10, Math.floor(Number(b.threshold) || 0)));
+    const hidden = st && !!b.hidden;
+
+    let ch = null, items = [], wound = 0, specialtyOk = false, rollerName = '';
+    if (b.character_id) {
+      ch = db.prepare('SELECT * FROM characters WHERE id = ? AND chronicle_id = ?').get(Number(b.character_id), a.c.id);
+      if (!ch) return res.status(404).json({ error: 'Character is not in this chronicle.' });
+      if (!st && ch.user_id !== req.session.userId) return res.status(403).json({ error: 'That is not your character.' });
+      const avail = new Map(traitsFor(ch).map(t => [t.key, t]));
+      const keys = Array.isArray(b.traits) ? b.traits.slice(0, 6) : [];
+      if (!keys.length) return res.status(400).json({ error: 'Pick at least one trait.' });
+      for (const k of keys) {
+        const t = avail.get(k);
+        if (!t) return res.status(400).json({ error: `Unknown trait: ${String(k).slice(0, 40)}` });
+        if (items.some(i => i.key === k)) continue;
+        items.push({ key: t.key, label: t.label, value: t.value });
+      }
+      specialtyOk = items.some(i => i.value >= 4);
+      // Wound penalties do not apply to Arete rolls (Chapter Eight, Health chart note)
+      if (b.wound !== false && !items.some(i => i.key === 'arete')) wound = Dice.woundPenalty(damagedLevels(ch));
+      rollerName = ch.name;
+    } else {
+      if (!st) return res.status(400).json({ error: 'Choose a character.' });
+      const size = Math.floor(Number(b.pool_size));
+      if (!(size >= 0 && size <= 50)) return res.status(400).json({ error: 'Pool size must be 0 to 50.' });
+      items = [{ key: 'custom', label: 'Dice', value: size }];
+      specialtyOk = true;
+      rollerName = label || 'Storyteller';
+    }
+    const specialty = !!b.specialty;
+    if (specialty && !st && !specialtyOk) return res.status(400).json({ error: 'A specialty needs a Trait of 4 or higher in the pool.' });
+
+    const wantWp = !!b.willpower;
+    if (wantWp && ch && wpCurrent(ch) < 1) return res.status(400).json({ error: `${ch.name} has no Willpower left to spend.` });
+
+    const total = Math.max(0, items.reduce((n, i) => n + i.value, 0) + modifier + wound);
+    const result = Dice.roll({ pool: total, difficulty, specialty, willpower: wantWp, threshold });
+
+    let id;
+    db.transaction(() => {
+      id = db.prepare(`INSERT INTO session_rolls
+        (session_id, chronicle_id, character_id, user_id, source, label, roller_name, pool, pool_size, difficulty,
+         specialty, willpower, threshold, hidden, dice, successes, ones, outcome, wp_spent)
+        VALUES (?, ?, ?, ?, 'web', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(s.id, a.c.id, ch ? ch.id : null, req.session.userId, label, rollerName,
+          JSON.stringify({ items, modifier, wound }), total, difficulty, specialty ? 1 : 0, wantWp ? 1 : 0, threshold,
+          hidden ? 1 : 0, JSON.stringify(result.dice), result.successes, result.ones, result.outcome,
+          wantWp && ch ? 1 : 0).lastInsertRowid;
+      if (wantWp && ch) db.prepare('UPDATE characters SET willpower_spent = willpower_spent + 1 WHERE id = ?').run(ch.id);
+    })();
+    const row = shapeRoll(db.prepare('SELECT * FROM session_rolls WHERE id = ?').get(id));
+    row.degree = result.degree;
+    Events.publish(a.c.id, 'roll', row, { stOnly: hidden });
+    res.status(201).json(row);
+  } catch (err) { fail(res, err); }
+});
+
+// ── POST /:id/session/rolls/:rid/void — Storyteller, or a player undoing their own latest roll
+router.post('/:id/session/rolls/:rid/void', (req, res) => {
+  try {
+    const a = accessFor(req, res); if (!a) return;
+    const r = db.prepare('SELECT * FROM session_rolls WHERE id = ? AND chronicle_id = ?').get(req.params.rid, a.c.id);
+    if (!r) return res.status(404).json({ error: 'Roll not found' });
+    if (r.voided) return res.status(409).json({ error: 'Roll already voided.' });
+    if (a.role !== 'st') {
+      const latest = db.prepare('SELECT id FROM session_rolls WHERE session_id = ? AND hidden = 0 ORDER BY id DESC LIMIT 1').get(r.session_id);
+      if (r.user_id !== req.session.userId || r.hidden || !latest || latest.id !== r.id) {
+        return res.status(403).json({ error: 'You can only undo your own most recent roll.' });
+      }
+      if (db.prepare("SELECT status FROM chronicle_sessions WHERE id = ?").get(r.session_id).status !== 'active') {
+        return res.status(409).json({ error: 'The session has ended.' });
+      }
+    }
+    const reason = String(req.body?.reason || '').trim().slice(0, 200);
+    db.transaction(() => {
+      db.prepare('UPDATE session_rolls SET voided = 1, void_reason = ? WHERE id = ?').run(reason, r.id);
+      // Undo: a voided roll hands back the Willpower it spent
+      if (r.wp_spent && r.character_id) db.prepare('UPDATE characters SET willpower_spent = MAX(0, willpower_spent - 1) WHERE id = ?').run(r.character_id);
+    })();
+    const row = shapeRoll(db.prepare('SELECT * FROM session_rolls WHERE id = ?').get(r.id));
+    Events.publish(a.c.id, 'void', row, { stOnly: !!r.hidden });
+    res.json(row);
+  } catch (err) { fail(res, err); }
+});
+
+// ── GET /:id/session/stream — Server-Sent Events ────────────────────────────
+router.get('/:id/session/stream', (req, res) => {
+  const a = accessFor(req, res); if (!a) return;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders?.();
+  res.write('retry: 3000\n\nevent: hello\ndata: {}\n\n');
+  const unsub = Events.subscribe(a.c.id, res, a.role === 'st');
+  const beat = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 25000);
+  req.on('close', () => { clearInterval(beat); unsub(); });
 });
 
 module.exports = router;

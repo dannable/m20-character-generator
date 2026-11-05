@@ -10534,3 +10534,45 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
 .session-end textarea { width: 100%; resize: vertical; }
 .session-end-row { display: flex; justify-content: flex-end; align-items: center; gap: .75rem; }
 @media (max-width: 760px) { .session-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ─── Session mode Phase 2: rolling ──────────────────────────── */
+.session-join-banner { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; background: #14301d; border: 1px solid #2f6b44;
+  color: #bfeacb; border-radius: var(--radius-sm); padding: .5rem .8rem; margin-bottom: .75rem; }
+.session-join-banner .btn-primary { margin-left: auto; }
+.roll-panel { display: flex; flex-direction: column; gap: .6rem; background: var(--bg-raised); border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm); padding: .75rem; }
+.roll-charname { color: var(--gold-bright); font-size: 1.05rem; }
+.roll-field { display: flex; flex-direction: column; gap: .2rem; font-size: .75rem; color: var(--text-dim); flex: 1; min-width: 5rem; }
+.roll-field .form-input { width: 100%; }
+.roll-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+.roll-group-title { font-size: .65rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); margin-bottom: .25rem; }
+.roll-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.roll-chip { background: var(--bg-card); border: 1px solid var(--border-bright); color: var(--text-mid); border-radius: 999px;
+  padding: .3rem .7rem; cursor: pointer; font: inherit; font-size: .82rem; min-height: 2rem; }
+.roll-chip b { color: var(--gold-bright); margin-left: .2rem; }
+.roll-chip.on { background: var(--gold-faint); border-color: var(--gold-mid); color: var(--text-bright); }
+.roll-toggles { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .82rem; color: var(--text-mid); }
+.roll-toggles label { display: inline-flex; align-items: center; gap: .3rem; }
+.roll-summary { font-size: .85rem; color: var(--text-mid); }
+.roll-summary b { color: var(--gold-bright); font-size: 1.1rem; }
+.roll-entry { background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); padding: .55rem .75rem; margin-bottom: .5rem; }
+.roll-hidden { border-style: dashed; border-color: var(--purple-dim); }
+.roll-voided { opacity: .55; }
+.roll-voided .roll-dice, .roll-voided .roll-result b { text-decoration: line-through; }
+.roll-head { display: flex; align-items: baseline; gap: .6rem; }
+.roll-who { color: var(--text-bright); }
+.roll-label { color: var(--text-dim); font-size: .8rem; }
+.roll-time { margin-left: auto; color: var(--text-faint); font-size: .7rem; }
+.roll-pool { color: var(--text-dim); font-size: .78rem; margin: .15rem 0 .35rem; }
+.roll-dice { display: flex; flex-wrap: wrap; gap: .25rem; margin-bottom: .35rem; }
+.die { min-width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px;
+  background: var(--bg-card); border: 1px solid var(--border-bright); color: var(--text-dim); font-size: .85rem; }
+.die-hit { background: var(--gold-faint); border-color: var(--gold-mid); color: var(--gold-bright); }
+.die-ten { box-shadow: 0 0 0 1px var(--gold-bright); font-weight: bold; }
+.die-one { border-color: var(--crimson); color: #ff8a8a; background: var(--crimson-dim); }
+.die-none { color: var(--text-faint); font-size: .8rem; }
+.roll-result { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
+.roll-success { color: #7fdc99; } .roll-fail { color: var(--text-dim); } .roll-botch { color: #ff6b6b; letter-spacing: .08em; }
+.roll-degree { color: var(--text-dim); font-size: .8rem; }
+.roll-void-note { color: var(--text-faint); font-size: .75rem; font-style: italic; }
+.roll-void-btn { margin-left: auto; }
