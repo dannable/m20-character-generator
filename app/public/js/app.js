@@ -5725,6 +5725,7 @@ const Sheet = {
     content.innerHTML = `
     <div class="char-sheet">
       ${pendingEditNotice}
+      ${ro ? '' : '<div id="session-join-banner"></div>'}
       ${xpTrackerHTML}
       ${stPendingEditsHTML}
       ${stXpHTML}
@@ -5957,6 +5958,7 @@ const Sheet = {
       </div>` : ''}
     </div>`;
     this.attachSheetListeners();
+    if (!ro) SessionUI.sheetBanner(char);
   },
 
   // ── Description band (bio fields + freeform text) ────────────────────────────
