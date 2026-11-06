@@ -31,6 +31,8 @@ const SessionUI = {
     const past = list.filter(s => s.status === 'ended');
     const label = s => `Session ${s.number}${s.title ? ': ' + escHtml(s.title) : ''}`;
     body.innerHTML = `
+      <p class="session-desktop-hint">Running a session needs a desktop browser. Open Chantry on a computer to start or manage one.</p>
+      <div class="session-desktop-ctl">
       ${active
         ? `<div class="session-live-row"><span class="session-live-dot"></span><strong>${label(active)}</strong> is running</div>
            <button class="btn-primary btn-sm" id="btn-open-session" data-sid="${active.id}">Open session</button>`
@@ -39,7 +41,8 @@ const SessionUI = {
       ${past.length ? `<details class="session-past"><summary>Past sessions (${past.length})</summary>
         ${past.map(s => `<button class="session-past-row" data-sid="${s.id}">
           <span>${label(s)}</span><span class="session-past-date">${formatDateTime(s.started_at)}</span></button>`).join('')}
-      </details>` : ''}`;
+      </details>` : ''}
+      </div>`;
     $('#btn-start-session')?.addEventListener('click', async e => {
       e.target.disabled = true;
       try {
@@ -106,40 +109,48 @@ const SessionUI = {
     const { session: s } = this._data;
     const ended = s.status === 'ended';
     $('#chronicle-content').innerHTML = `
-      <div class="chronicle-page session-page">
-        <div class="session-top">
-          <button class="btn-ghost" id="session-back">← ${escHtml(this._c.name)}</button>
-          <h2 class="section-title" style="margin:0">Session ${s.number}
-            <span class="session-badge ${ended ? 'session-badge-ended' : 'session-badge-live'}">${ended ? 'Ended' : 'Live'}</span></h2>
-          <span class="session-started">${formatDateTime(s.started_at)}</span>
+      <div class="chronicle-page session-page session-page-wide">
+        <div class="session-desktop-only">
+          <h2 class="section-title">Session ${s.number}</h2>
+          <p>Running a session needs a desktop browser. Open Chantry on a computer (a window at least 1024 pixels wide) to manage this one.</p>
+          <p class="chronicle-join-hint">Players can still join from a phone to roll their dice.</p>
+          <button class="btn-secondary" id="session-back-m">← ${escHtml(this._c.name)}</button>
         </div>
-        <input type="text" class="form-input" id="session-title" maxlength="120" placeholder="Session title" value="${escHtml(s.title)}">
-        <div class="session-grid">
-          <div>
-            <div class="ornate-divider">— Characters —</div>
-            <div id="session-roster">${this._rosterHTML()}</div>
-            ${ended ? '' : '<div class="ornate-divider">— Roll —</div><div id="session-roll-panel"></div>'}
-            <div class="ornate-divider">— Roll Log —</div>
-            <div id="session-roll-log"></div>
-          </div>
-          <div>
-            <div class="ornate-divider">— GM Notes —</div>
-            <div class="session-add-row">
-              <button class="btn-secondary btn-sm" data-add="note">+ Note</button>
-              <button class="btn-secondary btn-sm" data-add="scene">+ Scene marker</button>
-              <button class="btn-secondary btn-sm" data-add="handout">+ Handout</button>
-            </div>
-            <div id="session-notes">${this._data.notes.map(n => this._noteHTML(n)).join('') || '<p class="chronicle-empty-state">No notes yet.</p>'}</div>
-          </div>
-        </div>
-        <div class="session-end">
-          <div class="chronicle-info-label">Recap</div>
-          <textarea class="form-input" id="session-recap" rows="3" placeholder="What happened (optional)">${escHtml(s.recap)}</textarea>
-          <div class="session-end-row">
-            <span class="session-save-state" id="session-recap-state" aria-live="polite"></span>
+        <div class="session-main">
+          <div class="session-top">
+            <button class="btn-ghost" id="session-back">← ${escHtml(this._c.name)}</button>
+            <h2 class="section-title" style="margin:0">Session ${s.number}
+              <span class="session-badge ${ended ? 'session-badge-ended' : 'session-badge-live'}">${ended ? 'Ended' : 'Live'}</span></h2>
+            <input type="text" class="form-input session-title-input" id="session-title" maxlength="120" placeholder="Session title" value="${escHtml(s.title)}">
+            <span class="session-started">${formatDateTime(s.started_at)}</span>
             ${ended
               ? `<button class="btn-danger btn-sm" id="session-delete">Delete session</button>`
               : `<button class="btn-primary" id="session-end">End session</button>`}
+          </div>
+          <div class="session-grid session-grid-wide">
+            <section class="session-col session-col-left">
+              <div class="ornate-divider">— Characters —</div>
+              <div id="session-roster">${this._rosterHTML()}</div>
+              ${ended ? '' : '<div class="ornate-divider">— Roll —</div><div id="session-roll-panel"></div>'}
+            </section>
+            <section class="session-col session-col-log">
+              <div class="ornate-divider">— Roll Log —</div>
+              <div id="session-roll-log"></div>
+            </section>
+            <section class="session-col session-col-notes">
+              <div class="ornate-divider">— GM Notes —</div>
+              <div class="session-add-row">
+                <button class="btn-secondary btn-sm" data-add="note">+ Note</button>
+                <button class="btn-secondary btn-sm" data-add="scene">+ Scene marker</button>
+                <button class="btn-secondary btn-sm" data-add="handout">+ Handout</button>
+              </div>
+              <div id="session-notes">${this._data.notes.map(n => this._noteHTML(n)).join('') || '<p class="chronicle-empty-state">No notes yet.</p>'}</div>
+              <div class="session-end">
+                <div class="session-recap-head"><span class="chronicle-info-label">Recap</span>
+                  <span class="session-save-state" id="session-recap-state" aria-live="polite"></span></div>
+                <textarea class="form-input" id="session-recap" rows="3" placeholder="What happened (optional)">${escHtml(s.recap)}</textarea>
+              </div>
+            </section>
           </div>
         </div>
       </div>`;
@@ -182,6 +193,7 @@ const SessionUI = {
   _wire() {
     const back = () => { this._live?.close(); Chronicle.showDetail(this._c.id); };
     $('#session-back').addEventListener('click', back);
+    $('#session-back-m').addEventListener('click', back);
 
     const patch = (extra, stateEl) => {
       stateEl && (stateEl.textContent = 'Saving…');
