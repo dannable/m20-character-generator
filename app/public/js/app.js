@@ -1476,7 +1476,8 @@ const App = {
       <p style="margin-bottom:0.75rem">Set a new password for <strong style="color:var(--gold-mid)">${username}</strong>:</p>
       <div class="form-group">
         <label class="form-label">New Password <span class="form-hint">(min 6 characters)</span></label>
-        <input type="password" id="modal-new-password" class="form-input" minlength="6" placeholder="Enter new password…" />
+        <input type="password" id="modal-new-password" class="form-input" minlength="6" placeholder="Enter new password…"
+               autocomplete="off" data-1p-ignore data-bwignore data-lpignore="true" data-form-type="other" />
       </div>`;
     const btn = $('#modal-confirm');
     btn.textContent = 'Reset Password';
@@ -1724,7 +1725,31 @@ const App = {
     setTimeout(() => document.getElementById('feedback-message')?.focus(), 50);
   },
 
+  // Password managers (1Password, Bitwarden, Chrome) re-scan the document on
+  // every SPA navigation and re-offer to fill or save whenever they can still
+  // see a sign-in form. The auth page is static markup that would otherwise
+  // sit in the DOM for the whole session, so it is parked outside the document
+  // while someone is signed in and put back verbatim on the way out.
+  _authStash: null,
+
+  detachAuth() {
+    const sec = document.getElementById('page-auth');
+    if (!sec || this._authStash) return;
+    const mark = document.createComment('page-auth');
+    sec.replaceWith(mark);
+    this._authStash = { node: sec, mark };
+  },
+
+  restoreAuth() {
+    const stash = this._authStash;
+    if (!stash) return;
+    this._authStash = null;
+    stash.mark.replaceWith(stash.node);
+    Auth.applyProviders();   // re-apply Discord button visibility
+  },
+
   showPage(id) {
+    if (id === 'auth' || !this.currentUser) this.restoreAuth();
     if (id !== 'auth' && !this.currentUser) {
       $$('.page').forEach(p => p.classList.remove('active'));
       $('#page-auth').classList.add('active');
@@ -1732,6 +1757,7 @@ const App = {
     }
     $$('.page').forEach(p => p.classList.remove('active'));
     $(`#page-${id}`).classList.add('active');
+    if (id !== 'auth') this.detachAuth();
     $$('.nav-btn').forEach(b => b.classList.remove('active'));
     if (id === 'dashboard') $('#nav-dashboard').classList.add('active');
     if (id === 'admin')     $('#nav-admin').classList.add('active');
@@ -2055,9 +2081,18 @@ const Auth = {
       const r = await fetch('/api/auth/providers');
       const p = r.ok ? await r.json() : {};
       this.providers = p;
-      $('#discord-login-wrap').style.display    = p.discord ? '' : 'none';
-      $('#discord-register-wrap').style.display = p.discord ? '' : 'none';
+      this.applyProviders();
     } catch {}
+  },
+
+  // Split out of loadProviders so it can run again whenever the auth markup is
+  // re-inserted into the document (see App.restoreAuth).
+  applyProviders() {
+    const on = !!this.providers?.discord;
+    const login = $('#discord-login-wrap');
+    const reg   = $('#discord-register-wrap');
+    if (login) login.style.display = on ? '' : 'none';
+    if (reg)   reg.style.display   = on ? '' : 'none';
   },
 
   // Full-page redirect to Discord; the server brings the user back to /
@@ -2085,6 +2120,7 @@ const Auth = {
   },
 
   showTab(tab) {
+    App.restoreAuth();
     $('#form-login').style.display    = tab === 'login'    ? 'flex' : 'none';
     $('#form-register').style.display = tab === 'register' ? 'flex' : 'none';
     $('#form-forgot').style.display   = 'none';
@@ -2095,6 +2131,7 @@ const Auth = {
   },
 
   showForgot() {
+    App.restoreAuth();
     $('#form-login').style.display    = 'none';
     $('#form-register').style.display = 'none';
     $('#form-forgot').style.display   = 'flex';
@@ -2107,6 +2144,7 @@ const Auth = {
   },
 
   showReset() {
+    App.restoreAuth();
     $('#form-login').style.display    = 'none';
     $('#form-register').style.display = 'none';
     $('#form-forgot').style.display   = 'none';
@@ -2195,6 +2233,7 @@ const Auth = {
         errEl.style.display = 'block';
         return;
       }
+      $('#form-login').reset();
       App.setUser(data);
       App.showDashboard();
     } catch {
@@ -2248,6 +2287,7 @@ const Auth = {
         errEl.style.display = 'block';
         return;
       }
+      $('#form-register').reset();
       App.setUser(data);
       App.showDashboard();
     } catch {
