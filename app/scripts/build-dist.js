@@ -23,7 +23,7 @@ if (!publicArg || !distArg) {
 }
 const publicDir = path.resolve(publicArg);
 const distDir = path.resolve(distArg);
-const FILES = ['js/app.js', 'js/data.js', 'js/data-prism.js', 'js/data-sorcerer.js', 'js/data-fallen.js', 'js/validate-character.js', 'js/prism-ui.js', 'js/session-ui.js', 'js/free-edit-extras.js', 'js/sorcerer-ui.js', 'js/tarot.js', 'css/style.css'];
+const FILES = ['js/app.js', 'js/data.js', 'js/data-prism.js', 'js/data-sorcerer.js', 'js/data-fallen.js', 'js/validate-character.js', 'js/prism-ui.js', 'js/session-ui.js', 'js/free-edit-extras.js', 'js/sorcerer-ui.js', 'js/tarot.js', 'css/style.css', 'css/nephandi.css'];
 
 (async () => {
   const manifest = {};

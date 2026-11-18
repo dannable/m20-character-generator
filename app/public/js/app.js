@@ -5813,7 +5813,7 @@ const Sheet = {
       : '';
 
     content.innerHTML = `
-    <div class="char-sheet">
+    <div class="char-sheet${isFallenSheet ? ' nephandi-skin' : ''}">
       ${pendingEditNotice}
       ${ro ? '' : '<div id="session-join-banner"></div>'}
       ${xpTrackerHTML}
@@ -7594,6 +7594,13 @@ const Creator = {
     this.updateFreebieDisplay();
   },
 
+  // The corrupted skin (css/nephandi.css) is scoped to .nephandi-skin, which
+  // overrides the palette custom properties for its subtree only — no global
+  // token is touched, so every other page keeps the house style.
+  _applySkin() {
+    document.getElementById('page-creator')?.classList.toggle('nephandi-skin', this._isNephandi());
+  },
+
   // Render sidebar step list dynamically based on the current charType.
   _renderSidebarSteps() {
     const ol = document.getElementById('step-list');
@@ -7788,6 +7795,7 @@ const Creator = {
         <p style="color:var(--text-faint);font-size:0.85rem">In the meantime, you can save a draft and return to the dashboard.</p>
       </div>`;
     }
+    this._applySkin();
     this.attachStepListeners();
     this.updateNav();
     this.updateSidebar();
