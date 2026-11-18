@@ -153,6 +153,8 @@ function charAffiliationLabel(c) {
     return a ? a.name : (c.affiliation ? c.affiliation.replace(/_/g, ' ') : 'Unaligned sorcerer');
   }
   if (c.character_type === 'mortal') return c.tradition || c.affiliation || 'Mortal';
+  // The Fallen: show the sect, and say which path it belongs to.
+  if (c.affiliation === 'Nephandi') return c.tradition ? `${c.tradition} (Fallen)` : 'Nephandi';
   return c.tradition || c.affiliation || '—';
 }
 
@@ -204,7 +206,17 @@ const FACTION_SUBFACTIONS = {
   Technocracy: () => M20.TECHNOCRACY.map(t => t.name),
   Disparates:  () => M20.DISPARATES.map(t => t.name),
 };
-const FACTION_LABEL = { Traditions: 'The Traditions', Technocracy: 'Technocratic Union', Disparates: 'Disparate Crafts' };
+const FACTION_LABEL = { Traditions: 'The Traditions', Technocracy: 'Technocratic Union', Disparates: 'Disparate Crafts', Nephandi: 'The Fallen' };
+
+// The three groups a Barabbus can have Fallen from (Book of the Fallen pp. 55-57).
+// Mirrors PRIOR_GROUPS in server/nephandi.js, which validates what is sent.
+const NEPHANDI_PRIOR_GROUPS = {
+  Traditions:  M20.TRADITIONS.map(t => t.name),
+  Technocracy: M20.TECHNOCRACY.map(t => t.name),
+  Disparates:  M20.DISPARATES.map(t => t.name),
+};
+// Small object coercion used by the Nephandi blocks (chronicle rules may be absent).
+const objOr = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
 
 // ── Chronicle Welcome Modal ───────────────────────────────────────────────────
 // Shows a read-only summary of chronicle customizations right after joining.
@@ -1932,16 +1944,82 @@ const App = {
     document.querySelectorAll('#page-char-type .char-type-card').forEach(card => {
       card.onclick = () => {
         const t = card.dataset.charType;
-        if (t !== 'mortal' && t !== 'awakened' && t !== 'sorcerer') return;
+        if (t !== 'mortal' && t !== 'awakened' && t !== 'sorcerer' && t !== 'nephandi') return;
+        // The Fallen path is gated behind a one-time acknowledgement of the
+        // book's own content warnings.
+        if (t === 'nephandi' && !this.currentUser?.nephandi_ack) {
+          this.showNephandiGate(() => this.newCharacterOfType('nephandi'));
+          return;
+        }
         this.newCharacterOfType(t);
       };
     });
   },
 
+  // 'nephandi' is a creation path, not a character_type: a Nephandus is an
+  // 'awakened' character whose affiliation is 'Nephandi'. See server/nephandi.js.
   newCharacterOfType(charType) {
     this.currentCharId = null;
-    Creator.init({ charType });
+    if (charType === 'nephandi') Creator.init({ charType: 'awakened', affiliation: 'Nephandi' });
+    else Creator.init({ charType });
     this.showPage('creator');
+  },
+
+  // ── Nephandi content gate ───────────────────────────────────────────────────
+  // The Book of the Fallen opens with "Evil is Not a Toy" and devotes a chapter
+  // to depicting abuse, with explicit Storyteller and player responsibilities.
+  // Shown once per account; the acknowledgement is stored in users.nephandi_ack.
+  showNephandiGate(onAccept) {
+    document.getElementById('nephandi-gate')?.remove();
+    const overlay = document.createElement('div');
+    overlay.className = 'feedback-overlay nephandi-gate-overlay';
+    overlay.id = 'nephandi-gate';
+    overlay.innerHTML = `
+      <div class="feedback-box nephandi-gate-box">
+        <div class="feedback-header">
+          <span class="feedback-title">Before you enter the Caul</span>
+          <button class="modal-close nephandi-gate-close" aria-label="Close">✕</button>
+        </div>
+        <div class="feedback-body">
+          <p class="nephandi-gate-lead">The Book of the Fallen opens with a chapter called
+            <em>“Evil is Not a Toy.”</em> Its authors mean it.</p>
+          <p>Nephandi are the predators of the World of Darkness. The source material
+            deals directly with abuse — emotional, physical, sexual, religious and
+            financial — and with cruelty inflicted on people who cannot fight back.
+            It is written as material for antagonists, and it asks Storytellers and
+            players to agree on limits <strong>before</strong> any of it reaches the table.</p>
+          <p>This builder gives you the Traits and the rules. It does not give you a
+            group that has consented to them. That part is yours.</p>
+          <ul class="nephandi-gate-points">
+            <li>Talk to your table first. Agree what is off the table, and how to call a halt.</li>
+            <li>Nothing here is an endorsement of anything a Nephandus does.</li>
+            <li>You can delete a Fallen character at any time, like any other.</li>
+          </ul>
+          <p class="nephandi-gate-cite">Book of the Fallen, pp. 9–11 and Chapter Seven.</p>
+        </div>
+        <div class="feedback-footer">
+          <button class="btn-ghost nephandi-gate-cancel">Not this time</button>
+          <button class="btn-primary nephandi-gate-accept">I understand — continue</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => overlay.remove();
+    overlay.querySelector('.nephandi-gate-close').onclick = close;
+    overlay.querySelector('.nephandi-gate-cancel').onclick = close;
+    overlay.onclick = e => { if (e.target === overlay) close(); };
+    overlay.querySelector('.nephandi-gate-accept').onclick = async () => {
+      // Remember the acknowledgement, but never block creation on the request.
+      try {
+        await fetch('/api/settings', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nephandi_ack: true }),
+        });
+      } catch {}
+      if (this.currentUser) this.currentUser.nephandi_ack = 1;
+      close();
+      onAccept?.();
+    };
+    setTimeout(() => overlay.querySelector('.nephandi-gate-accept')?.focus(), 50);
   },
 
   confirmDelete(id, name) {
@@ -7407,6 +7485,10 @@ const Creator = {
   _mortalCreation() { return this.charType === 'sorcerer' ? SORCERER.CREATION : M20.CREATION_MORTAL; },
   _mortalCosts()    { return this.charType === 'sorcerer' ? SORCERER.FREEBIE_COSTS : M20.FREEBIE_COSTS_MORTAL; },
   _charTypeOf(t)    { return (t === 'mortal' || t === 'sorcerer') ? t : 'awakened'; },
+  // The Fallen are a fourth affiliation, not a fourth charType, so this reads the
+  // working character rather than this.charType — which keeps re-editing a saved
+  // Nephandus working, since `affiliation` round-trips through the server.
+  _isNephandi()     { return this.char?.affiliation === 'Nephandi'; },
 
   defaultChar(charType = 'awakened') {
     const base = {
@@ -7446,6 +7528,10 @@ const Creator = {
       virtues: charType === 'mortal' ? { conscience: 1, self_control: 1, courage: 1 } : {},
       humanity: charType === 'mortal' ? 2 : 0,
       numina:   {}, // mortal-only Numina paths { pathId: rating }
+      // Nephandi — only meaningful when affiliation === 'Nephandi', but always
+      // present so the server round-trip is consistent (see server/nephandi.js)
+      nephandi_origin: '', nephandi_prior_affiliation: '', nephandi_prior_faction: '',
+      pact_rating: 0,
     };
     if (charType === 'mortal') {
       base.affiliation = '';   // mortals have no Tradition affiliation
@@ -7466,6 +7552,16 @@ const Creator = {
     this.charType = this._charTypeOf(opts.charType);
     this._lockedBaselines = null;
     this.char = this.defaultChar(this.charType);
+    // The Fallen are Awakened characters with affiliation 'Nephandi'; the sect
+    // goes in `tradition`, so the affiliation has to be seeded before Step 0.
+    if (opts.affiliation === 'Nephandi') {
+      this.char.affiliation = 'Nephandi';
+      this.char.tradition = '';
+      this.char.nephandi_origin = '';
+      this.char.nephandi_prior_affiliation = '';
+      this.char.nephandi_prior_faction = '';
+      this.char.pact_rating = 0;
+    }
     this.editId = null;
     this._renderSidebarSteps();
     this.renderStep();
@@ -7485,7 +7581,10 @@ const Creator = {
       </li>`).join('');
     // Update the sidebar ref tag too
     const ref = document.querySelector('.creator-sidebar .sidebar-ref');
-    if (ref) ref.textContent = this.charType === 'mortal' ? 'Hunters Hunted II p. 35' : this.charType === 'sorcerer' ? 'M20 Sorcerer p. 103–105' : 'M20 p. 254–260';
+    if (ref) ref.textContent = this.charType === 'mortal' ? 'Hunters Hunted II p. 35'
+      : this.charType === 'sorcerer' ? 'M20 Sorcerer p. 103–105'
+      : this._isNephandi() ? 'M20 p. 254–260 · Book of the Fallen pp. 55–60, 115–150'
+      : 'M20 p. 254–260';
     // The step-list click handler is bound globally on DOMContentLoaded and uses
     // event delegation on the <ol>, so it still works after this innerHTML swap.
   },
@@ -7610,8 +7709,8 @@ const Creator = {
     const c = this.char || {};
     if (this.charType === 'mortal' || c.character_type === 'mortal') return [];
     if (this.charType === 'sorcerer' || c.character_type === 'sorcerer') return c.affiliation ? [`sorcerer-${c.affiliation}`, 'sorcerer'] : [];
-    if (!c.tradition) return [];
-    return [this.emblemSlug(c.tradition), { Traditions: 'traditions', Technocracy: 'technocracy', Disparates: 'disparates' }[c.affiliation]].filter(Boolean);
+    if (!c.tradition) return c.affiliation === 'Nephandi' ? ['nephandi'] : [];
+    return [this.emblemSlug(c.tradition), { Traditions: 'traditions', Technocracy: 'technocracy', Disparates: 'disparates', Nephandi: 'nephandi' }[c.affiliation]].filter(Boolean);
   },
   updateEmblem() {
     const frame = document.querySelector('.creator-content');
@@ -7731,10 +7830,18 @@ const Creator = {
     }
     // ── Awakened flow (existing 7-step rules) ────────────────────────────
     if (step === 0) {
+      const fallen = this._isNephandi();
       if (!c.name?.trim())    issues.push('Name not set');
       if (!c.concept?.trim()) issues.push('Concept not set');
-      if (!c.tradition)       issues.push('Tradition / affiliation not set');
-      if (!c.essence)         issues.push('Essence not set');
+      if (fallen) {
+        if (!c.nephandi_origin) issues.push('Origin of the Fall not set');
+        if (!c.tradition)       issues.push('Nephandic sect not set');
+        // Barabbi keep the faction they betrayed; the other two never had one.
+        if (c.nephandi_origin === 'barabbi' && !c.nephandi_prior_faction) {
+          issues.push('Prior faction not set');
+        }
+      } else if (!c.tradition) issues.push('Tradition / affiliation not set');
+      if (!c.essence)         issues.push(fallen ? 'Abyssal Essence not set' : 'Essence not set');
       if (!c.nature)          issues.push('Nature not set');
       if (!c.demeanor)        issues.push('Demeanor not set');
     } else if (step === 1) {
@@ -7801,6 +7908,11 @@ const Creator = {
       const used = Math.max(0, rawSph - bonusSph);
       const rem  = Math.max(0, M20.CREATION.sphereDots - used);
       if (rem > 0) issues.push(`${rem} sphere dot${rem !== 1 ? 's' : ''} unspent`);
+    } else if (step === 6) {
+      // Advisory only — isCharacterComplete() skips the Finishing step, so this
+      // surfaces in the sidebar without blocking finalisation.
+      const bad = this.pactSpendIllegal?.();
+      if (bad) issues.push(`${bad.over} pact point${bad.over !== 1 ? 's' : ''} spent on Arete or Spheres`);
     }
     return issues;
   },
@@ -8380,13 +8492,21 @@ const Creator = {
   renderStep0() {
     const c = this.char;
     const affiliationHtml = this.renderAffiliationSelector();
-    const essenceHtml = M20.ESSENCES.map(e => `
+    // The Fallen know the four Essences under Abyssal names (BotF p. 59). Only the
+    // label changes — the stored value stays the M20 name, so the sheet, the PDF,
+    // Markdown and every rule that reads `essence` work unchanged.
+    const fallen = this._isNephandi();
+    const essenceHtml = M20.ESSENCES.map(e => {
+      const ab = fallen ? FALLEN.essenceForM20(e.name) : null;
+      return `
       <div class="essence-card ${c.essence === e.name ? 'selected' : ''}" data-essence="${e.name}">
-        <div class="essence-name">${e.name}</div>
-        <div class="essence-desc">${e.description}</div>
-        <div class="page-ref" style="margin-top:0.5rem">p. ${e.page}</div>
-        <button type="button" class="trad-expand" aria-expanded="false" aria-label="Show description for ${escHtml(e.name)}">▾</button>
-      </div>`).join('');
+        <div class="essence-name">${ab ? escHtml(ab.name) : e.name}</div>
+        ${ab ? `<div class="essence-alt">${e.name} Essence</div>` : ''}
+        <div class="essence-desc">${ab ? escHtml(ab.description) : e.description}</div>
+        <div class="page-ref" style="margin-top:0.5rem">${ab ? `BotF p. ${ab.page}` : `p. ${e.page}`}</div>
+        <button type="button" class="trad-expand" aria-expanded="false" aria-label="Show description for ${escHtml(ab ? ab.name : e.name)}">▾</button>
+      </div>`;
+    }).join('');
 
     if (!c.customArchetypes) c.customArchetypes = [];
 
@@ -8435,9 +8555,11 @@ const Creator = {
       `<option value="${con}" ${c.concept === con ? 'selected' : ''}>${con || '— choose or type below —'}</option>`).join('');
 
     return `
-    ${this.stepHeader('Step One: Concept & Identity',
+    ${this.stepHeader(fallen ? 'Step One: Concept & the Fall' : 'Step One: Concept & Identity',
       M20.QUOTES.step1,
-      `Choose your <strong>Concept</strong>, <strong>Affiliation</strong>, <strong>Essence</strong>, and <strong>Archetypes</strong>. These define who your mage <em>is</em> before they ever work a single Effect. <span class="page-ref">M20 p. 254–260</span>`)}
+      fallen
+        ? `Choose your <strong>Concept</strong>, how your mage <strong>Fell</strong>, their <strong>sect</strong>, <strong>Abyssal Essence</strong> and <strong>Archetypes</strong>. The Fallen build on the same chassis as any mage. <span class="page-ref">M20 p. 254–260 · BotF pp. 55–60</span>`
+        : `Choose your <strong>Concept</strong>, <strong>Affiliation</strong>, <strong>Essence</strong>, and <strong>Archetypes</strong>. These define who your mage <em>is</em> before they ever work a single Effect. <span class="page-ref">M20 p. 254–260</span>`)}
 
     <div class="form-grid">
       <div class="form-group">
@@ -8493,8 +8615,10 @@ const Creator = {
 
     ${affiliationHtml}
 
-    <div class="ornate-divider">— Essence —</div>
-    <p class="page-ref" style="margin-bottom:0.75rem">Your Avatar's inner nature. M20 p. 255</p>
+    <div class="ornate-divider">— ${fallen ? 'Abyssal Essence' : 'Essence'} —</div>
+    <p class="page-ref" style="margin-bottom:0.75rem">${fallen
+      ? 'The same four Essences, as the Fallen name them. Book of the Fallen p. 59'
+      : "Your Avatar's inner nature. M20 p. 255"}</p>
     <div class="essence-grid" id="essence-grid">
       ${essenceHtml}
     </div>
@@ -8537,8 +8661,79 @@ const Creator = {
     </div>`;
   },
 
+  // ── The Fallen: origin, prior faction and sect (Book of the Fallen) ─────────
+  // Replaces the three-tab affiliation picker for a Nephandus. The Fallen path is
+  // entered from its own card on the character-type page, behind the content
+  // gate, so the other three affiliations are deliberately not offered here —
+  // except as the prior faction a Barabbus Fell from.
+  renderFallenSelector() {
+    const c = this.char;
+    const rules = objOr(c._chronicleRules?.nephandi);
+    const originAllowed = id => !Array.isArray(rules.allowedOrigins) || !rules.allowedOrigins.length || rules.allowedOrigins.includes(id);
+    const sectAllowed   = id => !Array.isArray(rules.allowedSects)   || !rules.allowedSects.length   || rules.allowedSects.includes(id);
+
+    const originHtml = FALLEN.ORIGINS.map(o => {
+      const restricted = !originAllowed(o.id);
+      return `
+      <button type="button" class="fallen-origin-card ${c.nephandi_origin === o.id ? 'selected' : ''} ${restricted ? 'fallen-restricted' : ''}"
+              data-origin="${o.id}" ${restricted ? 'title="Not allowed in this Chronicle"' : ''}>
+        <span class="fallen-origin-name">${escHtml(o.name)}</span>
+        <span class="fallen-origin-summary">${escHtml(o.summary)}</span>
+        <span class="page-ref">BotF p. ${o.page}</span>
+        ${restricted ? '<span class="trad-restricted-notice">Not allowed in this Chronicle</span>' : ''}
+      </button>`;
+    }).join('');
+
+    // Barabbi keep the faction they betrayed, and with it their affinity Sphere.
+    const priorOptions = Object.entries(NEPHANDI_PRIOR_GROUPS).map(([group, names]) => `
+      <optgroup label="${FACTION_LABEL[group] || group}">
+        ${names.map(n => `<option value="${escHtml(n)}" ${c.nephandi_prior_faction === n ? 'selected' : ''}>${escHtml(n)}</option>`).join('')}
+      </optgroup>`).join('');
+    const priorHtml = c.nephandi_origin === 'barabbi' ? `
+      <div class="form-group fallen-prior">
+        <label class="form-label" for="fallen-prior-faction">Fell from <span class="form-hint">(a Barabbus keeps the focus — and the Affinity Sphere — of the faction they betrayed)</span></label>
+        <select id="fallen-prior-faction" class="form-input">
+          <option value="">— choose the faction they betrayed —</option>
+          ${priorOptions}
+        </select>
+      </div>` : '';
+
+    const sectCard = s => {
+      const restricted = !sectAllowed(s.id);
+      return `
+      <div class="tradition-card fallen-sect-card ${c.tradition === s.name ? 'selected' : ''} ${restricted ? 'tradition-card-restricted' : ''}"
+           data-sect="${escHtml(s.name)}">
+        <div class="trad-name">${escHtml(s.name)}</div>
+        <div class="trad-spheres">${escHtml(s.subtitle)}</div>
+        <div class="trad-desc">${escHtml(s.description)}</div>
+        <div class="page-ref" style="margin-top:0.35rem">BotF p. ${s.page}</div>
+        ${restricted ? '<div class="trad-restricted-notice">Not allowed in this Chronicle</div>' : ''}
+        <button type="button" class="trad-expand" aria-expanded="false" aria-label="Show description for ${escHtml(s.name)}">▾</button>
+      </div>`;
+    };
+
+    const groups = FALLEN.sectGroups().map(g => `
+      <div class="fallen-sect-group">
+        <div class="fallen-sect-group-title">${escHtml(g)}</div>
+        <div class="tradition-grid">${FALLEN.sectsInGroup(g).map(sectCard).join('')}</div>
+      </div>`).join('');
+
+    return `
+    <div class="affil-intro" style="margin-bottom:0.75rem">
+      <p style="font-size:0.85rem;color:var(--text-dim);margin:0;flex:1 1 220px">The Fallen walk the same nine Spheres as any mage — read through the Qlippoth. First, how they Fell. <span class="page-ref">BotF pp. 55–58</span></p>
+      <button type="button" class="consult-fates-btn" onclick="Tarot.open()" title="Draw a five-card spread for character inspiration">✦ Consult the Fates</button>
+    </div>
+    <div class="fallen-origin-grid">${originHtml}</div>
+    ${priorHtml}
+    <div class="fallen-sects">
+      <p class="fallen-sects-lead">And which of the Fallen they run with. <span class="page-ref">BotF pp. 68–91</span></p>
+      ${groups}
+    </div>`;
+  },
+
   renderAffiliationSelector() {
     const c = this.char;
+    if (this._isNephandi()) return this.renderFallenSelector();
     const normFac = normalizeAllowedFactions(this.char._chronicleRules?.allowedFactions);
 
     const tabs = [
@@ -8886,32 +9081,47 @@ const Creator = {
 
   // ── Practice select options, with optional paradigm-based optgroups ─────────
   _buildPracticeOptsHTML(suggestedIds = []) {
+    const opt = p => `<option value="${p.id}">${escHtml(p.name)}</option>`;
+    // The Fallen Practices (BotF pp. 139-145). data-prism.js already carries
+    // Maleficia and Infernal Sciences for the Prism focus system, so anything
+    // M20.PRACTICES already names is dropped rather than listed twice.
+    const fallenOpts = (this._isNephandi() && FALLEN)
+      ? `<optgroup label="⛧ Fallen Practices">${
+          FALLEN.practicesNotIn(M20.PRACTICES.map(p => p.name)).map(opt).join('')
+        }</optgroup>`
+      : '';
     if (!suggestedIds.length) {
-      return M20.PRACTICES.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+      return M20.PRACTICES.map(opt).join('') + fallenOpts;
     }
     const suggested = M20.PRACTICES.filter(p => suggestedIds.includes(p.id));
     const others    = M20.PRACTICES.filter(p => !suggestedIds.includes(p.id));
     return `<optgroup label="✦ Suggested Practices">
-        ${suggested.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+        ${suggested.map(opt).join('')}
       </optgroup>
       <optgroup label="Other Practices">
-        ${others.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-      </optgroup>`;
+        ${others.map(opt).join('')}
+      </optgroup>${fallenOpts}`;
   },
 
   // ── Paradigm select options, with optional practice-based optgroups ──────────
   _buildParadigmOptsHTML(suggestedIds = []) {
+    const opt = p => `<option value="${p.id}">${escHtml(p.name)}</option>`;
+    // Nephandic paradigms and the heresies they grow out of (BotF pp. 127-138).
+    const fallenOpts = (this._isNephandi() && FALLEN)
+      ? `<optgroup label="⛧ Nephandic Paradigms">${FALLEN.PARADIGMS.map(opt).join('')}</optgroup>`
+        + `<optgroup label="⛧ Heresies">${FALLEN.HERESIES.map(opt).join('')}</optgroup>`
+      : '';
     if (!suggestedIds.length) {
-      return M20.PARADIGMS.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+      return M20.PARADIGMS.map(opt).join('') + fallenOpts;
     }
     const suggested = M20.PARADIGMS.filter(p => suggestedIds.includes(p.id));
     const others    = M20.PARADIGMS.filter(p => !suggestedIds.includes(p.id));
     return `<optgroup label="✦ Suggested Paradigms">
-        ${suggested.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+        ${suggested.map(opt).join('')}
       </optgroup>
       <optgroup label="Other Paradigms">
-        ${others.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-      </optgroup>`;
+        ${others.map(opt).join('')}
+      </optgroup>${fallenOpts}`;
   },
 
   // ── Resonance item HTML builder (used in creator Step 4 and sheet) ──────────
@@ -8969,7 +9179,13 @@ const Creator = {
     const resonanceListHTML = c.resonance.map((r, i) => this._buildResonanceItemHTML(r, i)).join('');
 
     const selectedInstruments = Array.isArray(c.instruments) ? c.instruments : [];
-    const builtinSet = new Set(M20.INSTRUMENTS);
+    // The Fallen add six Malign Instruments (BotF pp. 146-150). They join the
+    // standard list rather than replacing it: a Nephandus still burns candles.
+    const fallenInstruments = (this._isNephandi() && FALLEN)
+      ? FALLEN.INSTRUMENTS.map(i => i.name).filter(n => !M20.INSTRUMENTS.includes(n))
+      : [];
+    const instrumentList = [...M20.INSTRUMENTS, ...fallenInstruments];
+    const builtinSet = new Set(instrumentList);
     const customInstruments = selectedInstruments.filter(i => !builtinSet.has(i));
 
     // Paradigm dropdown — match ALL current practices, use first for paradigm suggestions
@@ -8982,11 +9198,12 @@ const Creator = {
     // Union instrument suggestions across ALL practices
     const suggestedInstruments = new Set(matchedPractices.flatMap(p => p.instruments || []));
 
-    const builtinRows = M20.INSTRUMENTS.map(inst => {
+    const builtinRows = instrumentList.map(inst => {
       const checked = selectedInstruments.includes(inst);
       const safeId  = inst.replace(/[^a-zA-Z0-9]/g, '_');
       const isSuggestedInst = suggestedInstruments.has(inst);
-      return `<label class="instrument-item ${checked ? 'checked' : ''}${isSuggestedInst ? ' suggested-instrument' : ''}" for="inst-${safeId}">
+      const isMalign = fallenInstruments.includes(inst);
+      return `<label class="instrument-item ${checked ? 'checked' : ''}${isSuggestedInst ? ' suggested-instrument' : ''}${isMalign ? ' instrument-item-malign' : ''}" for="inst-${safeId}">
         <input type="checkbox" id="inst-${safeId}" value="${inst}" ${checked ? 'checked' : ''} />
         <span class="inst-text">${inst}${isSuggestedInst ? `<span class="suggested-badge" title="Suggested from ${matchedPractice.name}">✦</span>` : ''}</span>
       </label>`;
@@ -9127,9 +9344,21 @@ const Creator = {
 
     // Determine affinity sphere options from tradition / affiliation
     const isDisparate = c.affiliation === 'Disparates';
-    const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY].find(t => t.name === c.tradition);
-    const affinitySpheres = isDisparate
-      ? M20.SPHERES.map(s => s.name)   // Disparates may choose any sphere
+    // Nephandic sects grant no Affinity Sphere of their own (the Book of the Fallen
+    // never assigns one). A Barabbus keeps the affinity of the faction they
+    // betrayed; the Caul-Born and Widderslainte, having had none, choose freely —
+    // the same latitude Disparates already get.
+    const isFallen = this._isNephandi();
+    const priorTrad = isFallen
+      ? [...M20.TRADITIONS, ...M20.TECHNOCRACY].find(t => t.name === c.nephandi_prior_faction)
+      : null;
+    const freeAffinity = isDisparate
+      || (isFallen && c.nephandi_origin && c.nephandi_origin !== 'barabbi')
+      || (isFallen && c.nephandi_prior_affiliation === 'Disparates');
+    const trad = isFallen ? priorTrad
+      : [...M20.TRADITIONS, ...M20.TECHNOCRACY].find(t => t.name === c.tradition);
+    const affinitySpheres = freeAffinity
+      ? M20.SPHERES.map(s => s.name)   // Disparates, Caul-Born and Widderslainte may choose any Sphere
       : (trad?.affinitySpheres || []);
 
     // Auto-select affinity sphere if tradition has exactly one option and none set yet
@@ -9154,7 +9383,11 @@ const Creator = {
     let affinitySelectHtml = '';
     if (affinitySpheres.length > 1) {
       const opts = affinitySpheres.map(s => { const sid = s.toLowerCase(); return `<option value="${sid}" ${selectedAffinity === sid ? 'selected' : ''}>${s}</option>`; }).join('');
-      const hint = isDisparate
+      const hint = isFallen && freeAffinity
+        ? `Having never served a faction, ${escHtml(FALLEN.originById(c.nephandi_origin)?.name || 'the Fallen')} may claim any Sphere as their Affinity.`
+        : isFallen
+        ? `A Barabbus keeps the Affinity Sphere of the ${escHtml(c.nephandi_prior_faction)} — corrupted, not replaced.`
+        : isDisparate
         ? 'As a Disparate, you may choose any Sphere as your Affinity Sphere.'
         : 'Your Affinity Sphere receives its first dot free. It costs 7 XP per dot (vs. 8 for other spheres).';
       affinitySelectHtml = `
@@ -9184,6 +9417,11 @@ const Creator = {
       </div>`;
     }
 
+    // Qlippothic Spheres are flavour: the Book of the Fallen is explicit that
+    // "there's no rules-based difference" (p. 103). Sphere names, ratings and
+    // systems are untouched; a Nephandus just sees which Qlipha each answers to.
+    const qlipha = id => (isFallen && FALLEN) ? FALLEN.qliphaForSphere(id) : null;
+
     const sphereCards = M20.SPHERES.map(sphere => {
       const val = c.spheres[sphere.id] || 0;
       const isAffinity = (!!selectedAffinity && sphere.id === selectedAffinity)
@@ -9199,6 +9437,7 @@ const Creator = {
           ${isAffinity ? '<span class="sphere-affinity-badge">Affinity ✦</span>' : ''}
         </div>
         ${sphere.altName ? `<div style="font-size:0.62rem;color:var(--text-faint);margin-bottom:0.3rem">${sphereDisplayName(sphere, c) === sphere.name ? sphere.altName : `${sphere.name} (M20)`}</div>` : ''}
+        ${isFallen && qlipha(sphere.id) ? `<div class="sphere-qlipha" title="${escHtml(qlipha(sphere.id).text)}">under ${escHtml(qlipha(sphere.id).qlipha)}</div>` : ''}
         <div class="sphere-rank-name" id="sphere-rank-${sphere.id}">${val > 0 ? rankName : '<em>Unlearned</em>'}</div>
         <div style="margin:0.5rem 0">${dotsClickable(val, 3, null, 'sphere-dots')}</div>
         <div class="specialty-row" style="display:none">
@@ -9211,9 +9450,11 @@ const Creator = {
     }).join('');
 
     return `
-    ${this.stepHeader('Step Six: Spheres',
+    ${this.stepHeader(isFallen ? 'Step Six: Qlippothic Spheres' : 'Step Six: Spheres',
       M20.QUOTES.step6,
-      `Distribute <strong>${totalDots} dots</strong> among the Spheres. Your <strong>Affinity Sphere</strong> receives its first dot automatically (included in the 6). Maximum 5 dots per Sphere. <span class="page-ref">M20 p. 259, 512–527</span>`)}
+      `Distribute <strong>${totalDots} dots</strong> among the Spheres. Your <strong>Affinity Sphere</strong> receives its first dot automatically (included in the 6). Maximum 5 dots per Sphere.${
+        isFallen ? ' The Fallen work the same nine Arts; only the Qlipha each answers to differs.' : ''
+      } <span class="page-ref">M20 p. 259, 512–527${isFallen ? ' · BotF p. 104' : ''}</span>`)}
 
     ${affinitySelectHtml}
 
@@ -9555,13 +9796,17 @@ const Creator = {
       <div id="fb-spheres" class="fb-group">${sphereSection}</div>
     </details>
 
+    ${this._renderPactSection()}
+
     <!-- ── Merits ── -->
     <details class="fb-details mf-details">
       <summary class="fb-details-summary">
         Merits <span class="fb-details-cost" id="mf-cost-merits"></span>
-        <span class="fb-details-hint">cost freebie points &middot; <span class="page-ref">M20 p. 340 / BoS p. 35</span></span>
+        <span class="fb-details-hint">cost freebie points &middot; <span class="page-ref">M20 p. 340 / BoS p. 35${this._isNephandi() ? ' / BotF p. 117' : ''}</span></span>
       </summary>
-      <div class="fb-section-note">Click a merit to add it; click again to remove. Variable-cost merits show a dropdown — choose your level first, then click the row to activate.</div>
+      <div class="fb-section-note">Click a merit to add it; click again to remove. Variable-cost merits show a dropdown — choose your level first, then click the row to activate.${
+        this._isNephandi() ? ' The Fallen also have four Supernatural Merits of their own and the sixteen Infernal Investments, which the book allows to exceed the usual limits.' : ''
+      }</div>
       <div id="fb-merits" class="mf-list"></div>
     </details>
 
@@ -9569,9 +9814,9 @@ const Creator = {
     <details class="fb-details mf-details">
       <summary class="fb-details-summary">
         Flaws <span class="fb-details-cost" id="mf-cost-flaws"></span>
-        <span class="fb-details-hint">grant bonus freebie points (max +7) &middot; <span class="page-ref">M20 p. 350 / BoS p. 39</span></span>
+        <span class="fb-details-hint">grant bonus freebie points ${this.flawCapRule() === null ? '(uncapped for the Fallen)' : `(max +${this.flawCapRule()})`} &middot; <span class="page-ref">M20 p. 350 / BoS p. 39${this._isNephandi() ? ' / BotF p. 117' : ''}</span></span>
       </summary>
-      <div class="fb-section-note">Taking a flaw grants bonus freebie points equal to its cost (max +7 total). Click to toggle. Variable-cost flaws show a dropdown — select your level before clicking.</div>
+      <div class="fb-section-note">Taking a flaw grants bonus freebie points equal to its cost ${this.flawCapRule() === null ? '— uncapped, because Nephandic Traits may exceed the usual limits (BotF p. 117)' : `(max +${this.flawCapRule()} total)`}. Click to toggle. Variable-cost flaws show a dropdown — select your level before clicking.</div>
       <div id="fb-flaws" class="mf-list"></div>
     </details>
 
@@ -10947,7 +11192,8 @@ const Creator = {
           if (customAdder) customAdder.style.display = '';
           if (customPracInp) customPracInp.focus();
         } else {
-          const preset = M20.PRACTICES.find(p => p.id === val);
+          const preset = M20.PRACTICES.find(p => p.id === val)
+            || (FALLEN && FALLEN.PRACTICES.find(p => p.id === val));
           if (preset) _addPractice(preset.name);
         }
         practiceSelS4.value = ''; // always reset dropdown
@@ -10978,9 +11224,12 @@ const Creator = {
       paradigmSel.addEventListener('change', () => {
         const val = paradigmSel.value;
         if (val && val !== 'custom') {
-          const preset = M20.PARADIGMS.find(p => p.id === val);
+          const fallenPara = FALLEN && [...FALLEN.PARADIGMS, ...FALLEN.HERESIES].find(p => p.id === val);
+          const preset = M20.PARADIGMS.find(p => p.id === val) || fallenPara;
           if (preset) {
-            c.paradigm = `${preset.desc} (M20 p. ${preset.page})`;
+            c.paradigm = fallenPara
+              ? `${preset.name} — ${preset.description} (BotF p. ${preset.page})`
+              : `${preset.desc} (M20 p. ${preset.page})`;
             paradigmArea.value = c.paradigm;
             paradigmArea.focus();
             // Update practice dropdown with suggested practices for this paradigm
@@ -11165,6 +11414,9 @@ const Creator = {
     // affiliation (so browsing other tabs never deselects a prior choice).
     $$('.tradition-card', content).forEach(card => {
       card.addEventListener('click', () => {
+        // Nephandic sect cards reuse .tradition-card for its styling and the ▾
+        // accordion, but carry data-sect and are committed by their own handler.
+        if (card.classList.contains('fallen-sect-card')) return;
         if (card.classList.contains('tradition-card-restricted')) {
           toast('That faction is not allowed in this Chronicle.', 'error');
           return;
@@ -11181,6 +11433,68 @@ const Creator = {
         const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY, ...M20.DISPARATES].find(t => t.name === c.tradition);
         if (trad?.affinitySpheres?.length === 1) c.affinity_sphere = trad.affinitySpheres[0].toLowerCase();
         else c.affinity_sphere = '';
+      });
+    });
+
+    // ── The Fallen ───────────────────────────────────────────────────────────
+    // Origin cards. Choosing one re-renders Step 0, because only Barabbi get the
+    // prior-faction picker and the Affinity Sphere rule differs by origin.
+    $$('.fallen-origin-card', content).forEach(card => {
+      card.addEventListener('click', () => {
+        if (card.classList.contains('fallen-restricted')) {
+          toast('That origin is not allowed in this Chronicle.', 'error');
+          return;
+        }
+        const id = card.dataset.origin;
+        if (c.nephandi_origin === id) return;
+        c.nephandi_origin = id;
+        if (id !== 'barabbi') {
+          // Caul-Born and Widderslainte never had a faction, so they never
+          // inherit one's Affinity Sphere either.
+          c.nephandi_prior_faction = '';
+          c.nephandi_prior_affiliation = '';
+          c.affinity_sphere = '';
+        }
+        this.renderStep({ scroll: false });
+        this.updateSidebar();
+      });
+    });
+
+    // The faction a Barabbus Fell from still grants their Affinity Sphere.
+    const prior = $('#fallen-prior-faction', content);
+    if (prior) prior.addEventListener('change', () => {
+      c.nephandi_prior_faction = prior.value;
+      const group = Object.entries(NEPHANDI_PRIOR_GROUPS)
+        .find(([, names]) => names.includes(prior.value));
+      c.nephandi_prior_affiliation = group ? group[0] : '';
+      const trad = [...M20.TRADITIONS, ...M20.TECHNOCRACY, ...M20.DISPARATES]
+        .find(t => t.name === prior.value);
+      c.affinity_sphere = trad?.affinitySpheres?.length === 1
+        ? trad.affinitySpheres[0].toLowerCase() : '';
+      this.updateSidebar();
+    });
+
+    // Infernal Pact rating — changes the freebie pool, so the bank must refresh.
+    const pactSel = $('#fallen-pact', content);
+    if (pactSel) pactSel.addEventListener('change', () => {
+      c.pact_rating = parseInt(pactSel.value, 10) || 0;
+      this.renderStep({ scroll: false });
+      this.updateFreebieDisplay();
+      this.updateSidebar();
+    });
+
+    // Sect cards. The sect is stored in `tradition`, like every other
+    // affiliation's sub-faction, so nothing downstream needs a new column.
+    $$('.fallen-sect-card', content).forEach(card => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('.trad-expand')) return;
+        if (card.classList.contains('tradition-card-restricted')) {
+          toast('That sect is not allowed in this Chronicle.', 'error');
+          return;
+        }
+        c.tradition = card.dataset.sect;
+        $$('.fallen-sect-card', content).forEach(s => s.classList.toggle('selected', s.dataset.sect === c.tradition));
+        this.updateSidebar();
       });
     });
 
@@ -12589,17 +12903,76 @@ const Creator = {
   },
 
   // ── Chronicle rules helpers ───────────────────────────────────────────────
+  // ── Infernal Pacts (BotF pp. 120-121) ──────────────────────────────────────
+  // An optional rule, and one the book pointedly does not endorse for player
+  // characters, so it appears only when a chronicle has switched it on. A pact of
+  // level N grants N freebie points which may never buy Arete or Spheres.
+  _renderPactSection() {
+    if (!this._isNephandi() || !FALLEN) return '';
+    const rules = objOr(this.char._chronicleRules?.nephandi);
+    if (rules.allowPacts !== true) return '';
+    const max = rules.maxPactRating === undefined ? FALLEN.PACT_LEVELS.length : rules.maxPactRating;
+    const cur = Math.min(FALLEN.pactFreebies(this.char.pact_rating), max);
+    const illegal = this.pactSpendIllegal();
+    const opts = [{ level: 0, name: 'No pact' }, ...FALLEN.PACT_LEVELS.filter(l => l.level <= max)]
+      .map(l => `<option value="${l.level}" ${cur === l.level ? 'selected' : ''}>${l.level ? `Level ${l.level} — ${escHtml(l.name)} (+${l.level})` : 'No pact'}</option>`).join('');
+    const lvl = FALLEN.pactLevel(cur);
+    return `
+    <details class="fb-details fallen-pact-details"${cur ? ' open' : ''}>
+      <summary class="fb-details-summary">
+        Infernal Pact <span class="fb-details-cost">${cur ? `+${cur}` : ''}</span>
+        <span class="fb-details-hint">grants freebie points, at a price &middot; <span class="page-ref">BotF p. 121</span></span>
+      </summary>
+      <div class="fb-section-note">A pact of level N grants N freebie points in exchange for servitude to a malignant entity. Those points <strong>may not be spent on Arete or Spheres</strong> — that power comes from within, not from a patron.</div>
+      <div class="form-group" style="max-width:32rem">
+        <label for="fallen-pact">Pact rating</label>
+        <select id="fallen-pact" class="form-input">${opts}</select>
+      </div>
+      ${lvl ? `<p class="fallen-pact-desc"><strong>${escHtml(lvl.name)}:</strong> ${escHtml(lvl.text.split('\n\n')[0])}</p>` : ''}
+      ${illegal ? `<p class="fallen-pact-warning">Arete and Spheres account for ${illegal.onMagick} freebie points, but only ${illegal.allowed} may come from outside the pact. Move ${illegal.over} point${illegal.over !== 1 ? 's' : ''} elsewhere.</p>` : ''}
+    </details>`;
+  },
+
   freebiesPool() {
     if (this._mortalLike()) {
       return this.char._chronicleRules?.freebiePoints ?? this._mortalCreation().freebiePoints;
     }
-    return this.char._chronicleRules?.freebiePoints ?? M20.CREATION.freebiePoints;
+    const base = this.char._chronicleRules?.freebiePoints ?? M20.CREATION.freebiePoints;
+    return base + this.pactFreebies();
+  },
+
+  // Infernal Pacts (BotF p. 121): a pact of level N grants N freebie points. The
+  // book bars them from buying Arete or Spheres, which pactSpendIllegal() checks —
+  // the points themselves are fungible, so the restriction is expressed as a cap
+  // on what Arete and Spheres may consume. An optional rule, off unless the
+  // chronicle enables it.
+  pactFreebies() {
+    if (!this._isNephandi() || !FALLEN) return 0;
+    if (objOr(this.char._chronicleRules?.nephandi).allowPacts !== true) return 0;
+    return FALLEN.pactFreebies(this.char.pact_rating);
+  },
+
+  // How many freebies went on Arete and Spheres, and the most they may legally
+  // take — i.e. the pool without the pact's contribution.
+  pactSpendIllegal() {
+    const pact = this.pactFreebies();
+    if (!pact) return null;
+    const onMagick = this.calcFreebieBreakdown().reduce((s, l) =>
+      s + (/^(Arete|Spheres)$/i.test(l.label) ? Math.max(0, l.cost) : 0), 0);
+    const allowed = this.freebiesPool() - pact;
+    return onMagick > allowed
+      ? { onMagick, allowed, over: onMagick - allowed, pact }
+      : null;
   },
 
   flawCapRule() {
     const r = this.char._chronicleRules;
-    if (!r || !('flawCap' in r)) return 7;
-    return r.flawCap; // null means uncapped
+    if (r && 'flawCap' in r) return r.flawCap; // null means uncapped
+    // BotF p. 117: Nephandic Merits and Flaws "can exceed the usual limits on such
+    // Traits", so the 7-point cap lifts for the Fallen unless the chronicle says
+    // otherwise via rules.nephandi.enforceTraitLimits.
+    if (this._isNephandi() && objOr(r?.nephandi).enforceTraitLimits !== 'block') return null;
+    return 7;
   },
 
   meritCapRule() {
@@ -12985,7 +13358,11 @@ const Creator = {
     const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
     const isSorc   = this.charType === 'sorcerer' || this.char.character_type === 'sorcerer';
     const restrict = isSorc && !!(this.char._chronicleRules?.sorcerer?.restrictMerits);
-    const builtins = restrict ? SorcererUI.merits() : [...M20.MERITS.filter(m => (isMortal || isSorc) ? true : !m.mortalOnly), ...(isSorc ? SorcererUI.merits() : [])];
+    // The Fallen add four Supernatural Merits and the sixteen Infernal Investments
+    // (BotF pp. 117-127). Widderslainte aside, these are theirs alone, so they are
+    // offered only on the Fallen path.
+    const fallenMerits = this._isNephandi() && FALLEN ? FALLEN.meritRows() : [];
+    const builtins = restrict ? SorcererUI.merits() : [...M20.MERITS.filter(m => (isMortal || isSorc) ? true : !m.mortalOnly), ...(isSorc ? SorcererUI.merits() : []), ...fallenMerits];
     const chronicleCustoms = (this.char._chronicleRules?.customMerits || [])
       .filter(m => m.name)
       .map(m => ({ id: m.id, name: m.name, cost: m.cost || 1, category: m.category || 'Social', description: m.description || '', custom: true }));
@@ -12999,7 +13376,12 @@ const Creator = {
     const isMortal = this.charType === 'mortal' || this.char.character_type === 'mortal';
     const isSorc   = this.charType === 'sorcerer' || this.char.character_type === 'sorcerer';
     const restrict = isSorc && !!(this.char._chronicleRules?.sorcerer?.restrictMerits);
-    const builtins = restrict ? SorcererUI.flaws() : [...M20.FLAWS.filter(f => (isMortal || isSorc) ? true : !f.mortalOnly), ...(isSorc ? SorcererUI.flaws() : [])];
+    // Widderslainte / Taint of Corruption may be taken before the Fall (BotF
+    // p. 120); the other three Nephandic Flaws may not.
+    const fallenFlaws = !FALLEN ? []
+      : this._isNephandi() ? FALLEN.flawRows()
+      : FALLEN.flawRows().filter(f => f.id === 'neph_widderslainte');
+    const builtins = restrict ? SorcererUI.flaws() : [...M20.FLAWS.filter(f => (isMortal || isSorc) ? true : !f.mortalOnly), ...(isSorc ? SorcererUI.flaws() : []), ...(isMortal || isSorc ? [] : fallenFlaws)];
     const chronicleCustoms = (this.char._chronicleRules?.customFlaws || [])
       .filter(f => f.name)
       .map(f => ({ id: f.id, name: f.name, cost: f.cost || 1, category: f.category || 'Social', description: f.description || '', custom: true }));
