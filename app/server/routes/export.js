@@ -4,6 +4,7 @@ const router  = express.Router();
 const db      = require('../db');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const SORCERER = require('../../public/js/data-sorcerer.js');
+const FALLEN = require('../../public/js/data-fallen.js');
 const M20DATA  = require('../../public/js/data.js');
 const PRISM    = require('../../public/js/data-prism.js');
 
@@ -248,6 +249,11 @@ async function buildCharacterPDF(c) {
   };
 
   const isSorc = c.character_type === 'sorcerer';
+  // The Fallen are Awakened characters whose affiliation is 'Nephandi'; the sect
+  // sits in `tradition`. Only the labels differ — every system is the same.
+  const isFallen = c.affiliation === 'Nephandi';
+  const fallenOrigin = isFallen ? (FALLEN.originById(c.nephandi_origin) || null) : null;
+  const fallenEssence = isFallen ? (FALLEN.essenceForM20(c.essence) || null) : null;
 
   /* ── Column geometry ─────────────────────────────────────────────────────── */
   const ML = 28;
@@ -261,6 +267,7 @@ async function buildCharacterPDF(c) {
   ══════════════════════════════════════════════════════════════════════════ */
   FR(ML - 5, H - 39, W - (ML - 5) * 2, 28, ink.dark);
   const banner = isSorc ? 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Sorcerer Record'
+                : isFallen ? 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Record of the Fallen'
                         : 'MAGE: THE ASCENSION  --  20th Anniversary Edition  --  Character Record';
   const bw = fB.widthOfTextAtSize(banner, 9.5);
   T(banner, (W - bw) / 2, H - 30, 9.5, fB, ink.white);
@@ -276,12 +283,20 @@ async function buildCharacterPDF(c) {
   IF('Concept',     c.concept,                       C1,       iy, 190);
   const sorcAff = isSorc ? SORCERER.affiliationById(c.affiliation) : null;
   const sorcAlign = isSorc ? ((SORCERER.ALIGNMENTS || []).find(a => a.id === c.faction) || {}).name || '' : '';
-  IF(isSorc ? 'Alignment' : 'Tradition', isSorc ? sorcAlign : c.tradition, C2, iy, CW);
-  IF('Essence',     c.essence,                       C3,       iy, CW);
+  IF(isSorc ? 'Alignment' : isFallen ? 'Sect' : 'Tradition', isSorc ? sorcAlign : c.tradition, C2, iy, CW);
+  IF(isFallen ? 'Abyssal Essence' : 'Essence',
+     isFallen && fallenEssence ? `${fallenEssence.name} (${c.essence})` : c.essence, C3, iy, CW);
   iy -= 13;
   IF('Nature',      c.nature,                        C1,       iy, 105);
   IF('Demeanor',    c.demeanor,                      C1 + 112, iy, CW - 14);
   IF('Affiliation', isSorc ? (sorcAff ? sorcAff.name : '') : (c.affiliation || c.tradition), C3, iy, CW);
+  if (isFallen) {
+    iy -= 13;
+    IF('The Fall', fallenOrigin ? fallenOrigin.name : '', C1, iy, 105);
+    IF('Fell from', c.nephandi_prior_faction || '—', C1 + 112, iy, CW - 14);
+    IF('Infernal Pact', c.pact_rating > 0
+      ? `${c.pact_rating} - ${(FALLEN.pactLevel(c.pact_rating) || {}).name || ''}` : '—', C3, iy, CW);
+  }
   iy -= 11;
   HL(ML - 5, iy + 2, W - (ML - 5) * 2, 1.2, ink.dark);
 
@@ -463,6 +478,12 @@ async function buildCharacterPDF(c) {
 
   const mfName = (id, table) => {
     if (isSorc) { const m = SORCERER.meritById && SORCERER.meritById(id); if (m) return m.name; }
+    // Nephandic Merits, Flaws and Investments carry a neph_ / inv_ prefix and
+    // live in data-fallen.js rather than this file's own tables.
+    if (/^(neph|inv)_/.test(id)) {
+      const f = FALLEN.meritById(id) || FALLEN.flawById(id);
+      if (f) return f.name;
+    }
     return table[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
   };
   if (isSorc) {
@@ -824,7 +845,8 @@ router.get('/foundry/:id', async (req, res) => {
 
     /* Merits & Flaws */
     Object.entries(c.merits || {}).forEach(([id, cost]) => {
-      const name = MERIT_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      const name = MERIT_NAMES[id] || (FALLEN.meritById(id) || {}).name
+        || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
       items.push({ _id:makeId(), name, type:'advantage', system: {
         id, reference:`wod.merits.${id}`, type:'wod.advantages.merits', group:'merits', label:name,
         permanent:cost, temporary:0, max:5, description:'',
@@ -832,7 +854,8 @@ router.get('/foundry/:id', async (req, res) => {
       }});
     });
     Object.entries(c.flaws || {}).forEach(([id, cost]) => {
-      const name = FLAW_NAMES[id] || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
+      const name = FLAW_NAMES[id] || (FALLEN.flawById(id) || {}).name
+        || id.replace(/_/g,' ').replace(/\b\w/g, l => l.toUpperCase());
       items.push({ _id:makeId(), name, type:'advantage', system: {
         id, reference:`wod.flaws.${id}`, type:'wod.advantages.flaws', group:'flaws', label:name,
         permanent:cost, temporary:0, max:5, description:'',

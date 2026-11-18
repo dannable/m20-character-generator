@@ -5757,7 +5757,11 @@ const Sheet = {
       const spec = specialties[s.id];
       const isAff = isAffinitySphere(char, s.id);
       return `<div class="sheet-trait-row${isAff ? ' affinity-row' : ''}">
-        <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${sphereDisplayName(s, char)}${isAff ? ' ✦' : ''}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}</span>
+        <span class="sheet-trait-name${isAff ? ' affinity' : ''}">${sphereDisplayName(s, char)}${isAff ? ' ✦' : ''}${spec ? `<em class="sheet-specialty">(${spec})</em>` : ''}${
+          // Which Qlipha the Art answers to — flavour only (BotF p. 104).
+          char.affiliation === 'Nephandi' && typeof FALLEN !== 'undefined' && FALLEN.qliphaForSphere(s.id)
+            ? `<em class="sheet-qlipha" title="${escHtml(FALLEN.qliphaForSphere(s.id).text)}">${escHtml(FALLEN.qliphaForSphere(s.id).qlipha)}</em>` : ''
+        }</span>
         ${dots(val, 5, 'readonly sphere-dots')}
       </div>`;
     }).join('');
@@ -5765,7 +5769,15 @@ const Sheet = {
     const affiliationGroup = char.affiliation === 'Traditions' ? 'The Traditions'
       : char.affiliation === 'Technocracy' ? 'Technocratic Union'
       : char.affiliation === 'Disparates'  ? 'Disparate Crafts'
+      : char.affiliation === 'Nephandi'    ? 'The Fallen'
       : '';
+    // The Fallen: the sect sits in `tradition`, so the extra identity rows are
+    // how they Fell and — for a Barabbus — what they Fell from.
+    const isFallenSheet = char.affiliation === 'Nephandi';
+    const fallenOrigin = isFallenSheet && typeof FALLEN !== 'undefined'
+      ? FALLEN.originById(char.nephandi_origin) : null;
+    const fallenEssence = isFallenSheet && typeof FALLEN !== 'undefined'
+      ? FALLEN.essenceForM20(char.essence) : null;
 
     // XP tracker (owner view only)
     const xpLog       = Array.isArray(char.xp_log) ? char.xp_log : [];
@@ -5832,10 +5844,23 @@ const Sheet = {
           <span class="sheet-field-value">${escHtml(char.tradition || char.affiliation || '—')}</span>
           ${affiliationGroup ? `<span class="sheet-field-sub">${affiliationGroup}</span>` : ''}
         </div>
+        ${isFallenSheet ? `
         <div class="sheet-field">
-          <span class="sheet-field-label">Essence</span>
-          <span class="sheet-field-value">${escHtml(char.essence || '—')}</span>
-        </div>`}
+          <span class="sheet-field-label">The Fall</span>
+          <span class="sheet-field-value">${escHtml(fallenOrigin?.name || '—')}</span>
+          ${char.nephandi_prior_faction ? `<span class="sheet-field-sub">from ${escHtml(char.nephandi_prior_faction)}</span>` : ''}
+        </div>` : ''}
+        <div class="sheet-field">
+          <span class="sheet-field-label">${isFallenSheet ? 'Abyssal Essence' : 'Essence'}</span>
+          <span class="sheet-field-value">${escHtml(fallenEssence?.name || char.essence || '—')}</span>
+          ${fallenEssence ? `<span class="sheet-field-sub">${escHtml(char.essence)}</span>` : ''}
+        </div>
+        ${isFallenSheet && char.pact_rating > 0 ? `
+        <div class="sheet-field">
+          <span class="sheet-field-label">Infernal Pact</span>
+          <span class="sheet-field-value">${escHtml(String(char.pact_rating))}</span>
+          <span class="sheet-field-sub">${escHtml(typeof FALLEN !== 'undefined' ? (FALLEN.pactLevel(char.pact_rating)?.name || '') : '')}</span>
+        </div>` : ''}`}
         <div class="sheet-field">
           <span class="sheet-field-label">Nature / Demeanor</span>
           <span class="sheet-field-value">${escHtml(char.nature || '—')} / ${escHtml(char.demeanor || '—')}</span>
@@ -13662,6 +13687,15 @@ const FreeEdit = {
     return `<textarea class="fe-textarea" data-fe-field="${field}" rows="${rows}">${escHtml(value || '')}</textarea>`;
   },
 
+  // options: [[value, label], …]; shares the data-fe-field contract with _input.
+  _select(field, value, options, blank = '— none —') {
+    const cur = String(value ?? '');
+    return `<select class="fe-input" data-fe-field="${field}">
+      <option value="">${escHtml(blank)}</option>
+      ${options.map(([v, l]) => `<option value="${escHtml(String(v))}" ${cur === String(v) ? 'selected' : ''}>${escHtml(l)}</option>`).join('')}
+    </select>`;
+  },
+
   _number(field, value, min = 0, max = 20) {
     return `<input class="fe-number" type="number" data-fe-field="${field}" value="${value || 0}" min="${min}" max="${max}">`;
   },
@@ -13837,9 +13871,13 @@ const FreeEdit = {
         <div class="fe-field"><label>Demeanor</label>${this._input('demeanor', c.demeanor, 'Demeanor archetype')}</div>
         ${c.character_type === 'sorcerer' ? SorcererUI.freeEditIdentityHTML(c) : c.character_type === 'mortal' ? '' : `
         <div class="fe-field"><label>Affiliation</label>${this._input('affiliation', c.affiliation, 'Traditions / Technocracy / Disparates')}</div>
-        <div class="fe-field"><label>Tradition / Convention</label>${this._input('tradition', c.tradition, 'Tradition or Convention')}</div>
+        <div class="fe-field"><label>${c.affiliation === 'Nephandi' ? 'Nephandic Sect' : 'Tradition / Convention'}</label>${this._input('tradition', c.tradition, c.affiliation === 'Nephandi' ? 'Nephandic sect' : 'Tradition or Convention')}</div>
         <div class="fe-field"><label>Faction / Order</label>${this._input('faction', c.faction, 'Faction or order')}</div>
         <div class="fe-field"><label>Essence</label>${this._input('essence', c.essence, 'Dynamic / Pattern / Primordial / Questing')}</div>
+        ${c.affiliation === 'Nephandi' && typeof FALLEN !== 'undefined' ? `
+        <div class="fe-field"><label>The Fall</label>${this._select('nephandi_origin', c.nephandi_origin, FALLEN.ORIGINS.map(o => [o.id, o.name]))}</div>
+        <div class="fe-field"><label>Fell from <span class="fe-secondary-badge">Barabbi only</span></label>${this._select('nephandi_prior_faction', c.nephandi_prior_faction, Object.values(NEPHANDI_PRIOR_GROUPS).flat().map(n => [n, n]))}</div>
+        <div class="fe-field"><label>Infernal Pact</label>${this._select('pact_rating', c.pact_rating || 0, FALLEN.PACT_LEVELS.map(l => [l.level, `${l.level} — ${l.name}`]), 'No pact')}</div>` : ''}
         <div class="fe-field"><label>Affinity Sphere</label>${this._input('affinity_sphere', c.affinity_sphere, 'e.g. life, mind, forces')}</div>
         ${hasDualAffiliation(c) ? `<div class="fe-field"><label>Second Affinity Sphere <span class="fe-secondary-badge">Dual Affiliation</span></label>${this._input('affinity_sphere_2', c.affinity_sphere_2, 'e.g. prime, spirit')}</div>` : ''}`}
       </div>
@@ -14271,6 +14309,24 @@ const FreeEdit = {
       }
     });
 
+    // <select> fires 'input' in current browsers but 'change' everywhere, so the
+    // dropdowns added by _select() are bound here rather than relying on 'input'.
+    el.addEventListener('change', e => {
+      const sel = e.target;
+      if (sel.tagName !== 'SELECT' || !sel.dataset.feField) return;
+      const field = sel.dataset.feField;
+      c[field] = field === 'pact_rating' ? (parseInt(sel.value, 10) || 0) : sel.value;
+      // Only a Barabbus has a prior faction; clearing the origin clears it too.
+      if (field === 'nephandi_origin') {
+        if (sel.value !== 'barabbi') { c.nephandi_prior_faction = ''; c.nephandi_prior_affiliation = ''; }
+        this._render();
+      }
+      if (field === 'nephandi_prior_faction') {
+        const group = Object.entries(NEPHANDI_PRIOR_GROUPS).find(([, n]) => n.includes(sel.value));
+        c.nephandi_prior_affiliation = group ? group[0] : '';
+      }
+    });
+
     FreeEditExtras.attach(el, this);
     if (this.char.character_type === 'sorcerer') SorcererUI.attachFreeEdit(el, this);
 
@@ -14550,6 +14606,12 @@ const Obsidian = {
       (char.faction || '');
     const affDisplay = char.character_type === 'sorcerer' ? charAffiliationLabel(char) : (trad || aff || '—');
 
+    const isFallenMd = char.affiliation === 'Nephandi';
+    const fallenOriginMd = isFallenMd && typeof FALLEN !== 'undefined'
+      ? FALLEN.originById(char.nephandi_origin) : null;
+    const fallenEssenceMd = isFallenMd && typeof FALLEN !== 'undefined'
+      ? FALLEN.essenceForM20(char.essence) : null;
+
     // ── YAML frontmatter (Dataview-compatible) ──────────────────────────────
     const fmLines = [
       '---',
@@ -14570,9 +14632,14 @@ const Obsidian = {
       `paradox: ${char.paradox || 0}`,
       char.affinity_sphere && `affinity_sphere: "${char.affinity_sphere}"`,
       hasDualAffiliation(char) && char.affinity_sphere_2 && `affinity_sphere_2: "${char.affinity_sphere_2}"`,
+      // The Fallen (Book of the Fallen). The sect is already in `tradition`.
+      isFallenMd && `nephandi_origin: "${e(fallenOriginMd?.name || char.nephandi_origin)}"`,
+      isFallenMd && char.nephandi_prior_faction && `nephandi_prior_faction: "${e(char.nephandi_prior_faction)}"`,
+      isFallenMd && fallenEssenceMd && `abyssal_essence: "${e(fallenEssenceMd.name)}"`,
+      isFallenMd && char.pact_rating > 0 && `pact_rating: ${char.pact_rating}`,
       char.id        && `character_id: ${char.id}`,
       shareUrl       && `share_url: "${shareUrl}"`,
-      `tags: [mage, m20, character]`,
+      `tags: [mage, m20, character${isFallenMd ? ', nephandi, fallen' : ''}]`,
       '---',
     ].filter(Boolean);
     let md = fmLines.join('\n') + '\n\n';
@@ -14582,9 +14649,14 @@ const Obsidian = {
     md += `| Player | Chronicle | Concept |\n`;
     md += `| :----- | :-------- | :------ |\n`;
     md += `| ${e(char.player || '—')} | ${e(char.chronicle || '—')} | ${e(char.concept || '—')} |\n\n`;
-    md += `| Affiliation | Essence | Nature / Demeanor |\n`;
+    md += `| Affiliation | ${isFallenMd ? 'Abyssal Essence' : 'Essence'} | Nature / Demeanor |\n`;
     md += `| :---------- | :------ | :---------------- |\n`;
-    md += `| ${e(affDisplay)} | ${e(char.essence || '—')} | ${e(char.nature || '—')} / ${e(char.demeanor || '—')} |\n\n`;
+    md += `| ${e(affDisplay)} | ${e(fallenEssenceMd ? `${fallenEssenceMd.name} (${char.essence})` : (char.essence || '—'))} | ${e(char.nature || '—')} / ${e(char.demeanor || '—')} |\n\n`;
+    if (isFallenMd) {
+      md += `| The Fall | ${char.nephandi_prior_faction ? 'Fell from' : 'Sect'} | ${char.pact_rating > 0 ? 'Infernal Pact' : 'Path'} |\n`;
+      md += `| :------- | :-------- | :------------ |\n`;
+      md += `| ${e(fallenOriginMd?.name || '—')} | ${e(char.nephandi_prior_faction || char.tradition || '—')} | ${char.pact_rating > 0 ? `${char.pact_rating} — ${e(FALLEN.pactLevel(char.pact_rating)?.name || '')}` : 'The Fallen'} |\n\n`;
+    }
     md += '---\n\n';
 
     // ── Attributes ──────────────────────────────────────────────────────────

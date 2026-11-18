@@ -53,7 +53,7 @@ const storage = { getItem: () => null, setItem() {}, removeItem() {} };
 const sandbox = {
   document: doc, window: null, self: null, globalThis: null,
   localStorage: storage, sessionStorage: storage,
-  location: { pathname: '/', search: '', href: 'http://localhost/' },
+  location: { pathname: '/', search: '', href: 'http://localhost/', origin: 'http://localhost' },
   history: { state: null, pushState() {}, replaceState() {} },
   navigator: { userAgent: 'node', clipboard: {} },
   matchMedia: () => ({ matches: false, addEventListener() {}, addListener() {} }),
@@ -81,17 +81,16 @@ for (const f of ['js/data.js', 'js/data-prism.js', 'js/data-sorcerer.js', 'js/da
 
 // app.js declares its modules as top-level `const`, which live in the context's
 // lexical scope rather than on the global object, so they are lifted out here.
-vm.runInContext('globalThis.__M = { Creator, App, FALLEN, M20 };', sandbox);
-const { Creator } = sandbox.__M;
+vm.runInContext('globalThis.__M = { Creator, App, FALLEN, M20, Obsidian };', sandbox);
+const { Creator, Obsidian } = sandbox.__M;
 let checks = 0, failures = 0;
 function renders(label, fn) {
   checks++;
   try {
     const html = fn();
     if (typeof html !== 'string' || !html.length) throw new Error('produced no markup');
-    if (/undefined|\[object Object\]|NaN/.test(html)) {
-      throw new Error('markup contains ' + (html.match(/undefined|\[object Object\]|NaN/) || [])[0]);
-    }
+    const bad = html.split('\n').find(l => /undefined|\[object Object\]|NaN/.test(l));
+    if (bad) throw new Error('markup contains a stray value: ' + JSON.stringify(bad.trim().slice(0, 120)));
     return html;
   } catch (e) {
     console.error(`FAIL ${label}: ${e.message}`);
@@ -230,6 +229,30 @@ for (const type of ['mortal', 'sorcerer']) {
     console.error(`FAIL ${type} offered Fallen Merits`); failures++;
   }
 }
+
+// ── Markdown export ─────────────────────────────────────────────────────────
+const mdChar = {
+  name: 'Ashlar Venn', affiliation: 'Nephandi', tradition: 'Ironhands',
+  character_type: 'awakened', nephandi_origin: 'barabbi',
+  nephandi_prior_faction: 'Verbena', nephandi_prior_affiliation: 'Traditions',
+  essence: 'Dynamic', nature: 'Monster', demeanor: 'Caregiver', pact_rating: 4,
+  arete: 3, willpower: 6, spheres: { matter: 3 }, affinity_sphere: 'matter',
+  talents: {}, skills: {}, knowledges: {}, backgrounds: {}, merits: {}, flaws: {},
+  specialties: {}, resonance: [], instruments: [], wonders: [], rotes: [],
+  custom_ability_names: {}, health_track: [],
+};
+const md = renders('markdown export', () => Obsidian._charMd(mdChar, null));
+for (const want of ['nephandi_origin: "Barabbi"', 'nephandi_prior_faction: "Verbena"',
+                    'abyssal_essence: "Destructive"', 'pact_rating: 4',
+                    'nephandi, fallen]', 'Abyssal Essence', 'The Fall']) {
+  checks++;
+  if (md && !md.includes(want)) { console.error(`FAIL markdown missing ${JSON.stringify(want)}`); failures++; }
+}
+// and a Tradition mage keeps the old shape
+const mdTrad = renders('markdown, tradition mage',
+  () => Obsidian._charMd({ ...mdChar, affiliation: 'Traditions', tradition: 'Verbena' }, null));
+checks++;
+if (mdTrad && /nephandi|Abyssal|The Fall/.test(mdTrad)) { console.error('FAIL markdown leaked Fallen fields'); failures++; }
 
 console.log(failures ? `FAILED — ${failures} problem(s) across ${checks} checks`
                      : `ok — ${checks} render checks passed`);
