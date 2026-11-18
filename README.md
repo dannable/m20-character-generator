@@ -69,8 +69,8 @@ cd app && npm ci && PORT=8009 DATA_DIR=../data node server/index.js
 ### Minified assets
 
 The Dockerfile has a first stage that runs `app/scripts/build-dist.js`
-(esbuild) over the files listed in that script's `FILES` array — currently
-the ten `js/` modules and both stylesheets — and bakes the minified copies,
+(esbuild) over the files listed in that script's `FILES` array — every
+`js/` module named there and both stylesheets — and bakes the minified copies,
 with source maps, into `/app/dist` in the image. `app/server/dist-static.js` serves a minified
 copy at the source's URL only while the source file is byte-for-byte the
 one it was built from (size and sha256 are recorded in
@@ -152,7 +152,32 @@ cd app && npm test
 ```
 
 Runs `node --check` over every live server and frontend JS file as a
-syntax gate. There are no behavioural tests yet; see the review.
+syntax gate.
+
+Behavioural tests live in `tools/*-test.js` and are run individually with
+`node`, not through npm. Several take the app directory as their first
+argument (`node tools/dice-test.js app`). They come in three shapes:
+pure unit tests over a server module (`dice-test.js`); in-process API tests
+that stub `better-sqlite3` onto `node:sqlite`, mount the routes on a bare
+Express app and call them over HTTP (`wizard-api-test.js`,
+`sessions-test.js`); and tests that load `app.js` into a `vm` with a DOM
+stub and call the render functions directly (`fallen-render-test.js`).
+
+Two drive a real browser. They need no `playwright` package — only a
+Chromium binary, which they talk to over the DevTools protocol using Node's
+built-in `WebSocket`:
+
+```bash
+node tools/nephandi-glitch-test.js [screenshot-dir]   # the Fallen skin: palette,
+                                                      # contrast, glitch module
+node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
+CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
+```
+
+`nephandi-glitch-test.js` boots the real server on a throwaway `DATA_DIR`,
+so it touches neither `data/characters.db` nor the running container. It
+measures WCAG contrast on the text as actually rendered in both themes,
+rather than on the hex values in the stylesheet.
 
 ## Layout
 
