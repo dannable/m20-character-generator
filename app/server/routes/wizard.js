@@ -11,10 +11,18 @@ router.get('/', (req, res) => {
       const u = db.prepare(`SELECT wizard_enabled FROM users WHERE id = ?`).get(req.session.userId);
       if (u) enabled = u.wizard_enabled !== 0;
     }
-    const messages = enabled
-      ? db.prepare(`SELECT text FROM wizard_messages WHERE enabled = 1 ORDER BY sort_order, id`).all().map(r => r.text)
+    // Two ready-made lists rather than a category per line, so the client picks
+    // one by mode and does nothing else. `messages` keeps its old meaning —
+    // what Darrell says normally — so a client loaded before this change still
+    // behaves, and a client loaded after it falls back to `messages` when
+    // talking to a server that has no `nephandi` field yet.
+    //   general   → both lists        pure → messages only
+    //   corrupted → nephandi only
+    const rows = enabled
+      ? db.prepare(`SELECT text, category FROM wizard_messages WHERE enabled = 1 ORDER BY sort_order, id`).all()
       : [];
-    res.json({ enabled, messages });
+    const pick = (...cats) => rows.filter(r => cats.includes(r.category || 'general')).map(r => r.text);
+    res.json({ enabled, messages: pick('general', 'pure'), nephandi: pick('general', 'corrupted') });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 

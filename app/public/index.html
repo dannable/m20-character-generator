@@ -16,8 +16,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Chantry" />
-  <link rel="stylesheet" href="/css/style.css?v=85" />
-<link rel="stylesheet" href="/css/nephandi.css?v=1" />
+  <link rel="stylesheet" href="/css/style.css?v=86" />
+<link rel="stylesheet" href="/css/nephandi.css?v=3" />
   <!-- Quill (Storyteller notes editor) is injected by loadQuill() in app.js the first time a note form opens -->
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -482,11 +482,12 @@
 <script src="/js/data-fallen.js?v=1"></script>
 <script src="/js/validate-character.js?v=3"></script>
 <script src="/js/tarot.js?v=5"></script>
-<script src="/js/app.js?v=90"></script>
+<script src="/js/app.js?v=91"></script>
 <script src="/js/session-ui.js?v=2"></script>
 <script src="/js/prism-ui.js?v=5"></script>
 <script src="/js/free-edit-extras.js?v=1"></script>
 <script src="/js/sorcerer-ui.js?v=4"></script>
+<script src="/js/nephandi-glitch.js?v=2"></script>
 <script>
 (function() {
   var wizard      = document.getElementById('wizard-darrell');
@@ -499,28 +500,121 @@
 
   // Speech-balloon messages and this user's on/off switch come from /api/wizard
   // (admins edit the list under Administration; users toggle Darrell in Settings).
-  var MESSAGES = [];
+  var MESSAGES = [];      // what he says normally: general + pure
+  var NEPH_MESSAGES = []; // what he says in a Nephandi creator or sheet: general + corrupted
   var userEnabled = true;
   var lastIdx = -1;
+  var meltTimer = null;
+
+  // Corrupted Darrell. The art is a separate file rather than a filter over the
+  // original, so both the <source srcset> and the <img src> have to move or the
+  // <picture> keeps serving the webp it already picked.
+  var picture = wizard ? wizard.parentNode : null;
+  var pictureSrc = picture ? picture.querySelector('source') : null;
+  var SKINS = {
+    normal:    { srcset: '/img/darrell_cartoon-1x.webp 1x, /img/darrell_cartoon-2x.webp 2x',   png: '/darrell_cartoon.png' },
+    corrupted: { srcset: '/img/corrupted_darrell-1x.webp 1x, /img/corrupted_darrell-2x.webp 2x', png: '/corrupted_darrell.png' }
+  };
+  var preloaded = false;
+
+  function reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  // He is corrupted while a Nephandi creator or sheet is actually on screen.
+  // Asking the DOM beats being told: #page-creator keeps .nephandi-skin while
+  // hidden behind another page, and the sheet applies it independently, so a
+  // flag pushed from app.js would have two places to go wrong.
+  function corrupted() {
+    var skins = document.querySelectorAll('.nephandi-skin');
+    for (var i = 0; i < skins.length; i++) {
+      if (skins[i].getClientRects().length) return true;
+    }
+    return false;
+  }
+
+  function applySkin(on) {
+    if (!wizard || wizard.getAttribute('data-corrupt') === (on ? '1' : '0')) return;
+    wizard.setAttribute('data-corrupt', on ? '1' : '0');
+    var skin = on ? SKINS.corrupted : SKINS.normal;
+    if (pictureSrc) pictureSrc.srcset = skin.srcset;
+    wizard.src = skin.png;
+    wizard.classList.toggle('wizard-corrupted', on);
+    if (balloon) balloon.classList.toggle('wizard-balloon-corrupted', on);
+    if (on && !preloaded) {   // he slides for 0.8s, but don't gamble on it
+      preloaded = true;
+      new Image().src = SKINS.corrupted.png;
+    }
+  }
+
+  // Lay the text out as one <span> per character, nested in a per-word wrapper
+  // so the melt can move letters without words breaking mid-way across a line.
+  // #wizard-balloon is aria-hidden, so none of this reaches assistive tech.
+  // Returns the character count, which sets how long the melt takes.
+  function layOut(text) {
+    balloonText.textContent = '';
+    var parts = text.split(/(\s+)/);
+    var n = 0;
+    for (var p = 0; p < parts.length; p++) {
+      if (!parts[p]) continue;
+      if (/^\s+$/.test(parts[p])) { balloonText.appendChild(document.createTextNode(parts[p])); continue; }
+      var word = document.createElement('span');
+      word.className = 'wiz-word';
+      for (var c = 0; c < parts[p].length; c++) {
+        var ch = document.createElement('span');
+        ch.className = 'wiz-char';
+        ch.textContent = parts[p].charAt(c);
+        ch.style.setProperty('--i', n++);
+        ch.style.setProperty('--r', Math.random().toFixed(3));   // uneven, like real rot
+        word.appendChild(ch);
+      }
+      balloonText.appendChild(word);
+    }
+    return n;
+  }
 
   function showBalloon() {
-    if (!balloon || !balloonText || !MESSAGES.length) return;
+    if (!balloon || !balloonText) return;
+    if (meltTimer) { clearTimeout(meltTimer); meltTimer = null; }
+    var rot = corrupted();
+    var list = rot ? (NEPH_MESSAGES.length ? NEPH_MESSAGES : MESSAGES) : MESSAGES;
+    if (!list.length) return;
     var idx;
-    do { idx = Math.floor(Math.random() * MESSAGES.length); }
-    while (idx === lastIdx && MESSAGES.length > 1);
+    do { idx = Math.floor(Math.random() * list.length); }
+    while (idx === lastIdx && list.length > 1);
     lastIdx = idx;
-    balloonText.textContent = MESSAGES[idx];
-    balloon.classList.add('wizard-balloon-visible');
+
+    balloon.classList.remove('wizard-balloon-melting');
+    if (rot && !reducedMotion()) {
+      var chars = layOut(list[idx]);
+      // Restart the animation on a balloon that is already showing: the class
+      // only takes effect after the new spans have been laid out once.
+      void balloon.offsetWidth;
+      balloon.classList.add('wizard-balloon-melting');
+      balloon.classList.add('wizard-balloon-visible');
+      // Keep him talking rather than leaving an empty bubble: the last letter
+      // is gone at 6s + stagger + jitter, so start the next line just after.
+      var span = 6000 + chars * 45 + 1100 + 700;
+      meltTimer = setTimeout(function () { meltTimer = null; if (visible) showBalloon(); }, span);
+    } else {
+      balloonText.textContent = list[idx];
+      balloon.classList.add('wizard-balloon-visible');
+    }
   }
 
   function hideBalloon() {
-    if (balloon) balloon.classList.remove('wizard-balloon-visible');
+    if (meltTimer) { clearTimeout(meltTimer); meltTimer = null; }
+    if (balloon) {
+      balloon.classList.remove('wizard-balloon-visible');
+      balloon.classList.remove('wizard-balloon-melting');
+    }
   }
 
   function show() {
     if (visible || !userEnabled) return;
     visible = true;
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    applySkin(corrupted());   // before the slide, so he never arrives as himself
     wizard.classList.add('wizard-visible');
   }
 
@@ -568,6 +662,9 @@
           if (!d) return;
           userEnabled = d.enabled !== false;
           MESSAGES = Array.isArray(d.messages) ? d.messages : [];
+          // A server that predates categories sends no `nephandi`; fall back to
+          // the ordinary list rather than leaving him mute in the Caul.
+          NEPH_MESSAGES = Array.isArray(d.nephandi) ? d.nephandi : MESSAGES;
           if (!userEnabled) { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } hide(); }
         })
         .catch(function() {});

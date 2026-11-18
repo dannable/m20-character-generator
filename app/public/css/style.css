@@ -10452,6 +10452,15 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 .wiz-msg-actions { display: flex; flex-direction: column; gap: 0.35rem; }
 @media (max-width: 640px) { .wiz-add, .wiz-msg { flex-direction: column; } .wiz-msg-actions { flex-direction: row; } }
 .wiz-save:disabled { opacity: 0.4; cursor: default; }
+/* Category: which mode Darrell says a line in. The left edge carries it so the
+   list can be read at a glance without opening every select. */
+.wiz-cat, .wiz-cat-new { padding: 0.3rem 0.4rem; font-size: 0.78rem; min-width: 7.5rem; }
+.wiz-add .wiz-cat-new { flex: 0 0 auto; align-self: stretch; }
+.wiz-msg { border-left-width: 3px; }
+.wiz-msg.wiz-cat-general   { border-left-color: var(--border-dim); }
+.wiz-msg.wiz-cat-corrupted { border-left-color: #6e2028; }
+.wiz-msg.wiz-cat-pure      { border-left-color: var(--gold-mid); }
+html[data-theme="light"] .wiz-msg.wiz-cat-corrupted { border-left-color: #7e1216; }
 
 /* ── Discord sign-in ────────────────────────────────────────────────────── */
 .btn-discord {
