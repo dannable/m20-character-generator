@@ -58,3 +58,7 @@ __pycache__/
 /*.pdf
 /tarotcards/
 Thumbs.db
+
+# Build intermediates from tools/build_fallen_catalogue.py; their content is
+# merged into rotes-seed.json / wonders.json by tools/merge_fallen_content.py
+tools/fallen-src/out-*.json

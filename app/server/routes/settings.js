@@ -8,7 +8,7 @@ const router  = express.Router();
 router.get('/', (req, res) => {
   try {
     const user = db.prepare(
-      `SELECT id, username, email, role, timezone, default_focus_mode, wizard_enabled, has_password, discord_id, discord_username, discord_avatar, discord_linked_at FROM users WHERE id = ?`
+      `SELECT id, username, email, role, timezone, default_focus_mode, wizard_enabled, nephandi_ack, has_password, discord_id, discord_username, discord_avatar, discord_linked_at FROM users WHERE id = ?`
     ).get(req.session.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -29,12 +29,17 @@ router.get('/', (req, res) => {
 // ── PUT /api/settings — update timezone and/or default focus mode ────────────
 router.put('/', (req, res) => {
   try {
-    const { timezone, default_focus_mode, wizard_enabled } = req.body;
-    if (!timezone && default_focus_mode === undefined && wizard_enabled === undefined) return res.status(400).json({ error: 'Nothing to update' });
+    const { timezone, default_focus_mode, wizard_enabled, nephandi_ack } = req.body;
+    if (!timezone && default_focus_mode === undefined && wizard_enabled === undefined && nephandi_ack === undefined) return res.status(400).json({ error: 'Nothing to update' });
     if (timezone) db.prepare(`UPDATE users SET timezone = ? WHERE id = ?`).run(timezone, req.session.userId);
     if (default_focus_mode !== undefined) {
       if (!FOCUS_MODES.has(default_focus_mode)) return res.status(400).json({ error: 'default_focus_mode must be core or prism' });
       db.prepare(`UPDATE users SET default_focus_mode = ? WHERE id = ?`).run(default_focus_mode, req.session.userId);
+    }
+    // Nephandic content carries the book's own warnings and is shown only once the
+    // user has acknowledged them. One-way: acknowledging cannot be undone here.
+    if (nephandi_ack !== undefined && nephandi_ack) {
+      db.prepare(`UPDATE users SET nephandi_ack = 1 WHERE id = ?`).run(req.session.userId);
     }
     if (wizard_enabled !== undefined) {
       db.prepare(`UPDATE users SET wizard_enabled = ? WHERE id = ?`).run(wizard_enabled ? 1 : 0, req.session.userId);

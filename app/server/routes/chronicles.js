@@ -4,10 +4,12 @@ const { sanitizeChronicleRules: sanitizePrismRules } = require('../prism');
 const Sorc = require('../sorcerer');
 const PrismXp = require('../prism');
 const { sanitizeSorcererRules } = Sorc;
-// Chronicle rules pass through every rule-set sanitiser (Prism of Focus, Sorcerer)
+const { sanitizeNephandiRules } = require('../nephandi');
+// Chronicle rules pass through every rule-set sanitiser (Prism of Focus, Sorcerer, Nephandi)
 function sanitizeChronicleRules(rules) {
   const r = sanitizePrismRules(rules);
   if (r && typeof r === 'object' && r.sorcerer !== undefined) r.sorcerer = sanitizeSorcererRules(r.sorcerer);
+  if (r && typeof r === 'object' && r.nephandi !== undefined) r.nephandi = sanitizeNephandiRules(r.nephandi);
   return r;
 }
 const Rules = require('../validate');

@@ -37,7 +37,7 @@ function getResend() {
 // GET /api/auth/me
 router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone, default_focus_mode, wizard_enabled, discord_id IS NOT NULL AS discord_linked FROM users WHERE id = ?`).get(req.session.userId);
+  const user = db.prepare(`SELECT id, username, email, role, is_active, created_at, timezone, default_focus_mode, wizard_enabled, nephandi_ack, discord_id IS NOT NULL AS discord_linked FROM users WHERE id = ?`).get(req.session.userId);
   if (!user || !user.is_active) {
     req.session.destroy(() => {});
     return res.status(401).json({ error: 'Account not found or disabled' });
@@ -63,7 +63,7 @@ router.post('/login', loginLimiter, (req, res) => {
     if (staySignedIn) req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
     else              req.session.cookie.expires = false;
     db.prepare(`UPDATE users SET last_login = CURRENT_TIMESTAMP, login_count = login_count + 1 WHERE id = ?`).run(user.id);
-    res.json({ id: user.id, username: user.username, email: user.email, role: user.role, timezone: user.timezone || null });
+    res.json({ id: user.id, username: user.username, email: user.email, role: user.role, timezone: user.timezone || null, nephandi_ack: user.nephandi_ack || 0 });
   });
 });
 

@@ -5,6 +5,7 @@ const { PRISM, normalizeCharacterFocus } = require('../prism');
 const PrismXp = require('../prism');
 const Sorc = require('../sorcerer');
 const { normalizeCharacterSorcerer } = Sorc;
+const { normalizeCharacterNephandi } = require('../nephandi');
 const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
@@ -67,6 +68,8 @@ const EDITABLE_FIELDS = new Set([
   'numina_style','numina_secondary','casting_attribute','affinity_path','rituals','artifacts',
   // Prism of Focus (see server/prism.js)
   'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
+  // Nephandi (see server/nephandi.js) — the sect itself lives in `tradition`
+  'nephandi_origin','nephandi_prior_affiliation','nephandi_prior_faction','pact_rating',
 ]);
 
 // ── Columns a plain POST / PUT may write ──────────────────────────────────────
@@ -129,6 +132,7 @@ function computeDiff(originalRow, proposed) {
     { key:'wits',          label:'Wits' },          { key:'arete',        label:'Arete' },
     { key:'willpower',     label:'Willpower' },     { key:'quintessence', label:'Quintessence' },
     { key:'paradox',       label:'Paradox' },
+    { key:'pact_rating',   label:'Infernal Pact' },
   ];
   const TEXTS = [
     { key:'name',          label:'Name' },          { key:'player',       label:'Player' },
@@ -138,6 +142,9 @@ function computeDiff(originalRow, proposed) {
     { key:'demeanor',      label:'Demeanor' },       { key:'paradigm',     label:'Paradigm' },
     { key:'practice',      label:'Practice' },       { key:'affinity_sphere', label:'Affinity Sphere' }, { key:'affinity_sphere_2', label:'Second Affinity Sphere' },
     { key:'focus_mode',    label:'Focus Mode' },
+    { key:'nephandi_origin', label:'Nephandic Origin' },
+    { key:'nephandi_prior_affiliation', label:'Prior Allegiance' },
+    { key:'nephandi_prior_faction', label:'Prior Faction' },
   ];
   const OBJ_TRAITS = [
     { key:'talents',     label:'Talent' },  { key:'skills',      label:'Skill' },
@@ -350,6 +357,7 @@ router.post('/', (req, res) => {
     const { join_code, chronicle_id: _cid, _join_code: _jc, override: _ov, ...bodyRest } = req.body;
     normalizeCharacterFocus(bodyRest, null);
     normalizeCharacterSorcerer(bodyRest, null);
+    normalizeCharacterNephandi(bodyRest, null);
     // Resolve the chronicle up front so the creation rules can be checked before the insert
     let joinChronicleId = null;
     if (join_code && req.session.role !== 'guest') {
@@ -399,6 +407,7 @@ router.put('/:id', (req, res) => {
 
     normalizeCharacterFocus(rest, existing);
     normalizeCharacterSorcerer(rest, existing);
+    normalizeCharacterNephandi(rest, existing);
     const willBeDraft = rest.is_draft !== undefined ? !!rest.is_draft : !!existing.is_draft;
     const check = Rules.check({ ...parseCharacter(existing), ...rest }, targetChronicleId, { creation: !!existing.is_draft });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: willBeDraft, canOverride: isAdmin || (targetChronicleId && isChronicleST(req, targetChronicleId)) });
@@ -488,6 +497,7 @@ router.post('/:id/edit-request', (req, res) => {
     if (!proposed || !proposed.name) return res.status(400).json({ error: 'proposed character data required' });
     normalizeCharacterFocus(proposed, existing);
     normalizeCharacterSorcerer(proposed, existing);
+    normalizeCharacterNephandi(proposed, existing);
     const check = Rules.check({ ...parseCharacter(existing), ...proposed }, existing.chronicle_id, { creation: false });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: false, canOverride: req.session.role === 'admin' || isChronicleST(req, existing.chronicle_id) });
     if (rejected) return res.status(400).json(rejected);

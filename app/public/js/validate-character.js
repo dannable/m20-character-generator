@@ -14,18 +14,18 @@
 (function (root, factory) {
   if (typeof module !== 'undefined' && module.exports) {
     const path = require('path');
-    module.exports = factory(require(path.join(__dirname, 'data.js')), require(path.join(__dirname, 'data-prism.js')), require(path.join(__dirname, 'data-sorcerer.js')));
+    module.exports = factory(require(path.join(__dirname, 'data.js')), require(path.join(__dirname, 'data-prism.js')), require(path.join(__dirname, 'data-sorcerer.js')), require(path.join(__dirname, 'data-fallen.js')));
   } else {
-    // M20 / PRISM / SORCERER are top-level consts from the data files (shared script scope, not window properties)
-    root.CharValidator = factory(M20, PRISM, typeof SORCERER !== 'undefined' ? SORCERER : null);
+    // M20 / PRISM / SORCERER / FALLEN are top-level consts from the data files (shared script scope, not window properties)
+    root.CharValidator = factory(M20, PRISM, typeof SORCERER !== 'undefined' ? SORCERER : null, typeof FALLEN !== 'undefined' ? FALLEN : null);
   }
-})(typeof self !== 'undefined' ? self : this, function (M20, PRISM, SORCERER) {
+})(typeof self !== 'undefined' ? self : this, function (M20, PRISM, SORCERER, FALLEN) {
   'use strict';
 
   const ABILITY_NAME = {};
   ['TALENTS','SKILLS','KNOWLEDGES','SECONDARY_TALENTS','SECONDARY_SKILLS','SECONDARY_KNOWLEDGES']
     .forEach(k => (M20[k] || []).forEach(a => { ABILITY_NAME[a.id] = a.name; }));
-  const FACTION_LABEL = { Traditions: 'The Traditions', Technocracy: 'Technocratic Union', Disparates: 'Disparate Crafts' };
+  const FACTION_LABEL = { Traditions: 'The Traditions', Technocracy: 'Technocratic Union', Disparates: 'Disparate Crafts', Nephandi: 'The Fallen' };
   const MAXDOT_DEFAULTS = { attributes: 5, talents: 5, skills: 5, knowledges: 5, backgrounds: 5, spheres: 3, arete: 3, willpower: 10 };
   const ATTRS = ['strength','dexterity','stamina','charisma','manipulation','appearance','perception','intelligence','wits'];
 
@@ -69,7 +69,75 @@
     if (num(c.willpower) > md.willpower) out.errors.push({ code: 'cap', field: 'willpower', step: 6, message: `Willpower ${c.willpower} exceeds the cap of ${md.willpower}` });
     const meritCap = rules.meritCap === undefined ? 7 : rules.meritCap;
     const merits = Object.values(obj(c.merits)).reduce((s, v) => s + mfSum(v), 0);
-    if (meritCap !== null && merits > meritCap) out.errors.push({ code: 'cap', field: 'merits', step: 3, message: `Merits total ${merits} exceeds the cap of ${meritCap}` });
+    if (meritCap !== null && merits > meritCap) {
+      const msg = `Merits total ${merits} exceeds the cap of ${meritCap}`;
+      // Book of the Fallen p. 117: Nephandic Merits and Flaws "can exceed the usual
+      // limits on such Traits." The cap is therefore advisory for the Fallen unless
+      // the chronicle turns it back on via rules.nephandi.enforceTraitLimits.
+      const mode = c.affiliation === 'Nephandi'
+        ? (obj(rules.nephandi).enforceTraitLimits || 'off') : 'block';
+      if (mode === 'block') out.errors.push({ code: 'cap', field: 'merits', step: 3, message: msg });
+      else if (mode === 'warn') out.warnings.push({ code: 'cap', field: 'merits', step: 3, message: `${msg} — allowed for the Fallen (BotF p. 117)` });
+    }
+  }
+
+  // ── Nephandi (M20 Book of the Fallen) ──────────────────────────────────────
+  // A Nephandus is an 'awakened' character whose affiliation is 'Nephandi'; the
+  // sect lives in `tradition`. See server/nephandi.js.
+  function nephandiChecks(c, rules, out, opts) {
+    const r = obj(rules.nephandi);
+    const isNeph = c.affiliation === 'Nephandi';
+
+    if (!isNeph) {
+      // Nephandic Traits on a character who has not Fallen. Widderslainte is the
+      // exception the book allows (p. 120: "may be taken by a character who has
+      // not Fallen…yet").
+      const stray = [...Object.keys(obj(c.merits)), ...Object.keys(obj(c.flaws))]
+        .filter(id => /^(neph|inv)_/.test(id) && id !== 'neph_widderslainte');
+      if (stray.length) out.warnings.push({ code: 'nephandi_trait', field: 'merits', step: 3, message: `${stray.length} Nephandic Trait${stray.length !== 1 ? 's' : ''} on a character who is not Fallen` });
+      if (num(c.pact_rating) > 0) out.warnings.push({ code: 'pact_orphan', field: 'pact_rating', step: 0, message: 'Infernal Pact rating set on a character who is not Fallen' });
+      return;
+    }
+
+    if (r.allowNephandi === false) {
+      out.errors.push({ code: 'nephandi_barred', field: 'affiliation', step: 0, message: 'The Fallen are not allowed in this Chronicle' });
+    }
+    if (!FALLEN) return;      // catalogue absent (older cached bundle) — skip the rest
+
+    const sect = FALLEN.sectByName(c.tradition);
+    if (!c.tradition) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: 'Choose a Nephandic sect' });
+    else if (!sect) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: `${c.tradition} is not a Nephandic sect` });
+    else if (Array.isArray(r.allowedSects) && r.allowedSects.length && !r.allowedSects.includes(sect.id)) {
+      out.errors.push({ code: 'sect_barred', field: 'tradition', step: 0, message: `${sect.name} is not allowed in this Chronicle` });
+    }
+
+    const origin = c.nephandi_origin || '';
+    if (!origin) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: 'Choose how the character Fell: Barabbi, Caul-Born or Widderslainte' });
+    else if (!FALLEN.originById(origin)) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: `${origin} is not a Nephandic origin` });
+    else if (Array.isArray(r.allowedOrigins) && r.allowedOrigins.length && !r.allowedOrigins.includes(origin)) {
+      out.errors.push({ code: 'origin_barred', field: 'nephandi_origin', step: 0, message: `${FALLEN.originById(origin).name} is not allowed in this Chronicle` });
+    }
+
+    // Barabbi keep the faction they betrayed; the other two origins never had one.
+    if (origin === 'barabbi') {
+      if (!c.nephandi_prior_faction) out.errors.push({ code: 'prior_faction', field: 'nephandi_prior_faction', step: 0, message: 'A Barabbus needs the Tradition, Convention or Craft they Fell from' });
+    } else if (origin && c.nephandi_prior_faction) {
+      out.errors.push({ code: 'prior_faction', field: 'nephandi_prior_faction', step: 0, message: `Only Barabbi have a prior faction; ${FALLEN.originById(origin)?.name || origin} does not` });
+    }
+
+    // Infernal Pacts: optional, and off unless the chronicle enables them.
+    const pact = num(c.pact_rating);
+    if (pact > 0) {
+      if (r.allowPacts !== true) {
+        out.errors.push({ code: 'pact_barred', field: 'pact_rating', step: 6, message: 'Infernal Pacts are an optional rule this Chronicle has not enabled (BotF p. 120)' });
+      } else {
+        const max = r.maxPactRating === undefined ? 10 : num(r.maxPactRating);
+        if (pact > max) out.errors.push({ code: 'pact_cap', field: 'pact_rating', step: 6, message: `Infernal Pact ${pact} exceeds this Chronicle's limit of ${max}` });
+      }
+    }
+    if (opts && opts.creation && pact > 0) {
+      out.warnings.push({ code: 'pact_points', field: 'pact_rating', step: 6, message: `Pact grants ${pact} freebie point${pact !== 1 ? 's' : ''}, which may not be spent on Arete or Spheres (BotF p. 121)` });
+    }
   }
 
   // ── Prism of Focus ─────────────────────────────────────────────────────────
@@ -213,11 +281,13 @@
     if (o.creation) capChecks(c, r, out);
     prismChecks(c, r, out);
     sorcererChecks(c, r, out, o);
+    nephandiChecks(c, r, out, o);
     return out;
   }
 
   return { validate,
     prismChecks: (c, r) => { const out = { errors: [], warnings: [] }; prismChecks(c, obj(r), out); return out; },
     sorcererChecks: (c, r, o) => { const out = { errors: [], warnings: [] }; sorcererChecks(c, obj(r), out, o || {}); return out; },
+    nephandiChecks: (c, r, o) => { const out = { errors: [], warnings: [] }; nephandiChecks(c, obj(r), out, o || {}); return out; },
     normalizeAllowedFactions };
 });

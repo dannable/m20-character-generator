@@ -348,6 +348,23 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN affinity_path TEXT DEFAULT ''`)
 try { db.exec(`ALTER TABLE characters ADD COLUMN rituals TEXT DEFAULT '[]'`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN artifacts TEXT DEFAULT '[]'`); } catch {}
 
+// ── Nephandi (M20 Book of the Fallen) — see server/nephandi.js ───────────────
+// Nephandi are ordinary Awakened mages: character_type stays 'awakened' and the
+// Fallen path is a fourth `affiliation` value, 'Nephandi', with the sect held in
+// the existing `tradition` column. Only these four extras are needed.
+// nephandi_origin: '' | 'barabbi' | 'caul_born' | 'widderslainte' (BotF pp. 55-58)
+try { db.exec(`ALTER TABLE characters ADD COLUMN nephandi_origin TEXT DEFAULT ''`); } catch {}
+// Barabbi only — the faction they Fell from, which still grants their affinity Sphere
+try { db.exec(`ALTER TABLE characters ADD COLUMN nephandi_prior_affiliation TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN nephandi_prior_faction TEXT DEFAULT ''`); } catch {}
+// Infernal Pact rating 0-10 (BotF p. 121, optional rule). Grants an equal number
+// of freebie points, which may never be spent on Arete or Spheres.
+try { db.exec(`ALTER TABLE characters ADD COLUMN pact_rating INTEGER DEFAULT 0`); } catch {}
+
+// Nephandic content carries the book's own warnings, so it is shown only after
+// the user acknowledges them once (0 = not yet acknowledged).
+try { db.exec(`ALTER TABLE users ADD COLUMN nephandi_ack INTEGER NOT NULL DEFAULT 0`); } catch {}
+
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS chronicle_notes (
