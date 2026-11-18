@@ -6,14 +6,18 @@
    somewhere inside a visible .nephandi-skin, wraps it in a <span class="neph-g">
    with one flavour class, and unwraps it again when the animation finishes. The
    flavours are modelled on Kyle Cooper's Se7en title sequence: an unsteady gate,
-   dropped frames, inks slipping out of register, scratched emulsion, a negative
-   frame, and the hand-scratched tremble where every letter moves on its own.
+   dropped frames, inks slipping out of register, a word coming off its mark
+   entirely, scratched emulsion, a negative frame, and the hand-scratched
+   tremble where every letter moves on its own.
 
    What this file is careful about, in rough order of how much it would matter:
 
    • It never changes layout. The wrapper stays `display: inline` and the CSS
      moves it with left/top under `position: relative`, so a word can shiver
-     without re-wrapping the paragraph it lives in.
+     without re-wrapping the paragraph it lives in. The one exception is
+     `lurch`, which has to scale and so has to have a block box; it is capped
+     at a single word, where `inline-block` is laid out identically, and it
+     declines words without room to grow (see roomToLurch).
    • It never changes text. The run that goes into the span is the same string
      that comes out, so `el.textContent` reads identically throughout — which is
      what the rest of the app uses. Nothing in app.js walks text nodes
@@ -34,12 +38,13 @@
   /* Each life is its CSS animation duration plus a frame, so the span comes out
      just after the last keyframe rather than cutting it off. */
   var FLAVOURS = [
-    { name: 'jitter',  weight: 26, life: 660 },
-    { name: 'flicker', weight: 22, life: 620 },
-    { name: 'smear',   weight: 17, life: 760 },
-    { name: 'scratch', weight: 14, life: 660 },
-    { name: 'tremble', weight: 13, life: 780 },
-    { name: 'neg',     weight:  8, life: 540 }
+    { name: 'jitter',  weight: 23, life: 660 },
+    { name: 'flicker', weight: 19, life: 620 },
+    { name: 'smear',   weight: 15, life: 760 },
+    { name: 'lurch',   weight: 14, life: 820, words: 1 },   // see roomToLurch
+    { name: 'scratch', weight: 12, life: 660 },
+    { name: 'tremble', weight: 11, life: 780 },
+    { name: 'neg',     weight:  6, life: 540 }
   ];
   var TOTAL_WEIGHT = FLAVOURS.reduce(function (n, f) { return n + f.weight; }, 0);
 
@@ -48,6 +53,7 @@
   var BURST_CHANCE = 0.22; // sometimes two or three in quick succession
   var MAX_LIVE = 3;
   var TREMBLE_MAX = 16;    // letters; past this, per-character spans aren't worth it
+  var LURCH_MARGIN = 28;   // px of viewport clearance a scaling word needs
 
   /* Text inside these never gets touched. */
   var SKIP_TAGS = {
@@ -124,10 +130,10 @@
     return out;
   }
 
-  /* One to three consecutive words out of a text node, as offsets into it.
+  /* Up to `most` consecutive words out of a text node, as offsets into it.
      The run must start on a word with three letters in it, so the effect never
      lands on a lone digit or a piece of punctuation. */
-  function pickRun(text) {
+  function pickRun(text, most) {
     var words = [], re = /\S+/g, m;
     while ((m = re.exec(text))) words.push([m.index, m.index + m[0].length]);
     var starts = [];
@@ -137,25 +143,48 @@
     if (!starts.length) return null;
     var a = pick(starts);
     var want = Math.random() < 0.6 ? 1 : (Math.random() < 0.7 ? 2 : 3);
+    want = Math.min(want, most || 3);
     var b = Math.min(a + want - 1, words.length - 1);
     return { start: words[a][0], end: words[b][1] };
   }
 
-  /* Only glitch what the user can actually see — a tremble below the fold is
-     wasted, and worse, it is a DOM mutation nobody asked for. */
-  function inView(node, start, end) {
+  function viewport() {
+    return {
+      w: window.innerWidth || document.documentElement.clientWidth || 0,
+      h: window.innerHeight || document.documentElement.clientHeight || 0
+    };
+  }
+
+  /* The rect a run of text occupies, or null if it has none. */
+  function runRect(node, start, end) {
     var range = document.createRange();
     try {
       range.setStart(node, start);
       range.setEnd(node, end);
     } catch (e) {
-      return false;
+      return null;
     }
     var box = range.getBoundingClientRect();
-    if (!box.width || !box.height) return false;
-    var vh = window.innerHeight || document.documentElement.clientHeight || 0;
-    var vw = window.innerWidth || document.documentElement.clientWidth || 0;
-    return box.bottom > 8 && box.top < vh - 8 && box.right > 0 && box.left < vw;
+    return (box.width && box.height) ? box : null;
+  }
+
+  /* Only glitch what the user can actually see — a tremble below the fold is
+     wasted, and worse, it is a DOM mutation nobody asked for. */
+  function inView(box) {
+    var v = viewport();
+    return box.bottom > 8 && box.top < v.h - 8 && box.right > 0 && box.left < v.w;
+  }
+
+  /* `lurch` is the one flavour that paints outside its own box: it scales up to
+     1.42 and shifts up to 6px. On a word already against the edge of the
+     viewport that would paint past it and grow the document, which shows up as
+     a horizontal scrollbar appearing and vanishing. So it needs clearance all
+     round, proportional to the word's own width because the scale is what
+     dominates for a long word. Without it, the caller falls back to jitter. */
+  function roomToLurch(box) {
+    var v = viewport();
+    var m = Math.max(LURCH_MARGIN, box.width * 0.25);
+    return box.left > m && box.right < v.w - m && box.top > m && box.bottom < v.h - m;
   }
 
   /* ── Wrapping and unwrapping ─────────────────────────────────────────────── */
@@ -234,9 +263,13 @@
     for (var tries = 0; tries < 14; tries++) {
       var node = pick(nodes);
       if (!node.isConnected || !node.parentElement) continue;
-      var run = pickRun(node.nodeValue);
-      if (!run || !inView(node, run.start, run.end)) continue;
+      // The flavour is chosen first because it caps how many words it may take.
       var flavour = pickFlavour();
+      var run = pickRun(node.nodeValue, flavour.words);
+      if (!run) continue;
+      var box = runRect(node, run.start, run.end);
+      if (!box || !inView(box)) continue;
+      if (flavour.name === 'lurch' && !roomToLurch(box)) flavour = FLAVOURS[0];
       var span = wrap(node, run.start, run.end, flavour.name);
       if (!span) continue;
       live.add(span);
@@ -288,6 +321,8 @@
     // Exposed for tools/nephandi-glitch-test.js.
     _textNodes: textNodes,
     _pickRun: pickRun,
+    _runRect: runRect,
+    _roomToLurch: roomToLurch,
     _enabled: enabled,
     _flavours: FLAVOURS
   };

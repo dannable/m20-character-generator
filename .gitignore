@@ -57,6 +57,13 @@ __pycache__/
 /*.txt
 /*.pdf
 /tarotcards/
+# Full-resolution source art for corrupted Darrell (863x1822, 2.3 MB). What ships
+# is generated from it: app/public/img/corrupted_darrell-{1x,2x}.webp and the
+# 400px PNG fallback, the same shape as the ordinary Darrell's assets.
+#   magick Corrupted_Darrell.png -resize 200x -quality 82 app/public/img/corrupted_darrell-1x.webp
+#   magick Corrupted_Darrell.png -resize 400x -quality 82 app/public/img/corrupted_darrell-2x.webp
+#   magick Corrupted_Darrell.png -resize 400x -strip     app/public/corrupted_darrell.png
+/Corrupted_Darrell.png
 Thumbs.db
 
 # Build intermediates from tools/build_fallen_catalogue.py; their content is

@@ -1111,11 +1111,22 @@ const App = {
       return;
     }
     const max = data.max || 200;
+    // 'general' is what every row written before categories existed reports.
+    const CATS = [
+      ['general',   'General',   'Said in both modes'],
+      ['corrupted', 'Corrupted', 'Only in a Nephandi creator or sheet'],
+      ['pure',      'Pure',      'Never in a Nephandi creator or sheet'],
+    ];
+    const catSelect = (cls, sel) => `<select class="form-input ${cls}" aria-label="When Darrell says this">` +
+      CATS.map(([v, label, hint]) => `<option value="${v}" title="${hint}"${v === (sel || 'general') ? ' selected' : ''}>${label}</option>`).join('') +
+      `</select>`;
+    const counts = CATS.map(([v, label]) => `${data.messages.filter(m => (m.category || 'general') === v).length} ${label.toLowerCase()}`).join(' · ');
     const rows = data.messages.map(m => `
-      <div class="wiz-msg ${m.enabled ? '' : 'wiz-msg-off'}" data-id="${m.id}">
+      <div class="wiz-msg wiz-cat-${escHtml(m.category || 'general')} ${m.enabled ? '' : 'wiz-msg-off'}" data-id="${m.id}">
         <label class="wiz-msg-on" title="Show this message"><input type="checkbox" class="wiz-enabled" ${m.enabled ? 'checked' : ''} /></label>
         <textarea class="form-input wiz-text" rows="2" maxlength="${max}" aria-label="Message text">${escHtml(m.text)}</textarea>
         <div class="wiz-msg-actions">
+          ${catSelect('wiz-cat', m.category)}
           <button class="btn-primary btn-sm wiz-save" disabled>Save</button>
           <button class="btn-danger btn-sm wiz-del">Delete</button>
         </div>
@@ -1126,8 +1137,10 @@ const App = {
         <h2 class="admin-dash-title" style="margin:0">Wizard Darrell <span class="admin-result-count">${data.messages.length} message${data.messages.length === 1 ? '' : 's'}</span></h2>
       </div>
       <p class="settings-hint">Darrell slides in from the bottom-left corner and says one of these at random. Untick a message to keep it without showing it. Users can switch Darrell off entirely in their Settings.</p>
+      <p class="settings-hint"><strong>General</strong> lines are said in both modes. <strong>Corrupted</strong> lines are said only while a Nephandi creator or character sheet is on screen — where Darrell himself is corrupted and his words melt. <strong>Pure</strong> lines are never said there. <span class="admin-result-count">${counts}</span></p>
       <div class="wiz-add">
         <textarea id="wiz-new" class="form-input" rows="2" maxlength="${max}" placeholder="A new thing for Darrell to say…"></textarea>
+        ${catSelect('wiz-cat-new', 'general')}
         <button class="btn-primary" id="wiz-add-btn">Add message</button>
       </div>
       <div class="wiz-list" id="wiz-list">${rows || '<p class="practice-empty-hint">No messages yet. Darrell will arrive silently.</p>'}</div>`;
@@ -1141,7 +1154,8 @@ const App = {
     $('#wiz-add-btn').addEventListener('click', async () => {
       const text = $('#wiz-new').value.trim();
       if (!text) { toast('Write a message first.', 'error'); return; }
-      try { await api('/api/admin/wizard-messages', 'POST', { text }); toast('Message added.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
+      const category = $('.wiz-cat-new')?.value || 'general';
+      try { await api('/api/admin/wizard-messages', 'POST', { text, category }); toast('Message added.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
       catch (e) { toast(e.message, 'error'); }
     });
     $$('#wiz-list .wiz-msg').forEach(row => {
@@ -1154,6 +1168,16 @@ const App = {
       row.querySelector('.wiz-enabled').addEventListener('change', async e => {
         try { await api(`/api/admin/wizard-messages/${id}`, 'PUT', { enabled: e.target.checked }); row.classList.toggle('wiz-msg-off', !e.target.checked); WizardEgg?.refresh(); }
         catch (err) { e.target.checked = !e.target.checked; toast(err.message, 'error'); }
+      });
+      const cat = row.querySelector('.wiz-cat');
+      let catWas = cat.value;
+      cat.addEventListener('change', async e => {
+        try {
+          await api(`/api/admin/wizard-messages/${id}`, 'PUT', { category: e.target.value });
+          row.className = row.className.replace(/wiz-cat-\w+/, `wiz-cat-${e.target.value}`);
+          catWas = e.target.value;
+          WizardEgg?.refresh();
+        } catch (err) { e.target.value = catWas; toast(err.message, 'error'); }
       });
       row.querySelector('.wiz-del').addEventListener('click', () => {
         $('#modal-title').textContent = 'Delete message';

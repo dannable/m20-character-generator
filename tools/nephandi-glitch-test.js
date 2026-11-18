@@ -283,6 +283,125 @@ async function main() {
     ok(tremble.anim === 'neph-g-tremble' && tremble.iter === 'infinite', `.neph-c animates per letter (${tremble.anim}, ${tremble.iter})`);
     ok(tremble.style !== 'italic', 'the <i> letters are not italic (font-style: inherit)');
 
+    // ── The lurch flavour ──────────────────────────────────────────────────
+    const lurch = await evaluate(`(() => {
+      const host = document.getElementById('step-content');
+      const s = document.createElement('span');
+      s.className = 'neph-g neph-g--lurch';
+      s.textContent = 'ordeal';
+      host.appendChild(s);
+      const cs = getComputedStyle(s);
+      const r = { anim: cs.animationName, display: cs.display, origin: cs.transformOrigin };
+      s.remove();
+      // It must never take more than one word, or inline-block would remove a
+      // line-break opportunity between words and the paragraph could re-wrap.
+      r.words = [];
+      for (let i = 0; i < 40; i++) {
+        const run = NephGlitch._pickRun('the Caul remembers every promise made to it', 1);
+        if (run) r.words.push('the Caul remembers every promise made to it'.slice(run.start, run.end).trim().split(/\\s+/).length);
+      }
+      r.maxWords = Math.max(...r.words);
+      // And it must decline a word with no room to grow into.
+      const v = { w: window.innerWidth, h: window.innerHeight };
+      r.edge   = NephGlitch._roomToLurch({ left: 2, right: 60, top: 300, bottom: 320, width: 58 });
+      r.middle = NephGlitch._roomToLurch({ left: v.w / 2, right: v.w / 2 + 60, top: v.h / 2, bottom: v.h / 2 + 20, width: 60 });
+      r.right  = NephGlitch._roomToLurch({ left: v.w - 60, right: v.w - 2, top: 300, bottom: 320, width: 58 });
+      return r;
+    })()`);
+    ok(lurch.anim === 'neph-g-lurch', `lurch resolves to its keyframes (${lurch.anim})`);
+    ok(lurch.display === 'inline-block', `lurch takes a block box so it can scale (${lurch.display})`);
+    ok(lurch.maxWords === 1, `lurch is capped at a single word (max seen: ${lurch.maxWords})`);
+    ok(lurch.edge === false && lurch.right === false, 'lurch declines a word against the left or right edge');
+    ok(lurch.middle === true, 'lurch accepts a word with clearance around it');
+
+    // ── Darrell ────────────────────────────────────────────────────────────
+    const DARRELL_OUT = `(() => {
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 40, clientY: window.innerHeight - 40, bubbles: true }));
+      return 'out';
+    })()`;
+    const DARRELL_IN = `(() => {
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 900, clientY: 200, bubbles: true }));
+      return 'in';
+    })()`;
+    // The balloon is shown from the slide's transitionend; nudge it if the
+    // headless compositor has not fired one by the time we look.
+    const SETTLE = `(() => {
+      const b = document.getElementById('wizard-balloon');
+      if (!b.classList.contains('wizard-balloon-visible')) {
+        document.getElementById('wizard-darrell')
+          .dispatchEvent(new TransitionEvent('transitionend', { propertyName: 'transform' }));
+      }
+      return b.classList.contains('wizard-balloon-visible');
+    })()`;
+
+    ok(await evaluate('document.getElementById("wizard-balloon").getAttribute("aria-hidden") === "true"'),
+      'the balloon is aria-hidden, so splitting it per character reaches no screen reader');
+
+    // …on an ordinary page he is himself.
+    await evaluate('App.showPage("dashboard"); "ok"');
+    await sleep(400);
+    await evaluate(DARRELL_OUT);
+    await sleep(1000);
+    await evaluate(SETTLE);
+    await sleep(300);
+    const plain = await evaluate(`(() => {
+      const w = document.getElementById('wizard-darrell'), b = document.getElementById('wizard-balloon');
+      return { corrupt: w.classList.contains('wizard-corrupted'), src: w.getAttribute('src'),
+               srcset: w.parentNode.querySelector('source').srcset,
+               melting: b.classList.contains('wizard-balloon-melting'),
+               chars: b.querySelectorAll('.wiz-char').length,
+               text: b.textContent.trim().slice(0, 40) };
+    })()`);
+    ok(!plain.corrupt && /darrell_cartoon/.test(plain.src), `off the Nephandi pages he is the ordinary Darrell (${plain.src})`);
+    ok(!plain.melting && plain.chars === 0, 'his ordinary balloon is plain text, not split per character');
+    ok(plain.text.length > 0, `he said something: "${plain.text}"`);
+
+    await evaluate(DARRELL_IN);
+    await sleep(1100);
+
+    // …and in the Caul he is not.
+    await evaluate('App.newCharacterOfType("nephandi"); "ok"');
+    await sleep(1500);
+    await evaluate(DARRELL_OUT);
+    await sleep(1000);
+    await evaluate(SETTLE);
+    await sleep(400);
+    const rot = await evaluate(`(() => {
+      const w = document.getElementById('wizard-darrell'), b = document.getElementById('wizard-balloon');
+      const ch = b.querySelector('.wiz-char');
+      return { corrupt: w.classList.contains('wizard-corrupted'), src: w.getAttribute('src'),
+               srcset: w.parentNode.querySelector('source').srcset,
+               loaded: w.complete && w.naturalWidth > 0, natural: w.naturalWidth + 'x' + w.naturalHeight,
+               balloonCorrupt: b.classList.contains('wizard-balloon-corrupted'),
+               melting: b.classList.contains('wizard-balloon-melting'),
+               words: b.querySelectorAll('.wiz-word').length,
+               chars: b.querySelectorAll('.wiz-char').length,
+               anim: ch ? getComputedStyle(ch).animationName : null,
+               fill: ch ? getComputedStyle(ch).animationFillMode : null,
+               charDisplay: ch ? getComputedStyle(ch).display : null,
+               wordWrap: b.querySelector('.wiz-word') ? getComputedStyle(b.querySelector('.wiz-word')).display : null,
+               text: b.textContent.trim(),
+               border: getComputedStyle(b).borderTopColor };
+    })()`);
+    ok(rot.corrupt && /corrupted_darrell/.test(rot.src), `in a Nephandi creator the art swaps (${rot.src})`);
+    ok(/corrupted_darrell-1x\.webp 1x/.test(rot.srcset), 'the <source> srcset swaps too, or <picture> would keep serving the old webp');
+    ok(rot.loaded, `the corrupted art actually loaded (${rot.natural})`);
+    ok(rot.balloonCorrupt && rot.border === 'rgb(110, 32, 40)', `the balloon goes to rot (border ${rot.border})`);
+    ok(rot.melting && rot.chars > 0, `the message is laid out per character to melt (${rot.chars} chars in ${rot.words} words)`);
+    ok(rot.anim === 'wiz-melt' && rot.fill === 'forwards', `each character melts and stays melted (${rot.anim}, ${rot.fill})`);
+    ok(rot.charDisplay === 'inline-block' && rot.wordWrap === 'inline-block',
+      'characters and their word wrappers are both inline-block, so letters move but words still break normally');
+
+    // The message has to come from the Nephandi list, and the corrupted
+    // defaults are the only lines that are in one list and not the other.
+    const lists = await evaluate(`fetch('/api/wizard').then(r => r.json()).then(d => ({
+      messages: d.messages.length, nephandi: d.nephandi.length,
+      onlyNeph: d.nephandi.filter(t => !d.messages.includes(t)).length,
+      saidIsNeph: d.nephandi.includes(${JSON.stringify('PLACEHOLDER')}) }))`
+      .replace(JSON.stringify('PLACEHOLDER'), JSON.stringify(rot.text)));
+    ok(lists.onlyNeph > 0, `${lists.onlyNeph} corrupted line(s) exist that he never says normally`);
+    ok(lists.saidIsNeph, 'what he actually said is drawn from the Nephandi list');
+
     // ── Reduced motion ─────────────────────────────────────────────────────
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     await sleep(200);
@@ -294,6 +413,26 @@ async function main() {
     })()`);
     ok(rm.enabled === false, 'prefers-reduced-motion: _enabled() reports false');
     ok(rm.fired === false && rm.wrappers === 0, 'prefers-reduced-motion: nothing is wrapped at all — not even silently');
+
+    // Darrell keeps the corrupted art — that is not motion — but says his piece
+    // as plain text instead of melting it.
+    await evaluate(DARRELL_IN);
+    await sleep(1100);
+    await evaluate(DARRELL_OUT);
+    await sleep(1000);
+    await evaluate(SETTLE);
+    await sleep(300);
+    const rmWiz = await evaluate(`(() => {
+      const w = document.getElementById('wizard-darrell'), b = document.getElementById('wizard-balloon');
+      return { corrupt: w.classList.contains('wizard-corrupted'),
+               melting: b.classList.contains('wizard-balloon-melting'),
+               chars: b.querySelectorAll('.wiz-char').length,
+               text: b.textContent.trim().length };
+    })()`);
+    ok(rmWiz.corrupt, 'prefers-reduced-motion: he is still the corrupted Darrell');
+    ok(!rmWiz.melting && rmWiz.chars === 0 && rmWiz.text > 0,
+      'prefers-reduced-motion: the balloon is plain text, never split or melted');
+
     await send('Emulation.setEmulatedMedia', { features: [] });
     await sleep(200);
 
@@ -349,13 +488,27 @@ async function main() {
       `${added.length ? ', NEW: ' + added.join(', ') : ''})`);
     await evaluate('App.newCharacterOfType("nephandi"); "ok"');
     await sleep(1400);
+    // lurch scales a word up to 1.42 and shifts it, which paints outside its own
+    // box — the one way a glitch could grow the document and flash a scrollbar.
+    // Fire enough times to hit that flavour repeatedly and watch scrollWidth.
     const mobileGlitch = await evaluate(`(() => {
-      const s = NephGlitch.fire();
-      const r = { fired: !!s, w: document.documentElement.scrollWidth };
       NephGlitch.clear();
-      return r;
+      const base = document.documentElement.scrollWidth;
+      let worst = base, fired = 0, lurches = 0;
+      for (let i = 0; i < 60; i++) {
+        const s = NephGlitch.fire();
+        if (!s) continue;
+        fired++;
+        if (s.className.indexOf('neph-g--lurch') >= 0) lurches++;
+        worst = Math.max(worst, document.documentElement.scrollWidth);
+        if (NephGlitch.liveCount() >= 3) NephGlitch.clear();
+      }
+      NephGlitch.clear();
+      return { base, worst, fired, lurches };
     })()`);
-    ok(mobileGlitch.w <= 400, `a glitch at phone width does not widen the document (${mobileGlitch.w}px)`);
+    ok(mobileGlitch.worst <= mobileGlitch.base,
+      `${mobileGlitch.fired} glitches (${mobileGlitch.lurches} of them lurches) at phone width never widened the document` +
+      ` (${mobileGlitch.base}px -> worst ${mobileGlitch.worst}px)`);
     await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 860, deviceScaleFactor: 2, mobile: true });
     await shot('04-creator-phone', 860);
 

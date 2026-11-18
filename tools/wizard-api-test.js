@@ -9,7 +9,11 @@ process.env.DB_PATH = ':memory:'; process.env.DATA_DIR = require('os').tmpdir() 
 require('fs').mkdirSync(process.env.DATA_DIR, { recursive: true });
 const express = require(path.join(root, 'node_modules/express'));
 const db = require(path.join(root, 'server/db.js'));
-const ok = (c, m) => console.log(c ? 'PASS' : 'FAIL', m);
+let failed = 0;
+const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) failed++; };
+// Both seeded lists, so the counts below survive either file being edited.
+const GENERAL = require(path.join(root, 'server/wizard-defaults.json')).length;
+const CORRUPT = require(path.join(root, 'server/wizard-corrupted-defaults.json')).length;
 db.prepare(`INSERT INTO users (username,email,password_hash,role) VALUES ('adm','a@x.co','x','admin'),('bob','b@x.co','x','awakened')`).run();
 const app = express(); app.use(express.json());
 let sess = { userId: 2, role: 'awakened' }; app.use((req, res, n) => { req.session = sess; n(); });
@@ -19,7 +23,8 @@ app.use('/api/settings', require(path.join(root, 'server/routes/settings.js')));
 const srv = app.listen(0, async () => {
   const base = 'http://localhost:' + srv.address().port;
   const j = async (m, u, b) => { const r = await fetch(base + u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }); return { s: r.status, b: await r.json().catch(() => ({})) }; };
-  let r = await j('GET', '/api/wizard'); ok(r.b.enabled === true && r.b.messages.length === 24, 'seeded 24 messages for user: ' + r.b.messages.length);
+  let r = await j('GET', '/api/wizard'); ok(r.b.enabled === true && r.b.messages.length === GENERAL, `seeded ${GENERAL} ordinary messages for user: ` + r.b.messages.length);
+  ok(r.b.nephandi.length === GENERAL + CORRUPT, `the Nephandi list is general + corrupted (${GENERAL}+${CORRUPT}): ` + r.b.nephandi.length);
   r = await j('GET', '/api/admin/wizard-messages'); ok(r.s === 403, 'non-admin blocked from admin list: ' + r.s);
   r = await j('POST', '/api/admin/wizard-messages', { text: 'x' }); ok(r.s === 403, 'non-admin blocked from add');
   r = await j('PUT', '/api/settings', { wizard_enabled: false }); ok(r.s === 200, 'user turns Darrell off');
@@ -27,7 +32,9 @@ const srv = app.listen(0, async () => {
   r = await j('GET', '/api/settings'); ok(r.b.wizard_enabled === 0, 'settings reports wizard_enabled 0');
   await j('PUT', '/api/settings', { wizard_enabled: true });
   sess = { userId: 1, role: 'admin' };
-  r = await j('GET', '/api/admin/wizard-messages'); ok(r.s === 200 && r.b.messages.length === 24, 'admin lists 24');
+  r = await j('GET', '/api/admin/wizard-messages'); ok(r.s === 200 && r.b.messages.length === GENERAL + CORRUPT, `admin lists all ${GENERAL + CORRUPT}`);
+  ok(r.b.messages.every(m => ['general', 'corrupted', 'pure'].includes(m.category)), 'every row reports a category');
+  ok(r.b.messages.filter(m => m.category === 'corrupted').length === CORRUPT, `${CORRUPT} rows seeded as corrupted`);
   r = await j('POST', '/api/admin/wizard-messages', { text: '  Hello   there!  ' }); ok(r.s === 201 && r.b.text === 'Hello there!', 'add trims/collapses: ' + r.b.text);
   const id = r.b.id;
   r = await j('POST', '/api/admin/wizard-messages', { text: '   ' }); ok(r.s === 400, 'empty rejected');
@@ -35,15 +42,46 @@ const srv = app.listen(0, async () => {
   r = await j('PUT', '/api/admin/wizard-messages/' + id, { text: 'Edited!' }); ok(r.s === 200, 'edit');
   r = await j('PUT', '/api/admin/wizard-messages/' + id, { enabled: false });
   sess = { userId: 2, role: 'awakened' };
-  r = await j('GET', '/api/wizard'); ok(r.b.messages.length === 24 && !r.b.messages.includes('Edited!'), 'disabled message hidden from users');
+  r = await j('GET', '/api/wizard'); ok(r.b.messages.length === GENERAL && !r.b.messages.includes('Edited!'), 'disabled message hidden from users');
   sess = { userId: 1, role: 'admin' };
   await j('PUT', '/api/admin/wizard-messages/' + id, { enabled: true });
   sess = { userId: 2, role: 'awakened' }; r = await j('GET', '/api/wizard'); ok(r.b.messages.includes('Edited!'), 'enabled message shows');
   sess = { userId: 1, role: 'admin' };
+  // ── Categories ────────────────────────────────────────────────────────────
+  r = await j('PUT', '/api/admin/wizard-messages/' + id, { category: 'nonsense' }); ok(r.s === 400, 'unknown category rejected');
+  r = await j('GET', '/api/admin/wizard-messages');
+  ok(r.b.messages.find(m => m.id === id).category === 'general', 'a message defaults to general, and the rejected change did not stick');
+
+  r = await j('POST', '/api/admin/wizard-messages', { text: 'Only in the Caul.', category: 'corrupted' });
+  const corruptId = r.b.id; ok(r.s === 201 && r.b.category === 'corrupted', 'added as corrupted');
+  r = await j('POST', '/api/admin/wizard-messages', { text: 'Never in the Caul.', category: 'pure' });
+  const pureId = r.b.id; ok(r.s === 201 && r.b.category === 'pure', 'added as pure');
+  r = await j('POST', '/api/admin/wizard-messages', { text: 'Who knows.', category: 'nonsense' });
+  ok(r.s === 201 && r.b.category === 'general', 'an unknown category on add falls back to general, it does not 400');
+  const junkId = r.b.id;
+
+  sess = { userId: 2, role: 'awakened' };
+  r = await j('GET', '/api/wizard');
+  ok(!r.b.messages.includes('Only in the Caul.'), 'corrupted line is kept OUT of the ordinary list');
+  ok(r.b.nephandi.includes('Only in the Caul.'), 'corrupted line IS in the Nephandi list');
+  ok(r.b.messages.includes('Never in the Caul.'), 'pure line is in the ordinary list');
+  ok(!r.b.nephandi.includes('Never in the Caul.'), 'pure line is kept OUT of the Nephandi list');
+  ok(r.b.messages.includes('Who knows.') && r.b.nephandi.includes('Who knows.'), 'a general line is in both');
+
+  sess = { userId: 1, role: 'admin' };
+  r = await j('PUT', '/api/admin/wizard-messages/' + corruptId, { category: 'pure' }); ok(r.s === 200, 'recategorise corrupted -> pure');
+  sess = { userId: 2, role: 'awakened' };
+  r = await j('GET', '/api/wizard');
+  ok(r.b.messages.includes('Only in the Caul.') && !r.b.nephandi.includes('Only in the Caul.'), 'the recategorised line swapped lists');
+  sess = { userId: 1, role: 'admin' };
+  for (const x of [corruptId, pureId, junkId]) await j('DELETE', '/api/admin/wizard-messages/' + x);
+
   r = await j('DELETE', '/api/admin/wizard-messages/' + id); ok(r.s === 200, 'delete');
   r = await j('DELETE', '/api/admin/wizard-messages/' + id); ok(r.s === 404, 'delete again 404');
   r = await j('PUT', '/api/admin/wizard-messages/9999', { text: 'x' }); ok(r.s === 404, 'edit missing 404');
   for (const m of (await j('GET', '/api/admin/wizard-messages')).b.messages) await j('DELETE', '/api/admin/wizard-messages/' + m.id);
-  r = await j('GET', '/api/wizard'); ok(r.b.messages.length === 0, 'emptied list stays empty');
-  srv.close(); process.exit(0);
+  r = await j('GET', '/api/wizard'); ok(r.b.messages.length === 0 && r.b.nephandi.length === 0, 'emptied list stays empty in both modes');
+  srv.close();
+  console.log(failed ? `\n${failed} FAILED` : '\nall passed');
+  process.exit(failed ? 1 : 0);
 });

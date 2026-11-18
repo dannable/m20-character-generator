@@ -271,27 +271,33 @@ router.get('/stats', (req, res) => {
 // ── Wizard Darrell speech-balloon messages ───────────────────────────────────
 const WIZARD_MAX = 200;
 const wizardText = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+// 'general' in both modes, 'corrupted' only in a Nephandi creator or sheet,
+// 'pure' never in one. Anything unrecognised falls back to 'general'.
+const WIZARD_CATEGORIES = ['general', 'corrupted', 'pure'];
+const wizardCategory = v => (WIZARD_CATEGORIES.includes(v) ? v : 'general');
 
 // GET /api/admin/wizard-messages
 router.get('/wizard-messages', (req, res) => {
   try {
-    res.json({ messages: db.prepare(`SELECT id, text, enabled, sort_order FROM wizard_messages ORDER BY sort_order, id`).all(), max: WIZARD_MAX });
+    res.json({ messages: db.prepare(`SELECT id, text, enabled, sort_order, category FROM wizard_messages ORDER BY sort_order, id`).all(),
+               max: WIZARD_MAX, categories: WIZARD_CATEGORIES });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// POST /api/admin/wizard-messages  { text }
+// POST /api/admin/wizard-messages  { text, category? }
 router.post('/wizard-messages', (req, res) => {
   try {
     const text = wizardText(req.body.text);
     if (!text) return res.status(400).json({ error: 'Message cannot be empty' });
     if (text.length > WIZARD_MAX) return res.status(400).json({ error: `Message is limited to ${WIZARD_MAX} characters` });
+    const category = wizardCategory(req.body.category);
     const next = (db.prepare(`SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM wizard_messages`).get().n);
-    const r = db.prepare(`INSERT INTO wizard_messages (text, sort_order) VALUES (?, ?)`).run(text, next);
-    res.status(201).json({ id: r.lastInsertRowid, text, enabled: 1, sort_order: next });
+    const r = db.prepare(`INSERT INTO wizard_messages (text, sort_order, category) VALUES (?, ?, ?)`).run(text, next, category);
+    res.status(201).json({ id: r.lastInsertRowid, text, enabled: 1, sort_order: next, category });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });
 
-// PUT /api/admin/wizard-messages/:id  { text?, enabled? }
+// PUT /api/admin/wizard-messages/:id  { text?, enabled?, category? }
 router.put('/wizard-messages/:id', (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -303,6 +309,10 @@ router.put('/wizard-messages/:id', (req, res) => {
       db.prepare(`UPDATE wizard_messages SET text = ? WHERE id = ?`).run(text, id);
     }
     if (req.body.enabled !== undefined) db.prepare(`UPDATE wizard_messages SET enabled = ? WHERE id = ?`).run(req.body.enabled ? 1 : 0, id);
+    if (req.body.category !== undefined) {
+      if (!WIZARD_CATEGORIES.includes(req.body.category)) return res.status(400).json({ error: 'Unknown category' });
+      db.prepare(`UPDATE wizard_messages SET category = ? WHERE id = ?`).run(req.body.category, id);
+    }
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Internal server error' }); }
 });

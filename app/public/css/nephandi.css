@@ -523,6 +523,35 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
   85%      { opacity: 0; }
 }
 
+/* 6. The word comes off its mark — jumps position and changes size between
+      frames. This is the one flavour that needs a block box, because only
+      `transform` can scale, so it takes `display: inline-block`. That is safe
+      precisely because the module restricts this flavour to a SINGLE word: an
+      inline-block is laid out at its content width like the inline box it
+      replaces, and the only thing it changes is that it cannot break across
+      lines — which no single word does anyway. `transform` never participates
+      in layout, so the jump and the scale move paint and nothing else.
+
+      It can still paint outside the viewport and grow the document, so the
+      module also declines this flavour for a word without clearance around it
+      (see roomToLurch) and falls back to the jitter above. */
+.nephandi-skin .neph-g--lurch {
+  display: inline-block;
+  transform-origin: 50% 60%;   /* about the x-height, not the descender */
+  animation: neph-g-lurch 0.78s steps(1, end) 1;
+}
+@keyframes neph-g-lurch {
+  0%, 100% { transform: none; text-shadow: none; }
+  12%      { transform: translate(3px, -4px)  scale(1.18) rotate(-1.5deg); }
+  26%      { transform: translate(-5px, 2px)  scale(0.78) rotate(2deg); }
+  40%      { transform: translate(6px, -2px)  scale(1.34);
+             text-shadow: 2px 0 0 var(--neph-g-red), -2px 0 0 var(--neph-g-blue); }
+  55%      { transform: translate(-2px, 5px)  scale(0.9)  rotate(-2.5deg); }
+  70%      { transform: translate(4px, -5px)  scale(1.42) rotate(1deg);
+             text-shadow: -3px 0 0 var(--neph-g-blue); }
+  85%      { transform: translate(-3px, 1px) scale(0.86); }
+}
+
 /* 6. The hand-scratched tremble: every letter on its own, the way the credits
       were actually made. The module splits the run into <i class="neph-c"> and
       gives each one a different negative animation-delay, so they are all on
@@ -542,6 +571,93 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
 }
 .nephandi-skin .neph-g--tremble {
   text-shadow: 0.4px 0 0 var(--neph-g-red), -0.4px 0 0 var(--neph-g-blue);
+}
+
+/* ── Corrupted Darrell ──────────────────────────────────────────────────────── */
+/* The wizard and his balloon are fixed to the viewport, outside .nephandi-skin,
+   so the skin's custom properties are not in scope here — same situation as the
+   dashboard card and the gate modal above, and these declare their own.
+   index.html swaps the art and adds these classes while a Nephandi creator or
+   sheet is on screen. */
+
+#wizard-darrell.wizard-corrupted {
+  filter: drop-shadow(4px -2px 12px rgba(58, 16, 22, 0.75));
+}
+
+#wizard-balloon.wizard-balloon-corrupted {
+  --wiz-rot-edge: #6e2028;
+  --wiz-rot-fill: #15131f;
+  --wiz-rot-text: #e8e0d0;
+  background: var(--wiz-rot-fill);
+  border-color: var(--wiz-rot-edge);
+  color: var(--wiz-rot-text);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+  /* Somewhere for the last line to run to. A melting letter descends about
+     1.7em before it is faint enough not to matter (0.62em of travel plus what
+     scaleY(2.1) adds below the baseline), and the balloon is anchored by its
+     bottom edge, so this grows upward and the tail stays put. Without it the
+     bottom line drips over its own border and onto his hat. */
+  padding-bottom: 1.75rem;
+}
+/* The tail is two stacked triangles, coloured by borders, so it needs the same
+   two values again or it stays gold while the bubble goes to rot. */
+#wizard-balloon.wizard-balloon-corrupted::before { border-top-color: var(--wiz-rot-edge); }
+#wizard-balloon.wizard-balloon-corrupted::after  { border-top-color: var(--wiz-rot-fill); }
+
+html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
+  --wiz-rot-edge: #7e1216;
+  --wiz-rot-fill: #e9e2ce;
+  --wiz-rot-text: #15100a;
+  box-shadow: 0 4px 18px rgba(60, 20, 14, 0.22);
+}
+
+/* ── The balloon text melts ─────────────────────────────────────────────────── */
+/* index.html lays the message out as one span per character, wrapped per word.
+   The word wrapper is what keeps a line from breaking between two letters: the
+   characters have to be inline-block to take a transform, and inline-blocks are
+   break opportunities, so without it long messages would re-wrap mid-word. */
+#wizard-balloon .wiz-word {
+  display: inline-block;
+  white-space: pre;
+}
+#wizard-balloon .wiz-char {
+  display: inline-block;
+  transform-origin: 50% 0;   /* stretch downward, like something running */
+}
+/* Each letter starts at its own moment: --i staggers along the message and --r
+   is a per-character random, so the line rots unevenly rather than in a wave. */
+#wizard-balloon.wizard-balloon-melting .wiz-char {
+  animation: wiz-melt 6s linear forwards;
+  animation-delay: calc(var(--i, 0) * 0.045s + var(--r, 0) * 1.1s);
+}
+@keyframes wiz-melt {
+  0% {
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+    opacity: 1;
+  }
+  30% {
+    transform: translateY(0.06em) scale(1.01, 1.1) skewX(-1deg);
+    filter: blur(0.2px);
+    opacity: 0.96;
+  }
+  55% {
+    transform: translateY(0.26em) scale(0.96, 1.5) skewX(2deg);
+    filter: blur(0.9px);
+    opacity: 0.72;
+  }
+  /* Most of the fade is done before the letter leaves the bubble, so what
+     escapes past the border is a smear rather than a readable character. */
+  78% {
+    transform: translateY(0.62em) scale(0.88, 2.1) skewX(-3deg);
+    filter: blur(2.2px);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(1.15em) scale(0.74, 2.8) skewX(4deg);
+    filter: blur(5px);
+    opacity: 0;
+  }
 }
 
 /* ── Reduced motion: no tearing, no glitching ───────────────────────────────── */
@@ -564,6 +680,17 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
     top: 0 !important;
     opacity: 1 !important;
     text-shadow: none !important;
+    transform: none !important;
+  }
+  /* Darrell lives outside .nephandi-skin, so he needs saying separately. He
+     keeps the corrupted art — that is not motion — but the text stops melting.
+     index.html also declines to lay the message out per-character at all under
+     reduced motion, so this is the belt to that braces. */
+  #wizard-balloon .wiz-char {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
   }
 }
 
@@ -586,6 +713,7 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
     left: 0 !important;
     top: 0 !important;
     opacity: 1 !important;
+    transform: none !important;
   }
 }
 

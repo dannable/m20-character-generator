@@ -654,11 +654,29 @@ db.exec(`
   );
   CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT);
 `);
+// Which mode a line belongs to:
+//   'general'   — said in both modes (the default, and what every pre-existing row becomes)
+//   'corrupted' — only while a Nephandi creator or sheet is on screen
+//   'pure'      — never while one is. See the <picture> swap in index.html.
+try { db.exec(`ALTER TABLE wizard_messages ADD COLUMN category TEXT NOT NULL DEFAULT 'general'`); } catch {}
+
 // Seed the shipped messages once. After that the admin owns the list, even if it is emptied.
 if (!db.prepare(`SELECT 1 FROM app_meta WHERE key = 'wizard_seeded'`).get()) {
   const seed = require('./wizard-defaults.json');
   const ins = db.prepare(`INSERT INTO wizard_messages (text, sort_order) VALUES (?, ?)`);
   db.transaction(() => { seed.forEach((t, i) => ins.run(t, i + 1)); db.prepare(`INSERT INTO app_meta (key, value) VALUES ('wizard_seeded', '1')`).run(); })();
+}
+// The corrupted lines ship under their own key, so installations that were
+// seeded before categories existed still get them. Deleting them sticks: the
+// key stays set, exactly like 'wizard_seeded'.
+if (!db.prepare(`SELECT 1 FROM app_meta WHERE key = 'wizard_corrupted_seeded'`).get()) {
+  const seed = require('./wizard-corrupted-defaults.json');
+  const base = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS n FROM wizard_messages`).get().n;
+  const ins = db.prepare(`INSERT INTO wizard_messages (text, sort_order, category) VALUES (?, ?, 'corrupted')`);
+  db.transaction(() => {
+    seed.forEach((t, i) => ins.run(t, base + i + 1));
+    db.prepare(`INSERT INTO app_meta (key, value) VALUES ('wizard_corrupted_seeded', '1')`).run();
+  })();
 }
 
 // ── Discord sign-in ───────────────────────────────────────────────────────────
