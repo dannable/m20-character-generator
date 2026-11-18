@@ -8,101 +8,139 @@
    palette custom properties on that subtree only, so no global token is touched
    and every other page keeps the house gold-and-parchment look.
 
+   The look is the chantry's own palette gone wrong, not a different one: the
+   deep purples, blues and golds of style.css stay, pushed colder and tarnished,
+   with deep red and maroon surfacing at the edges — rules, borders, warnings,
+   the split on a misregistered heading. Nothing here is bilious or lurid.
+
    Three rules this file keeps:
      • the light theme is overridden too, or it breaks;
      • every animation stops under prefers-reduced-motion and when printing;
-     • body text keeps its contrast — the palette is sickly, not illegible.
+     • body text keeps its contrast. Every colour below that carries text was
+       checked against the surface it sits on; the AA figures in the comments
+       are measured, not guessed.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Palette: the gold goes bilious, the backgrounds bruise ─────────────────── */
+/* ── Palette: the same chantry, colder, with blood in the grain ─────────────── */
 .nephandi-skin {
-  --bg-void:     #060405;
-  --bg-deep:     #0d0808;
-  --bg-surface:  #151010;
-  --bg-raised:   #1d1414;
-  --bg-hover:    #2a1c1c;
-  --bg-card:     #181111;
+  /* Backgrounds: style.css's blue-blacks pulled a shade deeper and more violet. */
+  --bg-void:     #050409;
+  --bg-deep:     #0b0a12;
+  --bg-surface:  #11101a;
+  --bg-raised:   #191624;
+  --bg-hover:    #241c30;
+  --bg-card:     #151320;
 
-  --gold-bright: #b4bd72;
-  --gold-mid:    #8d9a4e;
-  --gold-dim:    #5e6a32;
-  --gold-faint:  #262a14;
+  /* Gold: tarnished brass rather than lit gold. Still gold. */
+  --gold-bright: #d8c07a;   /* 10.3:1 on --bg-card */
+  --gold-mid:    #b59a4e;   /*  6.7:1 — a text colour in 154 places, so it must clear AA */
+  --gold-dim:    #7a6430;
+  --gold-faint:  #332b16;
 
-  --purple-bright: #c98fa8;
-  --purple-mid:    #a06a84;
-  --purple-dim:    #7a4a60;
-  --purple-faint:  #2e1620;
+  /* Purple: bruise-violet, deeper and colder than the house ink. */
+  --purple-bright: #b793ea;  /* 7.3:1 */
+  --purple-mid:    #9a78d2;  /* 5.2:1 — carries the Qlipha labels */
+  --purple-dim:    #6a4a9e;
+  --purple-faint:  #241a38;
 
-  /* Lifted from the bruise tone it started at so that small uppercase labels
-     clear AA on --bg-card (4.9:1); --neph-rot keeps the darker blood for rules
-     and borders, where contrast does not apply. */
-  --crimson:     #cf6257;
-  --crimson-dim: #2e0806;
+  /* The maroon tinge. --crimson carries small uppercase labels, so it is the
+     one accent that has to stay legible: 5.1:1 on card, 4.9 on raised, 4.5 on
+     hover. --neph-maroon is the darker blood, for rules and borders only. */
+  --crimson:     #d4655c;
+  --crimson-dim: #2e0b0c;
 
-  --text-bright: #e2dcc8;
-  --text-mid:    #b6ac96;
-  --text-dim:    #8c8172;
-  --text-faint:  #635949;
+  --text-bright: #e8e0d0;   /* 14.0:1 */
+  --text-mid:    #bdb2a0;   /*  8.8:1 */
+  --text-dim:    #918678;   /*  5.1:1 */
+  --text-faint:  #675d52;   /*  2.9:1 — citations only, exactly matching the
+                                 house theme's own --text-faint (2.84:1) */
 
-  --border-bright: #43382f;
-  --border-dim:    #241c18;
+  --border-bright: #3c3248;
+  --border-dim:    #201c2a;
 
-  --dot-fill:    #8d9a4e;
-  --dot-empty:   #241c18;
-  --dot-border:  #4e4a2a;
+  --dot-fill:    #b59a4e;
+  --dot-empty:   #1c1a28;
+  --dot-border:  #574a34;
 
-  --shadow-card: 0 4px 24px rgba(0,0,0,0.75), 0 1px 0 rgba(141,154,78,0.07) inset;
-  --shadow-glow: 0 0 22px rgba(141,154,78,0.16);
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.7), 0 1px 0 rgba(181,154,78,0.07) inset;
+  --shadow-glow: 0 0 20px rgba(181,154,78,0.14);
 
   /* Used by this file only. */
-  --neph-rot:   #6c2f2a;   /* arterial, for warnings and rules */
-  --neph-bile:  #8d9a4e;
-  --neph-ghost: rgba(201,143,168,0.55);
+  --neph-maroon:      #6e2028;   /* arterial, for rules and borders */
+  --neph-maroon-deep: #3a1016;
+  --neph-ink:         #26324f;   /* the cold half of a misregistered print */
+  --neph-ghost:       rgba(183,147,234,0.5);
+
+  /* Se7en: the two inks a slipped frame separates into, and the emulsion. */
+  --neph-g-red:     rgba(150,30,34,0.72);
+  --neph-g-blue:    rgba(40,58,96,0.66);
+  --neph-g-scratch: rgba(232,224,208,0.5);
+  --neph-g-neg:     #e8e0d0;
 
   position: relative;
   isolation: isolate;
 }
 
+/* The maroon wash. Two slow stains rather than a tint on every token, so the
+   surfaces stay the house blue-violet and the red only shows at the edges. */
+.nephandi-skin {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 12% 0%,   rgba(110,32,40,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 88% 100%, rgba(110,32,40,0.07) 0%, transparent 62%);
+}
+
 /* Light mode: foxed, stained paper rather than clean vellum. */
 html[data-theme="light"] .nephandi-skin {
-  --bg-void:     #e4e0cd;
-  --bg-deep:     #dcd8c4;
-  --bg-surface:  #d8d4c0;
-  --bg-raised:   #e2decb;
-  --bg-hover:    #d0ccb6;
-  --bg-card:     #dedac7;
+  --bg-void:     #efe8d4;
+  --bg-deep:     #e8e1cc;
+  --bg-surface:  #e3dcc7;
+  --bg-raised:   #ece5d2;
+  --bg-hover:    #ded7c2;
+  --bg-card:     #e9e2ce;
 
-  --gold-bright: #414a0e;
-  --gold-mid:    #525c14;   /* 5.2:1 on --bg-card; #5c6618 fell just under AA */
-  --gold-dim:    #7d8838;
-  --gold-faint:  #dfe2b8;
+  --gold-bright: #6b4c08;   /* 6.1:1 on --bg-card */
+  --gold-mid:    #755410;   /* 5.4:1 on card, 4.8 on hover — the house theme's
+                                own light --gold-mid only reaches 3.6:1 */
+  --gold-dim:    #8f6c20;
+  --gold-faint:  #ece0b4;
 
-  --purple-bright: #5a1030;
-  --purple-mid:    #74203e;
-  --purple-dim:    #8e4058;
-  --purple-faint:  #ecdbe0;
+  --purple-bright: #3f1264;  /* 11.0:1 */
+  --purple-mid:    #5c2a94;  /*  7.3:1 */
+  --purple-dim:    #7a48ae;
+  --purple-faint:  #e6daf4;
 
-  --crimson:     #7a1010;
-  --crimson-dim: #f6e2e0;
+  --crimson:     #7e1216;    /* 8.2:1 on card, 7.4 on hover */
+  --crimson-dim: #f7e2e2;
 
-  --text-bright: #140d08;
-  --text-mid:    #2a1f14;
-  --text-dim:    #4e4030;
-  --text-faint:  #7e6e58;
+  --text-bright: #15100a;    /* 14.6:1 */
+  --text-mid:    #291d10;    /* 12.7:1 */
+  --text-dim:    #4e3c26;    /*  8.1:1 */
+  --text-faint:  #82705a;
 
-  --border-bright: #a89878;
-  --border-dim:    #c6bc9e;
+  --border-bright: #ae9a76;
+  --border-dim:    #cdc3a4;
 
-  --dot-fill:    #5c6618;
-  --dot-empty:   #c6bc9e;
-  --dot-border:  #a89878;
+  --dot-fill:    #755410;
+  --dot-empty:   #cdc3a4;
+  --dot-border:  #ae9a76;
 
-  --shadow-card: 0 2px 12px rgba(50,40,10,0.16), 0 1px 0 rgba(92,102,24,0.14) inset;
-  --shadow-glow: 0 0 20px rgba(92,102,24,0.2);
+  --shadow-card: 0 2px 12px rgba(60,20,14,0.14), 0 1px 0 rgba(117,84,16,0.14) inset;
+  --shadow-glow: 0 0 20px rgba(117,84,16,0.18);
 
-  --neph-rot:   #7a1010;
-  --neph-bile:  #5c6618;
-  --neph-ghost: rgba(90,16,48,0.45);
+  --neph-maroon:      #7e1216;
+  --neph-maroon-deep: #5a0c10;
+  --neph-ink:         #243a66;
+  --neph-ghost:       rgba(63,18,100,0.4);
+
+  --neph-g-red:     rgba(126,18,22,0.58);
+  --neph-g-blue:    rgba(36,58,102,0.5);
+  --neph-g-scratch: rgba(21,16,10,0.42);
+  --neph-g-neg:     #f4eeda;   /* near-white in BOTH themes — see note at (5) */
+}
+html[data-theme="light"] .nephandi-skin {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 12% 0%,   rgba(126,18,22,0.055) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 60% at 88% 100%, rgba(126,18,22,0.04) 0%, transparent 62%);
 }
 
 /* ── Grain: a dry rot over the whole surface ────────────────────────────────── */
@@ -114,12 +152,12 @@ html[data-theme="light"] .nephandi-skin {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.05;
+  opacity: 0.035;
   mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23r)'/%3E%3C/svg%3E");
 }
 html[data-theme="light"] .nephandi-skin::before {
-  opacity: 0.09;
+  opacity: 0.055;
 }
 .nephandi-skin > * {
   position: relative;
@@ -127,14 +165,15 @@ html[data-theme="light"] .nephandi-skin::before {
 }
 
 /* ── Headings: a hair out of registration, like bad printing ────────────────── */
+/* The two inks of the glitch, held down to half a pixel so it reads as a press
+   that slipped rather than an effect. .section-title and .ornate-divider are
+   deliberately left clean — aberration on every heading stopped being subtle. */
 .nephandi-skin .step-title,
 .nephandi-skin .sheet-char-name,
-.nephandi-skin .section-title,
-.nephandi-skin .ornate-divider,
 .nephandi-skin .fallen-sect-group-title {
   text-shadow:
-    -0.6px 0 0 rgba(176, 48, 40, 0.45),
-     0.6px 0 0 rgba(90, 140, 130, 0.32);
+    -0.5px 0 0 var(--neph-g-red),
+     0.5px 0 0 var(--neph-g-blue);
 }
 
 /* The divider rule rots through in the middle. */
@@ -142,7 +181,7 @@ html[data-theme="light"] .nephandi-skin::before {
 .nephandi-skin .ornate-divider::after {
   background-image: linear-gradient(90deg,
     transparent, var(--gold-dim) 18%, transparent 38%,
-    var(--gold-dim) 52%, transparent 66%, var(--gold-dim) 84%, transparent);
+    var(--neph-maroon) 52%, transparent 66%, var(--gold-dim) 84%, transparent);
 }
 
 /* ── Dots: the pips have gone irregular ─────────────────────────────────────── */
@@ -150,43 +189,42 @@ html[data-theme="light"] .nephandi-skin::before {
   border-radius: 54% 46% 49% 51% / 48% 52% 47% 53%;
 }
 .nephandi-skin .dot.filled {
-  box-shadow: 0 0 4px rgba(141, 154, 78, 0.35);
+  box-shadow: 0 0 4px rgba(181, 154, 78, 0.3);
 }
 
 /* ── The step transition tears ──────────────────────────────────────────────── */
 /* renderStep() replaces #step-content's children, so a freshly inserted header
    runs this once per step — no JS hook needed. */
 @keyframes neph-tear-in {
-  0%   { clip-path: inset(0 0 0 0);       transform: translateX(0);      opacity: 0.2; }
-  20%  { clip-path: inset(14% 0 46% 0);   transform: translateX(-3px);   opacity: 1; }
-  40%  { clip-path: inset(58% 0 8% 0);    transform: translateX(2px); }
-  60%  { clip-path: inset(26% 0 62% 0);   transform: translateX(-2px); }
-  80%  { clip-path: inset(72% 0 4% 0);    transform: translateX(1px); }
+  0%   { clip-path: inset(0 0 0 0);       transform: translateX(0);      opacity: 0.45; }
+  25%  { clip-path: inset(18% 0 52% 0);   transform: translateX(-1.5px); opacity: 1; }
+  50%  { clip-path: inset(56% 0 12% 0);   transform: translateX(1px); }
+  75%  { clip-path: inset(30% 0 58% 0);   transform: translateX(-1px); }
   100% { clip-path: inset(0 0 0 0);       transform: translateX(0);      opacity: 1; }
 }
 .nephandi-skin .step-header {
-  animation: neph-tear-in 0.42s steps(5, end) 1;
+  animation: neph-tear-in 0.3s steps(4, end) 1;
 }
 
 /* ── Character-type card ────────────────────────────────────────────────────── */
 .char-type-card-fallen {
-  border-color: #3e3228;
+  border-color: #2a2436;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(176, 48, 40, 0.12), transparent 60%),
+    radial-gradient(120% 90% at 50% 0%, rgba(110, 32, 40, 0.14), transparent 60%),
     var(--bg-card);
 }
 .char-type-card-fallen:hover,
 .char-type-card-fallen:focus-visible {
-  border-color: #6c2f2a;
-  box-shadow: 0 0 22px rgba(176, 48, 40, 0.18);
+  border-color: #6e2028;
+  box-shadow: 0 0 22px rgba(110, 32, 40, 0.2);
 }
 .char-type-card-fallen .char-type-card-icon,
 .char-type-card-fallen .char-type-card-cta {
-  color: #b4bd72;
+  color: #d8c07a;
 }
 html[data-theme="light"] .char-type-card-fallen .char-type-card-icon,
 html[data-theme="light"] .char-type-card-fallen .char-type-card-cta {
-  color: #414a0e;
+  color: #6b4c08;
 }
 .char-type-card-warning {
   margin-top: 0.5rem;
@@ -202,13 +240,13 @@ html[data-theme="light"] .char-type-card-fallen .char-type-card-cta {
 /* Reuses the feedback modal's overlay and box; only the accents differ. */
 .nephandi-gate-box {
   max-width: 34rem;
-  border-color: #4a2a26;
+  border-color: #4a2028;
 }
 .nephandi-gate-box .feedback-title {
-  color: #b4bd72;
+  color: #d8c07a;
 }
 html[data-theme="light"] .nephandi-gate-box .feedback-title {
-  color: #414a0e;
+  color: #6b4c08;
 }
 .nephandi-gate-lead {
   font-family: var(--font-heading);
@@ -358,6 +396,154 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
 /* ── Sheet identity rows ────────────────────────────────────────────────────── */
 .nephandi-skin .sheet-field-label { color: var(--crimson); }
 
+/* ── Se7en: the frame is not steady ─────────────────────────────────────────── */
+/* js/nephandi-glitch.js picks a word, or a short run of words, inside the skin
+   every few seconds and wraps it in .neph-g + one flavour class, then unwraps it
+   again. Kyle Cooper's title sequence is four things — an unsteady gate, dropped
+   frames, ink that slips apart, and scratched emulsion — so there is one flavour
+   for each, plus a negative flash and a hand-scratched tremble.
+   
+   Two constraints shape every rule below:
+   
+   • Nothing may reflow. A word that changes the line it sits on reads as a bug,
+     not as a glitch. So .neph-g stays `display: inline` and moves by `left`/`top`
+     under `position: relative`, which paints the box somewhere else without
+     taking its layout position with it. No transform (it needs a block box), no
+     letter-spacing, no font-size, no inline-block.
+   • Nothing may duplicate text. The ghosts are `text-shadow`, never a
+     pseudo-element carrying `content: attr(...)`, so a screen reader is never
+     handed the same word twice. Pseudo-elements here draw the scratch and the
+     negative flash only, and carry no text at all. */
+
+.nephandi-skin .neph-g {
+  position: relative;
+  display: inline;
+  /* So a glitched word inside a button or a label never eats the click. */
+  pointer-events: none;
+}
+
+/* 1. The gate flutters — the word weaves in its sprockets. */
+@keyframes neph-g-jitter {
+  0%,  100% { left: 0;      top: 0;      text-shadow: none; }
+  8%        { left: -1px;   top: 0.4px; }
+  16%       { left: 1px;    top: -0.5px; text-shadow: 1px 0 0 var(--neph-g-red); }
+  24%       { left: -0.5px; top: 0; }
+  32%       { left: 1.5px;  top: 0.6px;  text-shadow: -1px 0 0 var(--neph-g-blue); }
+  40%       { left: 0;      top: -0.4px; }
+  52%       { left: -1.5px; top: 0.3px;  text-shadow: 1px 0 0 var(--neph-g-red), -1px 0 0 var(--neph-g-blue); }
+  64%       { left: 0.5px;  top: 0; }
+  76%       { left: -0.5px; top: 0.5px; }
+  88%       { left: 0.8px;  top: 0; }
+}
+.nephandi-skin .neph-g--jitter { animation: neph-g-jitter 0.62s steps(1, end) 1; }
+
+/* 2. Frames drop out of the splice. */
+@keyframes neph-g-flicker {
+  0%, 100% { opacity: 1; }
+  10%      { opacity: 0.16; }
+  15%      { opacity: 1; }
+  29%      { opacity: 0.52; }
+  34%      { opacity: 1; }
+  48%      { opacity: 0.1; }
+  55%      { opacity: 1; }
+  71%      { opacity: 0.62; }
+  77%      { opacity: 1; }
+  89%      { opacity: 0.28; }
+}
+.nephandi-skin .neph-g--flicker { animation: neph-g-flicker 0.58s steps(1, end) 1; }
+
+/* 3. The inks pull apart and come back — registration lost for a moment. */
+@keyframes neph-g-smear {
+  0%, 100% { text-shadow: none; left: 0; }
+  12%      { text-shadow:  2px 0 0 var(--neph-g-red), -2px 0 0 var(--neph-g-blue); }
+  24%      { text-shadow:  4px 0 0 var(--neph-g-red), -3px 0 0 var(--neph-g-blue); left: -1px; }
+  36%      { text-shadow:  1px 0 0 var(--neph-g-red), -4px 0 0 var(--neph-g-blue); left: 1px; }
+  48%      { text-shadow:  3px 1px 0 var(--neph-g-red), -2px -1px 0 var(--neph-g-blue); }
+  60%      { text-shadow: -2px 0 0 var(--neph-g-red),  3px 0 0 var(--neph-g-blue); left: -0.5px; }
+  72%      { text-shadow:  1px 0 0 var(--neph-g-red), -1px 0 0 var(--neph-g-blue); }
+  86%      { text-shadow:  2px 0 0 var(--neph-g-blue); }
+}
+.nephandi-skin .neph-g--smear { animation: neph-g-smear 0.72s steps(1, end) 1; }
+
+/* 4. A scratch in the emulsion, drawn across the word. The pseudo-element is
+      decoration with no content, and the span's inline box is its containing
+      block, so left/right/top resolve against the word itself. */
+.nephandi-skin .neph-g--scratch { animation: neph-g-jitter 0.62s steps(1, end) 1; }
+.nephandi-skin .neph-g--scratch::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 52%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent 0%, var(--neph-g-scratch) 14%, transparent 27%,
+    var(--neph-g-scratch) 46%, transparent 56%,
+    var(--neph-g-scratch) 78%, transparent 100%);
+  animation: neph-g-scratch 0.62s steps(1, end) 1;
+}
+@keyframes neph-g-scratch {
+  0%, 100% { opacity: 0; }
+  10%      { opacity: 0.9; top: 52%; }
+  28%      { opacity: 0.2; top: 38%; }
+  42%      { opacity: 0.85; top: 61%; }
+  60%      { opacity: 0;    top: 44%; }
+  78%      { opacity: 0.7;  top: 50%; }
+}
+
+/* 5. A negative frame. `difference` against the fill inverts whatever is under
+      it — the word and the surface both — which is a true photographic negative
+      rather than a guess at the inverse of an inherited colour. .nephandi-skin
+      sets `isolation: isolate`, so the blend stops at the skin.
+      --neph-g-neg is near-white in both themes deliberately: `difference` is
+      only an inversion against white. A dark fill on the light theme merely
+      darkens the box, which renders as a text-selection highlight rather than
+      a dropped frame. Kept under full opacity so it flashes instead of landing
+      as a solid block. */
+.nephandi-skin .neph-g--neg::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -0.08em;
+  bottom: -0.04em;
+  pointer-events: none;
+  background: var(--neph-g-neg);
+  mix-blend-mode: difference;
+  animation: neph-g-neg 0.5s steps(1, end) 1;
+}
+@keyframes neph-g-neg {
+  0%, 100% { opacity: 0; }
+  13%      { opacity: 0.9; }
+  21%      { opacity: 0; }
+  45%      { opacity: 0.9; }
+  53%      { opacity: 0; }
+  77%      { opacity: 0.7; }
+  85%      { opacity: 0; }
+}
+
+/* 6. The hand-scratched tremble: every letter on its own, the way the credits
+      were actually made. The module splits the run into <i class="neph-c"> and
+      gives each one a different negative animation-delay, so they are all on
+      the same 4-frame cycle but none of them in step. */
+.nephandi-skin .neph-c {
+  position: relative;
+  display: inline;
+  font-style: inherit;
+  animation: neph-g-tremble 0.34s steps(1, end) infinite;
+  animation-delay: var(--d, 0s);
+}
+@keyframes neph-g-tremble {
+  0%,  100% { left: 0;      top: 0; }
+  25%       { left: 0.7px;  top: -0.6px; }
+  50%       { left: -0.6px; top: 0.5px; }
+  75%       { left: 0.4px;  top: 0.7px; }
+}
+.nephandi-skin .neph-g--tremble {
+  text-shadow: 0.4px 0 0 var(--neph-g-red), -0.4px 0 0 var(--neph-g-blue);
+}
+
 /* ── Reduced motion: no tearing, no glitching ───────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .nephandi-skin *,
@@ -365,6 +551,19 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
   .nephandi-skin *::after {
     animation: none !important;
     transition: none !important;
+  }
+  /* Both of these are drawn entirely by their keyframes; with the animation
+     stopped their base style is a solid block, so they must go, not freeze. */
+  .nephandi-skin .neph-g--neg::before,
+  .nephandi-skin .neph-g--scratch::after {
+    display: none !important;
+  }
+  .nephandi-skin .neph-g,
+  .nephandi-skin .neph-c {
+    left: 0 !important;
+    top: 0 !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
   }
 }
 
@@ -377,6 +576,17 @@ html[data-theme="light"] .nephandi-gate-box .feedback-title {
     box-shadow: none !important;
   }
   .nephandi-skin .dot { border-radius: 50% !important; }
+  /* A word mid-glitch when the print dialog opens must print as a plain word. */
+  .nephandi-skin .neph-g--neg::before,
+  .nephandi-skin .neph-g--scratch::after {
+    display: none !important;
+  }
+  .nephandi-skin .neph-g,
+  .nephandi-skin .neph-c {
+    left: 0 !important;
+    top: 0 !important;
+    opacity: 1 !important;
+  }
 }
 
 /* ── Phones ─────────────────────────────────────────────────────────────────── */
