@@ -5,6 +5,12 @@ Edition** characters: a step-by-step character creator, character sheets,
 chronicles with Storyteller XP approval, rote and wonder libraries, PDF
 export, share links, and a tarot-draw helper. It is in live use.
 
+Four creation paths are supported: Awakened mages (M20), mortals
+(*The Hunters Hunted II*), sorcerers (*M20 Sorcerer*), and Nephandi
+(*M20 Book of the Fallen*). The last is gated behind a one-time
+acknowledgement of that book's content warnings; see
+`tools/reports/fallen-catalogue.md`.
+
 - **Backend:** Node 20 / Express, SQLite via `better-sqlite3`, sessions in
   SQLite, email via Resend. Source in `app/server/`.
 - **Frontend:** a single `index.html` plus vanilla JS and CSS, no build
@@ -48,10 +54,11 @@ cd app && npm ci && PORT=8009 DATA_DIR=../data node server/index.js
 `docker-compose.yml` bind-mounts `./app/public` into the container
 **read-only**, over the copy baked into the image.
 
-- **Frontend** (`app/public/**`: `index.html`, `js/app.js`, `js/data.js`,
-  `js/tarot.js`, `css/style.css`, `data/wonders.json`, images): edits on
-  the host are served immediately. Bump the `?v=` query strings in
-  `index.html` so browsers pick up changed JS/CSS.
+- **Frontend** (everything under `app/public/**`: `index.html`, the `js/`
+  and `css/` files, `data/*.json`, images): edits on the host are served
+  immediately. Bump the `?v=` query strings in `index.html` so browsers
+  pick up changed JS/CSS, and add any new JS or CSS file to **both**
+  `index.html` and the `FILES` array in `app/scripts/build-dist.js`.
 - **Server** (`app/server/**`, `app/package*.json`, `Dockerfile`): the
   image must be rebuilt and the container recreated:
 
@@ -62,24 +69,29 @@ cd app && npm ci && PORT=8009 DATA_DIR=../data node server/index.js
 ### Minified assets
 
 The Dockerfile has a first stage that runs `app/scripts/build-dist.js`
-(esbuild) over `js/app.js`, `js/data.js`, `js/tarot.js` and
-`css/style.css` and bakes the minified copies, with source maps, into
-`/app/dist` in the image. `app/server/dist-static.js` serves a minified
+(esbuild) over the files listed in that script's `FILES` array — currently
+the ten `js/` modules and both stylesheets — and bakes the minified copies,
+with source maps, into `/app/dist` in the image. `app/server/dist-static.js` serves a minified
 copy at the source's URL only while the source file is byte-for-byte the
 one it was built from (size and sha256 are recorded in
 `dist/manifest.json`), so:
 
 - the minified copies apply **only inside the image**, after
   `docker compose build`; they never exist on the host and are git-ignored;
-- a host edit to any of those four files under the read-only bind mount is
-  served as source immediately, exactly as before, until the next rebuild
+- a host edit to any listed file under the read-only bind mount is served
+  as source immediately, exactly as before, until the next rebuild
   restores the minified version;
 - `cd app && node server/index.js` (no `dist/`) always serves source.
 
-Transfer sizes before gzip: 1.27 MB of JS+CSS → 0.9 MB minified. The
-reverse proxy in front of the container should still gzip or brotli these
-responses (the Express app does not compress); that is worth more than
-minification (1.27 MB → about 290 KB).
+Transfer sizes before gzip: about 2.3 MB of JS+CSS, which minification
+roughly halves. The reverse proxy in front of the container should still
+gzip or brotli these responses (the Express app does not compress); that is
+worth considerably more than minification.
+
+Long reference prose is deliberately kept out of the eager bundle and
+fetched on demand instead — `data/wonders.json` (406 KB) and
+`data/fallen-lore.json` (320 KB) are both loaded lazily and cached by the
+client on first use.
 
 ## Configuration (`.env`)
 
@@ -102,8 +114,12 @@ commit it. Keys the server reads:
 See `.gitignore`. In short:
 
 - `.env` and `data/` (secrets and the production database).
-- `Mage 20th Anniversary Edition.pdf` and the `*_section.txt` /
-  `chapter6_full.txt` pdftotext dumps used to extract game data.
+- Source rulebook PDFs in the repo root (`/*.pdf`, which covers
+  `Mage 20th Anniversary Edition.pdf`, `Enlightened-grimoire.pdf` and
+  `M20 Book of the Fallen.pdf`) and the `*_section.txt` /
+  `chapter6_full.txt` pdftotext dumps used to extract game data. The
+  extraction scripts in `tools/` read them, so they are needed only to
+  re-derive the catalogues, not to run the app.
 - **Tarot card art**, `app/public/tarot/*.png`: 79 PNGs totalling about
   280 MB, 29 of them over 5 MB. Only `cardback.png` is committed so a
   fresh clone renders. To restore the rest, copy the directory from the
