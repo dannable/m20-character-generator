@@ -16,8 +16,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Chantry" />
-  <link rel="stylesheet" href="/css/style.css?v=86" />
-<link rel="stylesheet" href="/css/nephandi.css?v=3" />
+  <link rel="stylesheet" href="/css/style.css?v=87" />
+<link rel="stylesheet" href="/css/nephandi.css?v=4" />
   <!-- Quill (Storyteller notes editor) is injected by loadQuill() in app.js the first time a note form opens -->
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -469,7 +469,7 @@
 <div id="toast-container" class="toast-container"></div>
 
 <!-- ═══════════════════════════════════════════════════════ WIZARD EASTER EGG -->
-<picture>
+<picture id="wizard-picture">
   <source type="image/webp" srcset="/img/darrell_cartoon-1x.webp 1x, /img/darrell_cartoon-2x.webp 2x" />
   <img id="wizard-darrell" src="/darrell_cartoon.png" alt="" aria-hidden="true" width="200" height="421" loading="lazy">
 </picture>
@@ -482,7 +482,7 @@
 <script src="/js/data-fallen.js?v=1"></script>
 <script src="/js/validate-character.js?v=3"></script>
 <script src="/js/tarot.js?v=5"></script>
-<script src="/js/app.js?v=91"></script>
+<script src="/js/app.js?v=92"></script>
 <script src="/js/session-ui.js?v=2"></script>
 <script src="/js/prism-ui.js?v=5"></script>
 <script src="/js/free-edit-extras.js?v=1"></script>
@@ -585,17 +585,23 @@
     lastIdx = idx;
 
     balloon.classList.remove('wizard-balloon-melting');
+    balloon.classList.remove('wizard-balloon-dissolve');
     if (rot && !reducedMotion()) {
       var chars = layOut(list[idx]);
+      // Stagger the start of each letter, but keep the whole spread under two
+      // seconds however long the line is — at a flat 45ms a 160-character
+      // message would still be melting half a minute later.
+      var step = Math.min(0.045, 2 / Math.max(chars, 1));
+      balloon.style.setProperty('--st', step.toFixed(4) + 's');
       // Restart the animation on a balloon that is already showing: the class
       // only takes effect after the new spans have been laid out once.
       void balloon.offsetWidth;
       balloon.classList.add('wizard-balloon-melting');
       balloon.classList.add('wizard-balloon-visible');
-      // Keep him talking rather than leaving an empty bubble: the last letter
-      // is gone at 6s + stagger + jitter, so start the next line just after.
-      var span = 6000 + chars * 45 + 1100 + 700;
-      meltTimer = setTimeout(function () { meltTimer = null; if (visible) showBalloon(); }, span);
+      // The last letter is gone at 6s + the stagger + the jitter. After that
+      // he does not say anything else — the silence is the point. See voidBegin.
+      var span = 6000 + chars * step * 1000 + 1100 + 400;
+      meltTimer = setTimeout(function () { meltTimer = null; voidBegin(); }, span);
     } else {
       balloonText.textContent = list[idx];
       balloon.classList.add('wizard-balloon-visible');
@@ -622,12 +628,128 @@
     if (!visible) return;
     visible = false;
     wizard.classList.remove('wizard-visible');
+    voidClear();
     hideBalloon();
+  }
+
+
+  // ── The Void ────────────────────────────────────────────────────────────────
+  // What happens if you leave the pointer in his corner and do nothing, and only
+  // while he is corrupted. Each stage is armed by the one before it, and ANY
+  // input at all takes the whole thing down at once.
+  //
+  //   1  the melted message leaves the bubble empty
+  //   2  the bubble itself dissolves
+  //   3  everything except Darrell melts away, and the page goes black
+  //   4  sigils start arriving, and keep arriving faster
+  //
+  // Every stage is a CSS animation with `forwards`, never a transition, which is
+  // what makes the way back free: dropping the class drops the animation and the
+  // page is simply itself again on the next frame. A transition would have to
+  // play all fourteen seconds backwards.
+  var VOID_BLANK   = 3200;    // the bubble sits empty
+  var VOID_BALLOON = 1600;    // …then dissolves (matches the CSS)
+  var VOID_SITE    = 14000;   // …then the site does, slowly (matches the CSS)
+  var SIGIL_MAX    = 120;     // enough to fill a screen; past this it is just cost
+  var SIGIL_FIRST  = 900;
+  var SIGIL_FLOOR  = 55;
+  var SIGIL_RAMP   = 0.88;    // each one arrives sooner than the last
+
+  var voidStage = 0;          // 0 = nothing doing; the melt itself is not a stage
+  var voidTimers = [];
+  var sigilTimer = null;
+  var sigilDelay = SIGIL_FIRST;
+  var voidLayer = null;
+
+  // Twisted sigils, each a few strokes on a 100x100 box: a broken ring over an
+  // inverted triangle, a spiral run out to the corner, a pentacle with the top
+  // point cut, a hooked cross, an eye, and a pair of arcs struck through.
+  var SIGILS = [
+    ['M14 50a36 36 0 1 1 22 33', 'M50 88 L20 32 L80 32 Z', 'M50 16 L50 32'],
+    ['M50 44a6 6 0 1 1-6 6a12 12 0 1 0 12-12a18 18 0 1 1-18 18a24 24 0 1 0 24-24a30 30 0 1 1-30 30', 'M50 50 L88 88'],
+    ['M50 14 L70 78 L16 38 L84 38 L30 78 Z', 'M22 24a40 40 0 0 1 56 0', 'M50 14 L50 2'],
+    ['M50 8 L50 92', 'M16 40 L84 40', 'M16 40 L6 26', 'M84 40 L94 26', 'M50 92 L36 80', 'M50 92 L64 80'],
+    ['M6 50Q50 12 94 50Q50 88 6 50Z', 'M50 34a16 16 0 1 0 0.1 0', 'M50 42 L50 58'],
+    ['M24 80a34 34 0 0 1 48-48', 'M34 88a46 46 0 0 1 12-66', 'M18 18 L82 82', 'M60 14 L86 14 L86 40']
+  ];
+  var SIGIL_COLOURS = ['#b793ea', '#d4655c', '#b59a4e'];
+
+  function voidLater(ms, fn) { var t = setTimeout(fn, ms); voidTimers.push(t); return t; }
+
+  // Take everything down, without animating anything back.
+  function voidClear() {
+    voidStage = 0;
+    for (var i = 0; i < voidTimers.length; i++) clearTimeout(voidTimers[i]);
+    voidTimers = [];
+    if (sigilTimer) { clearTimeout(sigilTimer); sigilTimer = null; }
+    sigilDelay = SIGIL_FIRST;
+    document.body.classList.remove('neph-void-site');
+    if (balloon) balloon.classList.remove('wizard-balloon-dissolve');
+    if (voidLayer) { voidLayer.remove(); voidLayer = null; }
+  }
+
+  // The snap back. A no-op while nothing has started, which is most of the time —
+  // this runs on every mousemove, so it has to be cheap and it must NOT cut a
+  // melt short: the melt is not a stage, so moving the mouse during one does
+  // nothing at all.
+  function voidSnapBack() {
+    if (!voidStage) return;
+    voidClear();
+    if (visible) showBalloon();   // he starts over rather than standing mute
+  }
+
+  function voidBegin() {
+    if (!visible || !corrupted() || reducedMotion() || !balloon) return;
+    voidStage = 1;
+    balloonText.textContent = '';
+    balloon.classList.remove('wizard-balloon-melting');
+    voidLater(VOID_BLANK, function () {
+      voidStage = 2;
+      balloon.classList.add('wizard-balloon-dissolve');
+      voidLater(VOID_BALLOON, function () {
+        voidStage = 3;
+        balloon.classList.remove('wizard-balloon-visible');
+        document.body.classList.add('neph-void-site');
+        voidLater(VOID_SITE, function () { voidStage = 4; sigilsBegin(); });
+      });
+    });
+  }
+
+  function sigilsBegin() {
+    voidLayer = document.createElement('div');
+    voidLayer.id = 'neph-void';
+    voidLayer.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(voidLayer);
+    sigilDelay = SIGIL_FIRST;
+    spawnSigil();
+  }
+
+  function spawnSigil() {
+    sigilTimer = null;
+    if (!voidLayer || voidLayer.childElementCount >= SIGIL_MAX) return;
+    var paths = SIGILS[Math.floor(Math.random() * SIGILS.length)];
+    var size = 34 + Math.random() * 92;
+    var el = document.createElement('div');
+    el.className = 'neph-sigil';
+    el.style.cssText =
+      'left:' + (Math.random() * 100).toFixed(2) + '%;' +
+      'top:' + (Math.random() * 100).toFixed(2) + '%;' +
+      'width:' + size.toFixed(0) + 'px;height:' + size.toFixed(0) + 'px;' +
+      'color:' + SIGIL_COLOURS[Math.floor(Math.random() * SIGIL_COLOURS.length)] + ';' +
+      '--rot:' + (Math.random() * 360 - 180).toFixed(0) + 'deg;' +
+      '--a:' + (0.3 + Math.random() * 0.5).toFixed(2);
+    var d = '';
+    for (var i = 0; i < paths.length; i++) d += '<path d="' + paths[i] + '"/>';
+    el.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + d + '</svg>';
+    voidLayer.appendChild(el);
+    sigilDelay = Math.max(SIGIL_FLOOR, sigilDelay * SIGIL_RAMP);
+    sigilTimer = setTimeout(spawnSigil, sigilDelay);
   }
 
   // Darrell is hidden below 768px (style.css); don't track the pointer there.
   var wizardEnabled = !window.matchMedia || window.matchMedia('(min-width: 768px)').matches;
   if (wizardEnabled) document.addEventListener('mousemove', function(e) {
+    voidSnapBack();
     var fromBottom = window.innerHeight - e.clientY;
     if (e.clientX < TRIGGER_X && fromBottom < TRIGGER_Y) {
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
@@ -641,6 +763,18 @@
       }
     }
   });
+
+  // Moving the pointer is the way out, but it is not the only input that should
+  // be: a click, a key, a scroll or a touch all mean somebody is still there,
+  // and so does the tab losing focus. Typing in the creator with the pointer
+  // parked in his corner would otherwise dissolve the page out from under it.
+  if (wizardEnabled) {
+    ['mousedown', 'keydown', 'wheel', 'touchstart'].forEach(function(evt) {
+      document.addEventListener(evt, voidSnapBack, { passive: true });
+    });
+    window.addEventListener('blur', voidClear);
+    document.addEventListener('visibilitychange', function() { if (document.hidden) voidClear(); });
+  }
 
   // Also hide when mouse leaves the window entirely
   document.addEventListener('mouseleave', function() {

@@ -10453,9 +10453,26 @@ details[open] .chron-rules-summary::before { transform: rotate(90deg); }
 @media (max-width: 640px) { .wiz-add, .wiz-msg { flex-direction: column; } .wiz-msg-actions { flex-direction: row; } }
 .wiz-save:disabled { opacity: 0.4; cursor: default; }
 /* Category: which mode Darrell says a line in. The left edge carries it so the
-   list can be read at a glance without opening every select. */
-.wiz-cat, .wiz-cat-new { padding: 0.3rem 0.4rem; font-size: 0.78rem; min-width: 7.5rem; }
-.wiz-add .wiz-cat-new { flex: 0 0 auto; align-self: stretch; }
+   list can be read at a glance without opening every select.
+   width:auto is load-bearing — style.css sets select{width:100%}, which in a
+   flex row resolves against the row and squeezes the textarea to nothing. */
+.wiz-cat, .wiz-cat-new {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  padding: 0.3rem 1.6rem 0.3rem 0.5rem;
+  font-size: 0.78rem;
+  background-position: right 0.5rem center;
+}
+/* The message is the point of this form, so it gets the whole width and the
+   controls sit underneath it. */
+.wiz-add { flex-direction: column; align-items: stretch; }
+.wiz-add textarea { width: 100%; min-height: 5.5rem; }
+.wiz-add-foot { display: flex; gap: 0.6rem; align-items: center; }
+.wiz-add-foot .btn-primary { margin-left: auto; }
+.wiz-count { font-size: 0.72rem; color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wiz-count-full { color: var(--crimson); }
+.wiz-msg-actions { align-items: flex-end; }
 .wiz-msg { border-left-width: 3px; }
 .wiz-msg.wiz-cat-general   { border-left-color: var(--border-dim); }
 .wiz-msg.wiz-cat-corrupted { border-left-color: #6e2028; }

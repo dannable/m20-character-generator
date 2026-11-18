@@ -269,7 +269,10 @@ router.get('/stats', (req, res) => {
 });
 
 // ── Wizard Darrell speech-balloon messages ───────────────────────────────────
-const WIZARD_MAX = 200;
+// The balloon is 240px wide at 0.92rem, so 160 characters is already about
+// seven lines above his hat, and the melt is timed off the character count.
+// The longest line that has ever been written is 144, so nothing is orphaned.
+const WIZARD_MAX = 160;
 const wizardText = v => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
 // 'general' in both modes, 'corrupted' only in a Nephandi creator or sheet,
 // 'pure' never in one. Anything unrecognised falls back to 'general'.

@@ -628,7 +628,9 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
    is a per-character random, so the line rots unevenly rather than in a wave. */
 #wizard-balloon.wizard-balloon-melting .wiz-char {
   animation: wiz-melt 6s linear forwards;
-  animation-delay: calc(var(--i, 0) * 0.045s + var(--r, 0) * 1.1s);
+  /* --st is set per message in index.html, so the spread stays under two
+     seconds however long the line is. */
+  animation-delay: calc(var(--i, 0) * var(--st, 0.045s) + var(--r, 0) * 1.1s);
 }
 @keyframes wiz-melt {
   0% {
@@ -658,6 +660,83 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
     filter: blur(5px);
     opacity: 0;
   }
+}
+
+/* ── The Void ───────────────────────────────────────────────────────────────── */
+/* What the page does if you leave the pointer in Darrell's corner and stop.
+   Driven entirely by index.html, and only while he is corrupted.
+
+   Every rule here is an `animation … forwards`, never a `transition`. That is
+   the whole reason the way back is instant: dropping the class drops the
+   animation and the element is simply itself again on the next frame. A
+   transition would insist on playing all fourteen seconds in reverse. */
+
+/* 2. The bubble goes after the message has. */
+@keyframes wiz-balloon-dissolve {
+  0%   { opacity: 1; filter: blur(0);   transform: translateY(0)    scale(1); }
+  55%  { opacity: 0.5; filter: blur(2px); }
+  100% { opacity: 0; filter: blur(7px); transform: translateY(10px) scale(0.96); }
+}
+#wizard-balloon.wizard-balloon-dissolve {
+  animation: wiz-balloon-dissolve 1.6s ease-in forwards;
+}
+
+/* 3. Then everything else. The two exclusions are Darrell himself (the <img>
+      is wrapped in <picture>, so the id is on the wrapper) and the sigil layer,
+      which does not exist yet at this point but will before the page is black.
+      Only direct children of <body> are listed, so this is a handful of
+      elements rather than a selector over the whole document. */
+@keyframes neph-void-sink {
+  0%   { opacity: 1;    filter: none;                                    transform: none; }
+  40%  { opacity: 0.82; filter: blur(1px)  saturate(0.6);                transform: translateY(4px)  scaleY(1.01); }
+  75%  { opacity: 0.32; filter: blur(5px)  saturate(0.2) brightness(0.6); transform: translateY(22px) scaleY(1.06); }
+  100% { opacity: 0;    filter: blur(14px) saturate(0)   brightness(0.2); transform: translateY(70px) scaleY(1.16); }
+}
+body.neph-void-site > *:not(#wizard-picture):not(#wizard-balloon):not(#neph-void) {
+  animation: neph-void-sink 14s ease-in forwards;
+}
+/* The content melting away would otherwise leave the app's own background, not
+   black. body carries two faint radial gradients as well, which this covers. */
+@keyframes neph-void-black {
+  0%   { background-color: var(--bg-void); }
+  100% { background-color: #000; }
+}
+body.neph-void-site {
+  animation: neph-void-black 14s ease-in forwards;
+  background-image: none;
+}
+
+/* 4. And then the sigils arrive, under Darrell (99999) and over the nothing. */
+#neph-void {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  overflow: hidden;
+  pointer-events: none;
+}
+.neph-sigil {
+  position: absolute;
+  opacity: 0;
+  /* The rotation is part of the transform the keyframes animate, so it has to
+     be repeated in each of them — a second transform would replace the first. */
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0.7);
+  filter: drop-shadow(0 0 5px currentColor);
+  animation: neph-sigil-in 1.1s ease-out forwards;
+}
+.neph-sigil svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@keyframes neph-sigil-in {
+  0%   { opacity: 0;                         transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0.7); }
+  60%  { opacity: calc(var(--a, 0.6) * 1.3); }
+  100% { opacity: var(--a, 0.6);             transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(1); }
 }
 
 /* ── Reduced motion: no tearing, no glitching ───────────────────────────────── */
@@ -692,6 +771,17 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
     filter: none !important;
     opacity: 1 !important;
   }
+  /* voidBegin() returns early under reduced motion, so none of this should ever
+     be reachable. If it somehow is, the page must not melt or go black. */
+  body.neph-void-site,
+  body.neph-void-site > *,
+  #wizard-balloon.wizard-balloon-dissolve {
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  #neph-void { display: none !important; }
 }
 
 /* ── Print: the decay must not cost legibility on paper ─────────────────────── */

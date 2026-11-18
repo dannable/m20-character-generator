@@ -169,10 +169,17 @@ built-in `WebSocket`:
 
 ```bash
 node tools/nephandi-glitch-test.js [screenshot-dir]   # the Fallen skin: palette,
-                                                      # contrast, glitch module
+                                                      # contrast, glitch module,
+                                                      # corrupted Darrell
+node tools/darrell-void-test.js [screenshot-dir]      # the admin message form,
+                                                      # and the idle escalation
 node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
 CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
 ```
+
+`darrell-void-test.js` takes about two minutes: it sits through the whole idle
+sequence in real time rather than reaching into the closure to shorten it,
+because the timing is the feature.
 
 `nephandi-glitch-test.js` boots the real server on a throwaway `DATA_DIR`,
 so it touches neither `data/characters.db` nor the running container. It
