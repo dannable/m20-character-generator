@@ -627,8 +627,10 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
 /* Each letter starts at its own moment: --i staggers along the message and --r
    is a per-character random, so the line rots unevenly rather than in a wave. */
 #wizard-balloon.wizard-balloon-melting .wiz-char {
-  animation: wiz-melt 6s linear forwards;
-  animation-delay: calc(var(--i, 0) * 0.045s + var(--r, 0) * 1.1s);
+  animation: wiz-melt calc(6s / var(--neph-spd, 1)) linear forwards;
+  /* --st is set per message in index.html, so the spread stays under two
+     seconds however long the line is. */
+  animation-delay: calc((var(--i, 0) * var(--st, 0.045s) + var(--r, 0) * 1.1s) / var(--neph-spd, 1));
 }
 @keyframes wiz-melt {
   0% {
@@ -658,6 +660,180 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
     filter: blur(5px);
     opacity: 0;
   }
+}
+
+/* ── The Void ───────────────────────────────────────────────────────────────── */
+/* What the page does if you leave the pointer in Darrell's corner and stop.
+   Driven entirely by index.html, and only while he is corrupted.
+
+     1  the melted message leaves the bubble empty, at its own size
+     2  the bubble dissolves where it stands, and his eyes begin to pulse
+     3  a full minute in which nothing whatever happens
+     4  individual parts of the screen melt, decay or go to static, over 90s
+     5  sigils arrive for four minutes, piling up behind him
+
+   Every rule here is an `animation … forwards`, never a `transition`. That is
+   the whole reason the way back is instant: dropping the class drops the
+   animation and the element is simply itself again on the next frame. A
+   transition would insist on playing the whole thing backwards.
+
+   --neph-spd divides every duration. It is 1 in normal use; index.html sets it
+   from WizardEgg.speed, so the sequence can be watched — or tested — in
+   something less than the six and a half minutes it really takes. */
+
+/* 2. The bubble goes after the message has, keeping its own shape to the end.
+      The size is pinned inline by index.html before the text is cleared,
+      because an empty balloon would otherwise collapse to a single blank line
+      and appear to resize and jump before it ever started dissolving. */
+@keyframes wiz-balloon-dissolve {
+  0%   { opacity: 1;    filter: blur(0); }
+  45%  { opacity: 0.62; filter: blur(1.6px); }
+  100% { opacity: 0;    filter: blur(8px); }
+}
+#wizard-balloon.wizard-balloon-dissolve {
+  animation: wiz-balloon-dissolve calc(1.6s / var(--neph-spd, 1)) ease-in forwards;
+}
+
+/* ── His eyes ───────────────────────────────────────────────────────────────── */
+/* Two points of light laid exactly over the glow already painted into the art.
+   The percentages are measured from the file: the pupils sit at 55.4%/15.1%
+   and 64.5%/15.9% of a 400x844 frame. The overlay carries the same aspect
+   ratio and the same anchor as the <img>, so it tracks him without arithmetic.
+   `screen` adds light rather than painting over it, so what pulses is the glow
+   and not a disc sitting on his face. */
+#wizard-eyes {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 200px;
+  aspect-ratio: 400 / 844;
+  z-index: 100000;
+  pointer-events: none;
+  opacity: 0;
+  /* Out of the box entirely until it is wanted. A fixed, blended element present
+     on every page load would cost everyone a compositing layer for an easter egg
+     almost nobody will reach. */
+  display: none;
+  mix-blend-mode: screen;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(circle 10px at 55.4% 15.1%, rgba(228,186,255,0.95), rgba(170,72,255,0.5) 34%, rgba(120,30,200,0) 100%),
+    radial-gradient(circle 10px at 64.5% 15.9%, rgba(228,186,255,0.95), rgba(170,72,255,0.5) 34%, rgba(120,30,200,0) 100%);
+}
+/* Class-gated: an infinite animation that ran on every page load, on an element
+   that is invisible until the fourth minute of an easter egg, would be a cost
+   paid by everybody for nothing.
+   Only transform-independent properties animate, so the two gradients stay
+   nailed to his pupils however bright they get. */
+#wizard-eyes.neph-eyes-live {
+  display: block;
+  animation: neph-eye-pulse calc(2.6s / var(--neph-spd, 1)) ease-in-out infinite;
+}
+@keyframes neph-eye-pulse {
+  0%, 100% { opacity: 0.25; filter: blur(0.4px) brightness(1); }
+  45%      { opacity: 1;    filter: blur(0.8px) brightness(1.5); }
+  62%      { opacity: 0.8;  filter: blur(0.6px) brightness(1.3); }
+}
+
+/* ── 4. The screen comes apart, a piece at a time ───────────────────────────── */
+/* index.html picks the blocks that are actually on screen, drops any that
+   contain another pick so nothing decays twice over, and gives each its own
+   delay and duration inside the 90 seconds. Three ways to go: */
+
+/* …melt: it sags, stretches and blurs out, like the balloon text did. */
+@keyframes neph-rot-melt {
+  0%   { opacity: 1;    filter: blur(0);                      transform: none; }
+  35%  { opacity: 0.92; filter: blur(0.6px);                  transform: translateY(2px)  scaleY(1.03); }
+  70%  { opacity: 0.5;  filter: blur(3px) saturate(0.5);      transform: translateY(12px) scaleY(1.14) skewX(0.6deg); }
+  100% { opacity: 0;    filter: blur(10px) saturate(0);       transform: translateY(42px) scaleY(1.3)  skewX(1.4deg); }
+}
+/* …decay: the colour goes out of it and it darkens to nothing, in place. */
+@keyframes neph-rot-decay {
+  0%   { opacity: 1;    filter: none; }
+  30%  { opacity: 0.95; filter: saturate(0.55) contrast(1.15) sepia(0.25) hue-rotate(-18deg); }
+  65%  { opacity: 0.6;  filter: saturate(0.2) contrast(1.35) sepia(0.5) hue-rotate(-24deg) brightness(0.62); }
+  100% { opacity: 0;    filter: saturate(0) contrast(0.6) brightness(0.18) blur(2px); }
+}
+/* …static: it tears and flickers before it goes. steps() is what sells it —
+   the jumps have to be hard, not interpolated. */
+@keyframes neph-rot-static {
+  0%   { opacity: 1;    transform: none;                   filter: none; }
+  12%  { opacity: 0.7;  transform: translateX(-3px);       filter: contrast(1.6) brightness(1.3); }
+  22%  { opacity: 1;    transform: translateX(2px); }
+  38%  { opacity: 0.35; transform: translateX(-5px);       filter: contrast(2) brightness(0.7) saturate(0.3); }
+  47%  { opacity: 0.9;  transform: translateX(4px); }
+  61%  { opacity: 0.2;  transform: translateX(-2px);       filter: contrast(1.2) brightness(1.5) saturate(0); }
+  73%  { opacity: 0.6;  transform: translateX(6px); }
+  86%  { opacity: 0.1;  transform: translateX(-4px);       filter: brightness(0.4) saturate(0); }
+  100% { opacity: 0;    transform: translateX(0);          filter: brightness(0.1); }
+}
+.neph-rot-melt   { animation-name: neph-rot-melt;   animation-timing-function: ease-in;        animation-fill-mode: forwards; }
+.neph-rot-decay  { animation-name: neph-rot-decay;  animation-timing-function: ease-in;        animation-fill-mode: forwards; }
+.neph-rot-static { animation-name: neph-rot-static; animation-timing-function: steps(1, end);  animation-fill-mode: forwards; }
+/* Grain over the pieces that go to static, reusing the skin's own turbulence
+   so there is still no binary asset anywhere in this file. */
+.neph-rot-static { position: relative; }
+.neph-rot-static::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The closing sweep. Whatever was off screen, or too big to pick, goes with
+   this — and the page itself goes black, because melting the content away
+   would otherwise leave the app's own background rather than nothing. */
+@keyframes neph-void-sink {
+  0%   { opacity: 1;    filter: none;                                     transform: none; }
+  40%  { opacity: 0.82; filter: blur(1px)  saturate(0.6);                 transform: translateY(4px)  scaleY(1.01); }
+  75%  { opacity: 0.32; filter: blur(5px)  saturate(0.2) brightness(0.6); transform: translateY(22px) scaleY(1.06); }
+  100% { opacity: 0;    filter: blur(14px) saturate(0)   brightness(0.2); transform: translateY(70px) scaleY(1.16); }
+}
+body.neph-void-site > *:not(#wizard-picture):not(#wizard-balloon):not(#wizard-eyes):not(#neph-void) {
+  animation: neph-void-sink var(--neph-sweep, 26s) ease-in forwards;
+}
+@keyframes neph-void-black {
+  0%   { background-color: var(--bg-void); }
+  100% { background-color: #000; }
+}
+body.neph-void-site {
+  animation: neph-void-black var(--neph-sweep, 26s) ease-in forwards;
+  background-image: none;
+}
+
+/* ── 5. And then the sigils, under Darrell and over the nothing ─────────────── */
+/* These run to several hundred over four minutes, so the per-element cost
+   matters: the glow is a second, wider, fainter stroke inside the same SVG
+   rather than a CSS drop-shadow, which would be a separate filter pass for
+   every one of them. The layer is contained and promoted so that his pulsing
+   eyes, which repaint twice a second forever, never dirty any of it. */
+#neph-void {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+  transform: translateZ(0);
+}
+.neph-sigil {
+  position: absolute;
+  opacity: 0;
+  /* The rotation is part of the transform the keyframes animate, so it has to
+     be repeated in each of them — a second transform would replace the first. */
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0.7);
+  animation: neph-sigil-in calc(1.1s / var(--neph-spd, 1)) ease-out forwards;
+}
+.neph-sigil svg { display: block; width: 100%; height: 100%; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.neph-sigil .sg-glow { stroke: currentColor; stroke-width: 11; opacity: 0.22; }
+.neph-sigil .sg-core { stroke: currentColor; stroke-width: 4; }
+@keyframes neph-sigil-in {
+  0%   { opacity: 0;                         transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(0.7); }
+  60%  { opacity: calc(var(--a, 0.6) * 1.3); }
+  100% { opacity: var(--a, 0.6);             transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(1); }
 }
 
 /* ── Reduced motion: no tearing, no glitching ───────────────────────────────── */
@@ -692,6 +868,20 @@ html[data-theme="light"] #wizard-balloon.wizard-balloon-corrupted {
     filter: none !important;
     opacity: 1 !important;
   }
+  /* voidBegin() returns early under reduced motion, so none of this should ever
+     be reachable. If it somehow is, the page must not melt, flicker or go black. */
+  body.neph-void-site,
+  body.neph-void-site > *,
+  #wizard-balloon.wizard-balloon-dissolve,
+  .neph-rot-melt, .neph-rot-decay, .neph-rot-static,
+  #wizard-eyes {
+    animation: none !important;
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .neph-rot-static::after { display: none !important; }
+  #neph-void, #wizard-eyes { display: none !important; }
 }
 
 /* ── Print: the decay must not cost legibility on paper ─────────────────────── */

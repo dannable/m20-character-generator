@@ -1117,7 +1117,10 @@ const App = {
       ['corrupted', 'Corrupted', 'Only in a Nephandi creator or sheet'],
       ['pure',      'Pure',      'Never in a Nephandi creator or sheet'],
     ];
-    const catSelect = (cls, sel) => `<select class="form-input ${cls}" aria-label="When Darrell says this">` +
+    // No .form-input here: style.css gives select{width:100%}, which inside a
+    // flex row resolves against the whole row and, with flex-shrink 0, left no
+    // space for the textarea at all. .wiz-cat sets width:auto to undo it.
+    const catSelect = (cls, sel) => `<select class="${cls}" aria-label="When Darrell says this">` +
       CATS.map(([v, label, hint]) => `<option value="${v}" title="${hint}"${v === (sel || 'general') ? ' selected' : ''}>${label}</option>`).join('') +
       `</select>`;
     const counts = CATS.map(([v, label]) => `${data.messages.filter(m => (m.category || 'general') === v).length} ${label.toLowerCase()}`).join(' · ');
@@ -1126,9 +1129,10 @@ const App = {
         <label class="wiz-msg-on" title="Show this message"><input type="checkbox" class="wiz-enabled" ${m.enabled ? 'checked' : ''} /></label>
         <textarea class="form-input wiz-text" rows="2" maxlength="${max}" aria-label="Message text">${escHtml(m.text)}</textarea>
         <div class="wiz-msg-actions">
-          ${catSelect('wiz-cat', m.category)}
           <button class="btn-primary btn-sm wiz-save" disabled>Save</button>
           <button class="btn-danger btn-sm wiz-del">Delete</button>
+          ${catSelect('wiz-cat', m.category)}
+          <span class="wiz-count" data-for="${m.id}">${m.text.length}/${max}</span>
         </div>
       </div>`).join('');
     content.innerHTML = `
@@ -1139,9 +1143,12 @@ const App = {
       <p class="settings-hint">Darrell slides in from the bottom-left corner and says one of these at random. Untick a message to keep it without showing it. Users can switch Darrell off entirely in their Settings.</p>
       <p class="settings-hint"><strong>General</strong> lines are said in both modes. <strong>Corrupted</strong> lines are said only while a Nephandi creator or character sheet is on screen — where Darrell himself is corrupted and his words melt. <strong>Pure</strong> lines are never said there. <span class="admin-result-count">${counts}</span></p>
       <div class="wiz-add">
-        <textarea id="wiz-new" class="form-input" rows="2" maxlength="${max}" placeholder="A new thing for Darrell to say…"></textarea>
-        ${catSelect('wiz-cat-new', 'general')}
-        <button class="btn-primary" id="wiz-add-btn">Add message</button>
+        <textarea id="wiz-new" class="form-input wiz-text" rows="3" maxlength="${max}" placeholder="A new thing for Darrell to say…"></textarea>
+        <div class="wiz-add-foot">
+          ${catSelect('wiz-cat-new', 'general')}
+          <span class="wiz-count" id="wiz-new-count">0/${max}</span>
+          <button class="btn-primary" id="wiz-add-btn">Add message</button>
+        </div>
       </div>
       <div class="wiz-list" id="wiz-list">${rows || '<p class="practice-empty-hint">No messages yet. Darrell will arrive silently.</p>'}</div>`;
 
@@ -1151,6 +1158,11 @@ const App = {
       if (!r.ok) throw new Error(j.error || 'Request failed');
       return j;
     };
+    const newTa = $('#wiz-new'), newCount = $('#wiz-new-count');
+    newTa.addEventListener('input', () => {
+      newCount.textContent = `${newTa.value.length}/${max}`;
+      newCount.classList.toggle('wiz-count-full', newTa.value.length >= max);
+    });
     $('#wiz-add-btn').addEventListener('click', async () => {
       const text = $('#wiz-new').value.trim();
       if (!text) { toast('Write a message first.', 'error'); return; }
@@ -1160,7 +1172,12 @@ const App = {
     });
     $$('#wiz-list .wiz-msg').forEach(row => {
       const id = row.dataset.id, ta = row.querySelector('.wiz-text'), save = row.querySelector('.wiz-save'), orig = ta.value;
-      ta.addEventListener('input', () => { save.disabled = !ta.value.trim() || ta.value.trim() === orig; });
+      const count = row.querySelector('.wiz-count');
+      ta.addEventListener('input', () => {
+        save.disabled = !ta.value.trim() || ta.value.trim() === orig;
+        count.textContent = `${ta.value.length}/${max}`;
+        count.classList.toggle('wiz-count-full', ta.value.length >= max);
+      });
       save.addEventListener('click', async () => {
         try { await api(`/api/admin/wizard-messages/${id}`, 'PUT', { text: ta.value }); toast('Message saved.'); WizardEgg?.refresh(); await this.showAdminWizard(); }
         catch (e) { toast(e.message, 'error'); }

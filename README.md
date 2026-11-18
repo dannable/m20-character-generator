@@ -169,9 +169,21 @@ built-in `WebSocket`:
 
 ```bash
 node tools/nephandi-glitch-test.js [screenshot-dir]   # the Fallen skin: palette,
-                                                      # contrast, glitch module
+                                                      # contrast, glitch module,
+                                                      # corrupted Darrell
+node tools/darrell-void-test.js [screenshot-dir]      # the admin message form,
+                                                      # and the idle escalation
 node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
 CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
+```
+
+`darrell-void-test.js` drives the idle sequence through `WizardEgg.speed`,
+which divides every delay in index.html and every duration in `nephandi.css`
+(via `--neph-spd`). The sequence really takes six and a half minutes; the test
+watches the same timeline at 10x. The same control previews it:
+
+```js
+WizardEgg.speed = 30   // in the console, on a Nephandi creator or sheet
 ```
 
 `nephandi-glitch-test.js` boots the real server on a throwaway `DATA_DIR`,
