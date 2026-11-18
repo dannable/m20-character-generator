@@ -21,6 +21,7 @@ const PORT = +(process.env.PORT || 8029);
 const CDP = +(process.env.CDP_PORT || 9342);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+const VOID_DECAY_S = 90;   // must match VOID_DECAY in index.html
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { console.log((cond ? 'PASS' : 'FAIL') + ' ' + msg); cond ? pass++ : fail++; };
 
@@ -131,8 +132,15 @@ async function main() {
     await shot('01-admin-form', 760);
 
     // ══ The void ══════════════════════════════════════════════════════════════
+    // Real time is 3.2s blank + 1.6s bubble + 60s calm + 90s decay + 4min of
+    // sigils, which is six and a half minutes of waiting. WizardEgg.speed
+    // divides every delay in the sequence and every duration in the stylesheet,
+    // so the test watches the same timeline at SPEED times the rate — which
+    // also exercises the control itself, since a preview of the effect needs it.
+    const SPEED = 10;
     await evaluate('App.newCharacterOfType("nephandi"); "ok"');
     await sleep(1600);
+    await evaluate(`WizardEgg.speed = ${SPEED}; "ok"`);
     const OUTM = `document.dispatchEvent(new MouseEvent('mousemove',{clientX:40,clientY:window.innerHeight-40,bubbles:true})); 'ok'`;
     const SETTLE = `(()=>{const b=document.getElementById('wizard-balloon');
       if(!b.classList.contains('wizard-balloon-visible'))
@@ -141,58 +149,132 @@ async function main() {
     await evaluate(OUTM);
     await sleep(1000);
     await evaluate(SETTLE);
-    await sleep(300);
+    await sleep(200);
     ok(await evaluate(`document.querySelectorAll('#wizard-balloon .wiz-char').length > 0`), 'stage 0: the message is melting');
+    ok(await evaluate(`getComputedStyle(document.documentElement).getPropertyValue('--neph-spd').trim() === '${SPEED}'`),
+      'the speed control reaches the stylesheet as --neph-spd');
+    // The size it reached while full, to compare against once it is empty.
+    const fullBox = await evaluate(`(() => { const r = document.getElementById('wizard-balloon').getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left) }; })()`);
 
-    // 1 — the bubble is left empty, but still there
+    // 1 — the bubble is left empty, AT THE SIZE IT HAD. Emptying the text used
+    //     to collapse it to one blank line, which read as a resize and a jump.
     const t1 = await waitFor(`(() => { const b = document.getElementById('wizard-balloon');
       return b.classList.contains('wizard-balloon-visible') && !b.classList.contains('wizard-balloon-melting') && !b.textContent.trim(); })()`, 20000);
-    ok(t1 > 0, `stage 1: the melted message leaves the bubble empty after ${(t1 / 1000).toFixed(1)}s`);
-    await shot('02-blank-bubble');
+    ok(t1 > 0, `stage 1: the melted message leaves the bubble empty after ${(t1 / 1000).toFixed(1)}s at ${SPEED}x`);
+    const blankBox = await evaluate(`(() => { const r = document.getElementById('wizard-balloon').getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left) }; })()`);
+    ok(Math.abs(blankBox.w - fullBox.w) <= 1 && Math.abs(blankBox.h - fullBox.h) <= 1,
+      `the empty bubble keeps its size (${fullBox.w}x${fullBox.h} -> ${blankBox.w}x${blankBox.h})`);
+    ok(blankBox.top === fullBox.top && blankBox.left === fullBox.left,
+      `and does not move (${fullBox.left},${fullBox.top})`);
+    ok(await evaluate(`!document.getElementById('wizard-eyes').classList.contains('neph-eyes-live')`),
+      'his eyes are not pulsing yet — the bubble is still there');
 
-    // 2 — the bubble itself dissolves
+    // 2 — the bubble dissolves where it stands, with no transform of its own
     const t2 = await waitFor(`document.getElementById('wizard-balloon').classList.contains('wizard-balloon-dissolve')`, 8000);
     ok(t2 > 0, `stage 2: the bubble dissolves ${(t2 / 1000).toFixed(1)}s later`);
+    const dissolving = await evaluate(`(() => {
+      const b = document.getElementById('wizard-balloon'), r = b.getBoundingClientRect(), cs = getComputedStyle(b);
+      return { w: Math.round(r.width), h: Math.round(r.height), anim: cs.animationName,
+               frames: [...document.styleSheets].flatMap(sh => { try { return [...sh.cssRules]; } catch (e) { return []; } })
+                 .filter(r2 => r2.type === CSSRule.KEYFRAMES_RULE && r2.name === 'wiz-balloon-dissolve')
+                 .map(r2 => [...r2.cssRules].map(k => k.style.transform).join('|'))[0] };
+    })()`);
+    ok(Math.abs(dissolving.w - fullBox.w) <= 1 && Math.abs(dissolving.h - fullBox.h) <= 1,
+      `it keeps that size as it dissolves (${dissolving.w}x${dissolving.h})`);
+    ok(!dissolving.frames || !/translate|scale/.test(dissolving.frames),
+      `and the dissolve itself never transforms it (keyframe transforms: ${JSON.stringify(dissolving.frames)})`);
 
-    // 3 — the site melts away, and Darrell does not
-    const t3 = await waitFor(`document.body.classList.contains('neph-void-site')`, 8000);
-    ok(t3 > 0, `stage 3: the site starts melting ${(t3 / 1000).toFixed(1)}s after that`);
+    // 3 — the eyes take over, and then a long stretch of nothing
+    const t3 = await waitFor(`document.getElementById('wizard-eyes').classList.contains('neph-eyes-live')`, 8000);
+    ok(t3 > 0, `stage 3: his eyes start pulsing ${(t3 / 1000).toFixed(1)}s later, as the bubble finishes`);
+    const eye = await evaluate(`(() => { const e = document.getElementById('wizard-eyes'), cs = getComputedStyle(e);
+      const w = document.getElementById('wizard-darrell').getBoundingClientRect(), r = e.getBoundingClientRect();
+      return { anim: cs.animationName, iter: cs.animationIterationCount, blend: cs.mixBlendMode,
+               events: cs.pointerEvents, dur: cs.animationDuration,
+               aligned: Math.abs(r.left - w.left) < 2 && Math.abs(r.bottom - w.bottom) < 2 && Math.abs(r.width - w.width) < 2 }; })()`);
+    ok(eye.anim === 'neph-eye-pulse' && eye.iter === 'infinite', `they pulse on a loop (${eye.anim}, ${eye.iter})`);
+    ok(eye.blend === 'screen', `the glow adds light rather than painting over his face (${eye.blend})`);
+    ok(eye.aligned, 'the glow overlay is pinned exactly to the wizard image');
+    ok(eye.events === 'none', 'and never takes a pointer event');
+    ok(parseFloat(eye.dur) < 2.6, `the pulse honours the speed control too (${eye.dur})`);
+    await shot('02-eyes-pulsing');
+
+    // The calm: a full minute of nothing, so nothing may have started.
+    await sleep((60000 / SPEED) * 0.55);
+    const calm = await evaluate(`(() => ({
+      site: document.body.classList.contains('neph-void-site'),
+      rotting: document.querySelectorAll('.neph-rot-melt, .neph-rot-decay, .neph-rot-static').length,
+      layer: !!document.getElementById('neph-void'),
+      eyes: document.getElementById('wizard-eyes').classList.contains('neph-eyes-live')
+    }))()`);
+    ok(!calm.site && calm.rotting === 0 && !calm.layer,
+      'the calm: well past halfway through the minute, nothing has begun to decay');
+    ok(calm.eyes, 'his eyes keep pulsing through it');
+
+    // 4 — individual parts come apart, in three different ways
+    const t4 = await waitFor(`document.querySelectorAll('.neph-rot-melt, .neph-rot-decay, .neph-rot-static').length > 0`, 60000 / SPEED + 8000);
+    ok(t4 > 0, `stage 4: parts of the screen start coming apart after the calm`);
+    const rot = await evaluate(`(() => {
+      const sel = '.neph-rot-melt, .neph-rot-decay, .neph-rot-static';
+      const all = [...document.querySelectorAll(sel)];
+      const kinds = {};
+      for (const el of all) for (const k of ['melt','decay','static']) if (el.classList.contains('neph-rot-' + k)) kinds[k] = (kinds[k]||0)+1;
+      const delays = all.map(e => parseFloat(e.style.animationDelay) || 0);
+      const nested = all.filter(e => all.some(o => o !== e && e.contains(o))).length;
+      const onDarrell = all.filter(e => e.closest('#wizard-picture, #wizard-balloon, #wizard-eyes')).length;
+      return { n: all.length, kinds, nested, onDarrell,
+               spread: +(Math.max(...delays) - Math.min(...delays)).toFixed(2),
+               maxDelay: +Math.max(...delays).toFixed(2),
+               sample: all.slice(0, 3).map(e => (e.className || e.tagName).toString().split(' ')[0]) };
+    })()`);
+    ok(rot.n > 8, `${rot.n} separate pieces were picked, not the page as one lump`);
+    ok(Object.keys(rot.kinds).length === 3, `all three ways are in use: ${JSON.stringify(rot.kinds)}`);
+    ok(rot.nested === 0, 'no piece sits inside another piece, so nothing decays twice over');
+    ok(rot.onDarrell === 0, 'nothing on Darrell himself was picked');
+    ok(rot.spread > (VOID_DECAY_S / SPEED) * 0.3, `they are staggered across the phase, not synchronised (${rot.spread}s apart)`);
+    ok(rot.maxDelay <= (VOID_DECAY_S / SPEED) * 0.75, `the last one still starts in time to finish (${rot.maxDelay}s)`);
+    await sleep((90000 / SPEED) * 0.45);
+    await shot('03-coming-apart');
+
+    // …and the sweep closes it out, taking the page to black
+    const t5 = await waitFor(`document.body.classList.contains('neph-void-site')`, 90000 / SPEED);
+    ok(t5 > 0, 'the closing sweep starts, catching whatever was off screen');
+    ok(await evaluate(`getComputedStyle(document.body).animationName === 'neph-void-black'`), 'the page itself goes to black');
     const exempt = await evaluate(`(() => {
       const anim = el => el ? getComputedStyle(el).animationName : 'MISSING';
-      const kids = [...document.body.children].filter(e => !['SCRIPT','TEMPLATE'].includes(e.tagName));
-      const sinking = kids.filter(e => getComputedStyle(e).animationName === 'neph-void-sink').length;
-      return { picture: anim(document.getElementById('wizard-picture')),
-               balloon: anim(document.getElementById('wizard-balloon')),
-               body: anim(document.body), sinking, kids: kids.length };
+      return { picture: anim(document.getElementById('wizard-picture')), eyes: anim(document.getElementById('wizard-eyes')) };
     })()`);
-    ok(exempt.picture === 'none', `Darrell is exempt from the melt (${exempt.picture})`);
-    ok(exempt.sinking >= 3 && exempt.sinking === exempt.kids - 2,
-      `every other top-level element melts (${exempt.sinking} of ${exempt.kids}, Darrell and his bubble excepted)`);
-    ok(exempt.body === 'neph-void-black', `the page itself goes to black (${exempt.body})`);
-    await sleep(9000);
-    await shot('03-melting');
+    ok(exempt.picture === 'none', `Darrell is exempt from the sweep (${exempt.picture})`);
+    ok(exempt.eyes === 'neph-eye-pulse', `and so is the glow on his eyes (${exempt.eyes})`);
 
-    // 4 — the sigils
-    const t4 = await waitFor(`!!document.getElementById('neph-void')`, 12000);
-    ok(t4 > 0, `stage 4: the sigil layer arrives ${(t4 / 1000).toFixed(1)}s into the melt`);
-    const first = await evaluate(`document.querySelectorAll('#neph-void .neph-sigil').length`);
-    await sleep(4000);
-    const later = await evaluate(`document.querySelectorAll('#neph-void .neph-sigil').length`);
-    await sleep(4000);
-    const latest = await evaluate(`document.querySelectorAll('#neph-void .neph-sigil').length`);
-    ok(later > first && latest > later, `they accumulate (${first} -> ${later} -> ${latest})`);
-    ok(latest - later > later - first, `and they accumulate faster (+${later - first}, then +${latest - later})`);
-    const sig = await evaluate(`(() => {
-      const el = document.querySelector('#neph-void .neph-sigil');
-      const svg = el.querySelector('svg');
-      return { paths: svg.querySelectorAll('path').length, stroke: getComputedStyle(svg).stroke,
-               layerZ: getComputedStyle(document.getElementById('neph-void')).zIndex,
-               darrellZ: getComputedStyle(document.getElementById('wizard-darrell')).zIndex,
-               events: getComputedStyle(document.getElementById('neph-void')).pointerEvents };
+    // 5 — four solid minutes of sigils
+    const t6 = await waitFor(`!!document.getElementById('neph-void')`, 90000 / SPEED + 10000);
+    ok(t6 > 0, 'stage 5: the sigil layer arrives once the screen is gone');
+    const counts = [];
+    for (let i = 0; i < 5; i++) {
+      counts.push(await evaluate(`document.querySelectorAll('#neph-void .neph-sigil').length`));
+      await sleep((240000 / SPEED) / 6);
+    }
+    ok(counts[4] > counts[0], `they pile up across the run (${counts.join(' -> ')})`);
+    const early = counts[1] - counts[0], late = counts[4] - counts[3];
+    ok(late > early, `and arrive faster as it goes (+${early} early, +${late} late)`);
+    const stillGoing = await evaluate(`(() => {
+      const el = document.querySelector('#neph-void .neph-sigil svg');
+      const layer = document.getElementById('neph-void'), cs = getComputedStyle(layer);
+      return { glow: el.querySelectorAll('.sg-glow').length, core: el.querySelectorAll('.sg-core').length,
+               filtered: getComputedStyle(el.parentElement).filter,
+               z: cs.zIndex, dz: getComputedStyle(document.getElementById('wizard-darrell')).zIndex,
+               events: cs.pointerEvents };
     })()`);
-    ok(sig.paths >= 2, `each sigil is drawn from several strokes (${sig.paths})`);
-    ok(+sig.layerZ < +sig.darrellZ, `the sigils fill in behind Darrell (${sig.layerZ} < ${sig.darrellZ})`);
-    ok(sig.events === 'none', 'the sigil layer never takes a pointer event');
+    ok(stillGoing.glow > 0 && stillGoing.glow === stillGoing.core,
+      `each sigil glows by a doubled stroke, not a per-element filter (${stillGoing.glow} glow / ${stillGoing.core} core)`);
+    ok(stillGoing.filtered === 'none', 'no drop-shadow filter on any of them, which would not scale to hundreds');
+    ok(+stillGoing.z < +stillGoing.dz, `they fill in behind Darrell (${stillGoing.z} < ${stillGoing.dz})`);
+    ok(stillGoing.events === 'none', 'the sigil layer never takes a pointer event');
+    // Two thirds of the way through its four minutes, it must still be running.
+    ok(counts[4] > 20 && counts[4] < 800, `${counts[4]} of them by two thirds of the way in, and still going`);
     await shot('04-sigils');
 
     // ══ The snap back ═════════════════════════════════════════════════════════
@@ -201,14 +283,17 @@ async function main() {
       // Read synchronously, in the same task: "instantly" means no frame of it.
       return { site: document.body.classList.contains('neph-void-site'),
                layer: !!document.getElementById('neph-void'),
+               rotting: document.querySelectorAll('.neph-rot-melt, .neph-rot-decay, .neph-rot-static').length,
+               eyes: document.getElementById('wizard-eyes').classList.contains('neph-eyes-live'),
                dissolve: document.getElementById('wizard-balloon').classList.contains('wizard-balloon-dissolve'),
+               pinned: document.getElementById('wizard-balloon').style.width,
                bodyAnim: getComputedStyle(document.body).animationName,
                headerAnim: getComputedStyle(document.getElementById('app-header')).animationName };
     })()`);
-    ok(!back.site && !back.layer && !back.dissolve, 'a mouse move takes all of it down in the same task');
+    ok(!back.site && !back.layer && !back.dissolve && !back.eyes, 'a mouse move takes all of it down in the same task');
+    ok(back.rotting === 0, 'every decaying piece is handed back untouched');
+    ok(!back.pinned, 'and the balloon stops being pinned to its old size');
     ok(back.bodyAnim === 'none' && back.headerAnim === 'none', `nothing is left animating (body ${back.bodyAnim}, header ${back.headerAnim})`);
-    const talking = await waitFor(`document.querySelectorAll('#wizard-balloon .wiz-char').length > 0`, 4000);
-    ok(talking >= 0, 'and he starts talking again rather than standing mute');
     await shot('05-snapped-back');
 
     // A keystroke has to work too — typing in the creator with the pointer
@@ -220,7 +305,6 @@ async function main() {
     ok(atStage1 > 0, `back into stage 1 after ${(atStage1 / 1000).toFixed(1)}s, without touching the mouse`);
     const byKey = await evaluate(`(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
-      // Same task again: he should already be mid-sentence.
       return { chars: document.querySelectorAll('#wizard-balloon .wiz-char').length,
                site: document.body.classList.contains('neph-void-site'),
                dissolve: document.getElementById('wizard-balloon').classList.contains('wizard-balloon-dissolve') };
@@ -236,7 +320,7 @@ async function main() {
     await evaluate(OUTM);
     await sleep(1000);
     await evaluate(SETTLE);
-    await sleep(9000);
+    await sleep(12000);
     const rm = await evaluate(`(() => ({
       site: document.body.classList.contains('neph-void-site'),
       layer: !!document.getElementById('neph-void'),

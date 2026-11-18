@@ -177,9 +177,14 @@ node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
 CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
 ```
 
-`darrell-void-test.js` takes about two minutes: it sits through the whole idle
-sequence in real time rather than reaching into the closure to shorten it,
-because the timing is the feature.
+`darrell-void-test.js` drives the idle sequence through `WizardEgg.speed`,
+which divides every delay in index.html and every duration in `nephandi.css`
+(via `--neph-spd`). The sequence really takes six and a half minutes; the test
+watches the same timeline at 10x. The same control previews it:
+
+```js
+WizardEgg.speed = 30   // in the console, on a Nephandi creator or sheet
+```
 
 `nephandi-glitch-test.js` boots the real server on a throwaway `DATA_DIR`,
 so it touches neither `data/characters.db` nor the running container. It

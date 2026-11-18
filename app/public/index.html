@@ -17,7 +17,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Chantry" />
   <link rel="stylesheet" href="/css/style.css?v=87" />
-<link rel="stylesheet" href="/css/nephandi.css?v=4" />
+<link rel="stylesheet" href="/css/nephandi.css?v=5" />
   <!-- Quill (Storyteller notes editor) is injected by loadQuill() in app.js the first time a note form opens -->
   <script>
     // Apply saved theme before first paint to prevent flash
@@ -473,6 +473,7 @@
   <source type="image/webp" srcset="/img/darrell_cartoon-1x.webp 1x, /img/darrell_cartoon-2x.webp 2x" />
   <img id="wizard-darrell" src="/darrell_cartoon.png" alt="" aria-hidden="true" width="200" height="421" loading="lazy">
 </picture>
+<div id="wizard-eyes" aria-hidden="true"></div>
 <div id="wizard-balloon" aria-hidden="true"><span class="wizard-balloon-text"></span></div>
 
 <!-- ═══════════════════════════════════════════════════════ SCRIPTS -->
@@ -493,6 +494,7 @@
   var wizard      = document.getElementById('wizard-darrell');
   var balloon     = document.getElementById('wizard-balloon');
   var balloonText = balloon ? balloon.querySelector('.wizard-balloon-text') : null;
+  var eyes        = document.getElementById('wizard-eyes');
   var visible = false;
   var hideTimer = null;
   var TRIGGER_X = 180;   // px from left edge
@@ -586,6 +588,11 @@
 
     balloon.classList.remove('wizard-balloon-melting');
     balloon.classList.remove('wizard-balloon-dissolve');
+    balloon.style.width = '';
+    balloon.style.height = '';
+    // Set before the melt, not at voidBegin, so WizardEgg.speed shortens the
+    // message as well — otherwise a preview still waits nine seconds to start.
+    document.documentElement.style.setProperty('--neph-spd', voidSpeed());
     if (rot && !reducedMotion()) {
       var chars = layOut(list[idx]);
       // Stagger the start of each letter, but keep the whole spread under two
@@ -601,7 +608,7 @@
       // The last letter is gone at 6s + the stagger + the jitter. After that
       // he does not say anything else — the silence is the point. See voidBegin.
       var span = 6000 + chars * step * 1000 + 1100 + 400;
-      meltTimer = setTimeout(function () { meltTimer = null; voidBegin(); }, span);
+      meltTimer = setTimeout(function () { meltTimer = null; voidBegin(); }, span / voidSpeed());
     } else {
       balloonText.textContent = list[idx];
       balloon.classList.add('wizard-balloon-visible');
@@ -638,28 +645,46 @@
   // while he is corrupted. Each stage is armed by the one before it, and ANY
   // input at all takes the whole thing down at once.
   //
-  //   1  the melted message leaves the bubble empty
-  //   2  the bubble itself dissolves
-  //   3  everything except Darrell melts away, and the page goes black
-  //   4  sigils start arriving, and keep arriving faster
+  //   1  the melted message leaves the bubble empty, at its own size      3.2s
+  //   2  the bubble dissolves where it stands, and his eyes start to pulse 1.6s
+  //   3  nothing whatever happens                                          60s
+  //   4  parts of the screen melt, decay or go to static, one at a time     90s
+  //   5  sigils arrive, piling up, and keep arriving faster               4 min
   //
   // Every stage is a CSS animation with `forwards`, never a transition, which is
   // what makes the way back free: dropping the class drops the animation and the
-  // page is simply itself again on the next frame. A transition would have to
-  // play all fourteen seconds backwards.
-  var VOID_BLANK   = 3200;    // the bubble sits empty
-  var VOID_BALLOON = 1600;    // …then dissolves (matches the CSS)
-  var VOID_SITE    = 14000;   // …then the site does, slowly (matches the CSS)
-  var SIGIL_MAX    = 120;     // enough to fill a screen; past this it is just cost
-  var SIGIL_FIRST  = 900;
-  var SIGIL_FLOOR  = 55;
-  var SIGIL_RAMP   = 0.88;    // each one arrives sooner than the last
+  // page is simply itself again on the next frame.
+  //
+  // Six and a half minutes is a long time to watch something once, let alone to
+  // test it, so WizardEgg.speed divides every delay here and feeds --neph-spd to
+  // the stylesheet, which divides every duration there.
+  //   WizardEgg.speed = 30   // in the console, to watch the whole thing in 13s
+  var VOID_BLANK   = 3200;     // the bubble sits empty, at the size it had
+  var VOID_BALLOON = 1600;     // …then dissolves (matches the CSS)
+  var VOID_CALM    = 60000;    // …and then a full minute of nothing at all
+  var VOID_DECAY   = 90000;    // the screen comes apart over this
+  var DECAY_LAST   = 0.70;     // the last piece starts this far into it
+  var DECAY_MIN    = 16000;    // each piece takes between this…
+  var DECAY_MAX    = 26000;    // …and this
+  var DECAY_PARTS  = 70;       // at most this many pieces picked individually
+  var SIGIL_RUN    = 240000;   // four solid minutes of them
+  var SIGIL_FIRST  = 2400;     // the gap between the first two…
+  var SIGIL_FLOOR  = 120;      // …and the shortest gap it ever gets down to
+  var SIGIL_POW    = 2;        // how hard the gap collapses: see the comment below
+  var SIGIL_MAX    = 800;      // a ceiling, in case a tab is left open for days
 
-  var voidStage = 0;          // 0 = nothing doing; the melt itself is not a stage
+  var voidStage = 0;           // 0 = nothing doing; the melt itself is not a stage
   var voidTimers = [];
   var sigilTimer = null;
-  var sigilDelay = SIGIL_FIRST;
+  var sigilStart = 0;
   var voidLayer = null;
+  var decayed = [];            // the pieces, so they can be put back untouched
+
+  function voidSpeed() {
+    var n = window.WizardEgg && +window.WizardEgg.speed;
+    return (n && n > 0 && isFinite(n)) ? n : 1;
+  }
+  function voidLater(ms, fn) { var t = setTimeout(fn, ms / voidSpeed()); voidTimers.push(t); return t; }
 
   // Twisted sigils, each a few strokes on a 100x100 box: a broken ring over an
   // inverted triangle, a spiral run out to the corner, a pentacle with the top
@@ -673,8 +698,7 @@
     ['M24 80a34 34 0 0 1 48-48', 'M34 88a46 46 0 0 1 12-66', 'M18 18 L82 82', 'M60 14 L86 14 L86 40']
   ];
   var SIGIL_COLOURS = ['#b793ea', '#d4655c', '#b59a4e'];
-
-  function voidLater(ms, fn) { var t = setTimeout(fn, ms); voidTimers.push(t); return t; }
+  var ROT_KINDS = ['neph-rot-melt', 'neph-rot-melt', 'neph-rot-decay', 'neph-rot-decay', 'neph-rot-static'];
 
   // Take everything down, without animating anything back.
   function voidClear() {
@@ -682,9 +706,20 @@
     for (var i = 0; i < voidTimers.length; i++) clearTimeout(voidTimers[i]);
     voidTimers = [];
     if (sigilTimer) { clearTimeout(sigilTimer); sigilTimer = null; }
-    sigilDelay = SIGIL_FIRST;
+    for (var j = 0; j < decayed.length; j++) {
+      decayed[j].classList.remove('neph-rot-melt', 'neph-rot-decay', 'neph-rot-static');
+      decayed[j].style.animationDelay = '';
+      decayed[j].style.animationDuration = '';
+    }
+    decayed = [];
     document.body.classList.remove('neph-void-site');
-    if (balloon) balloon.classList.remove('wizard-balloon-dissolve');
+    document.body.style.removeProperty('--neph-sweep');
+    if (eyes) eyes.classList.remove('neph-eyes-live');
+    if (balloon) {
+      balloon.classList.remove('wizard-balloon-dissolve');
+      balloon.style.width = '';
+      balloon.style.height = '';
+    }
     if (voidLayer) { voidLayer.remove(); voidLayer = null; }
   }
 
@@ -701,32 +736,99 @@
   function voidBegin() {
     if (!visible || !corrupted() || reducedMotion() || !balloon) return;
     voidStage = 1;
-    balloonText.textContent = '';
+    // Pin the bubble at the size it reached before emptying it. Without this it
+    // collapses to one blank line the instant the text goes, which reads as the
+    // balloon resizing and jumping rather than dissolving where it stood.
+    var box = balloon.getBoundingClientRect();
+    balloon.style.width = box.width + 'px';
+    balloon.style.height = box.height + 'px';
     balloon.classList.remove('wizard-balloon-melting');
+    balloonText.textContent = '';
     voidLater(VOID_BLANK, function () {
       voidStage = 2;
       balloon.classList.add('wizard-balloon-dissolve');
       voidLater(VOID_BALLOON, function () {
         voidStage = 3;
         balloon.classList.remove('wizard-balloon-visible');
-        document.body.classList.add('neph-void-site');
-        voidLater(VOID_SITE, function () { voidStage = 4; sigilsBegin(); });
+        if (eyes) eyes.classList.add('neph-eyes-live');   // the bubble is gone; he looks up
+        voidLater(VOID_CALM, function () {
+          voidStage = 4;
+          decayBegin();
+          voidLater(VOID_DECAY, function () { voidStage = 5; sigilsBegin(); });
+        });
       });
     });
   }
 
+  // ── 4. The screen comes apart ───────────────────────────────────────────────
+  // Everything on screen that is its own visible block and does not contain
+  // another one, so nothing decays twice over inside something already going.
+  function decayCandidates() {
+    var skip = { SCRIPT: 1, STYLE: 1, TEMPLATE: 1, SOURCE: 1, PICTURE: 1, BR: 1, OPTION: 1, OPTGROUP: 1 };
+    var vw = window.innerWidth, vh = window.innerHeight, all = document.body.querySelectorAll('*'), out = [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (skip[el.tagName] || el.closest('#wizard-picture, #wizard-balloon, #wizard-eyes, #neph-void')) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width < 40 || r.height < 16) continue;
+      if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+      if (r.width * r.height > vw * vh * 0.55) continue;    // page-sized wrappers go in the sweep
+      out.push(el);
+    }
+    // Drop any pick that contains another pick.
+    var leaves = [];
+    for (var a = 0; a < out.length; a++) {
+      var inner = false;
+      for (var b = 0; b < out.length; b++) {
+        if (a !== b && out[a].contains(out[b])) { inner = true; break; }
+      }
+      if (!inner) leaves.push(out[a]);
+    }
+    return leaves;
+  }
+
+  function decayBegin() {
+    var parts = decayCandidates();
+    for (var i = parts.length - 1; i > 0; i--) {     // shuffle
+      var j = Math.floor(Math.random() * (i + 1)), t = parts[i]; parts[i] = parts[j]; parts[j] = t;
+    }
+    parts = parts.slice(0, DECAY_PARTS);
+    var spd = voidSpeed();
+    for (var k = 0; k < parts.length; k++) {
+      var el = parts[k];
+      var delay = Math.random() * VOID_DECAY * DECAY_LAST;
+      var dur = DECAY_MIN + Math.random() * (DECAY_MAX - DECAY_MIN);
+      el.style.animationDelay = (delay / spd / 1000).toFixed(2) + 's';
+      el.style.animationDuration = (dur / spd / 1000).toFixed(2) + 's';
+      el.classList.add(ROT_KINDS[Math.floor(Math.random() * ROT_KINDS.length)]);
+      decayed.push(el);
+    }
+    // The closing sweep catches whatever was off screen or too big to pick, and
+    // takes the page itself to black. It starts late enough to overlap the last
+    // pieces and ends exactly when the decay does.
+    var sweep = VOID_DECAY * (1 - DECAY_LAST) + DECAY_MIN;
+    voidLater(VOID_DECAY - sweep, function () {
+      document.body.style.setProperty('--neph-sweep', (sweep / spd / 1000).toFixed(2) + 's');
+      document.body.classList.add('neph-void-site');
+    });
+  }
+
+  // ── 5. The sigils ───────────────────────────────────────────────────────────
   function sigilsBegin() {
     voidLayer = document.createElement('div');
     voidLayer.id = 'neph-void';
     voidLayer.setAttribute('aria-hidden', 'true');
     document.body.appendChild(voidLayer);
-    sigilDelay = SIGIL_FIRST;
+    sigilStart = Date.now();
     spawnSigil();
   }
 
   function spawnSigil() {
     sigilTimer = null;
     if (!voidLayer || voidLayer.childElementCount >= SIGIL_MAX) return;
+    var elapsed = (Date.now() - sigilStart) * voidSpeed();
+    if (elapsed >= SIGIL_RUN) return;                // four minutes, then the screen is full
+
     var paths = SIGILS[Math.floor(Math.random() * SIGILS.length)];
     var size = 34 + Math.random() * 92;
     var el = document.createElement('div');
@@ -738,12 +840,23 @@
       'color:' + SIGIL_COLOURS[Math.floor(Math.random() * SIGIL_COLOURS.length)] + ';' +
       '--rot:' + (Math.random() * 360 - 180).toFixed(0) + 'deg;' +
       '--a:' + (0.3 + Math.random() * 0.5).toFixed(2);
-    var d = '';
-    for (var i = 0; i < paths.length; i++) d += '<path d="' + paths[i] + '"/>';
-    el.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + d + '</svg>';
+    // Two passes of the same strokes: a wide faint one for the glow, a narrow
+    // bright one over it. Cheaper than a drop-shadow filter on each of several
+    // hundred elements, and it survives being composited into one layer.
+    var glow = '', core = '';
+    for (var i = 0; i < paths.length; i++) {
+      glow += '<path class="sg-glow" d="' + paths[i] + '"/>';
+      core += '<path class="sg-core" d="' + paths[i] + '"/>';
+    }
+    el.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + glow + core + '</svg>';
     voidLayer.appendChild(el);
-    sigilDelay = Math.max(SIGIL_FLOOR, sigilDelay * SIGIL_RAMP);
-    sigilTimer = setTimeout(spawnSigil, sigilDelay);
+
+    // The gap between arrivals collapses as a power of the time left, so they
+    // trickle at first and are piling up on top of each other by the fourth
+    // minute: 2.4s apart to begin with, 120ms by the end, ~790 of them in all.
+    var left = 1 - elapsed / SIGIL_RUN;
+    var gap = Math.max(SIGIL_FLOOR, SIGIL_FIRST * Math.pow(left, SIGIL_POW));
+    sigilTimer = setTimeout(spawnSigil, gap / voidSpeed());
   }
 
   // Darrell is hidden below 768px (style.css); don't track the pointer there.
@@ -789,6 +902,10 @@
   // Load (or reload) the message list and the user's switch. App calls this after sign-in,
   // sign-out and when the Settings toggle changes.
   window.WizardEgg = {
+    // Divides every delay in the idle sequence above, and every duration in
+    // nephandi.css through --neph-spd. 1 is real time; set it higher to watch
+    // the whole six and a half minutes go by in a few seconds.
+    speed: 1,
     refresh: function() {
       return fetch('/api/wizard', { credentials: 'same-origin' })
         .then(function(r) { return r.ok ? r.json() : null; })
