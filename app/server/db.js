@@ -365,6 +365,16 @@ try { db.exec(`ALTER TABLE characters ADD COLUMN pact_rating INTEGER DEFAULT 0`)
 // the user acknowledges them once (0 = not yet acknowledged).
 try { db.exec(`ALTER TABLE users ADD COLUMN nephandi_ack INTEGER NOT NULL DEFAULT 0`); } catch {}
 
+// ── Free Build ────────────────────────────────────────────────────────────────
+// A build mode, not a character type: a Free Build character is still awakened,
+// mortal or sorcerer, and still carries an affiliation. What the mode changes is
+// that no creation budget, cap or validation applies, and the sheet is priced in
+// XP instead (see public/js/build-xp.js and server/freebuild.js).
+//   build_mode      '' = built through the normal creator, 'free' = Free Build
+//   build_freebies  1 = the 15 freebie points are in play, 0 = XP from the first dot
+try { db.exec(`ALTER TABLE characters ADD COLUMN build_mode TEXT DEFAULT ''`); } catch {}
+try { db.exec(`ALTER TABLE characters ADD COLUMN build_freebies INTEGER DEFAULT 1`); } catch {}
+
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS chronicle_notes (

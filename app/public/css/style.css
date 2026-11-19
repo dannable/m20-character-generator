@@ -10602,3 +10602,81 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
 .roll-degree { color: var(--text-dim); font-size: .8rem; }
 .roll-void-note { color: var(--text-faint); font-size: .75rem; font-style: italic; }
 .roll-void-btn { margin-left: auto; }
+
+/* ─── Free Build: the running XP price ───────────────────────────────────────
+   Shown at the top of Free Edit for characters with build_mode = 'free'. It is
+   sticky rather than fixed so it never covers anything on a narrow window, and
+   it is rebuilt in place on every change (see FreeEdit._updateXpMeter). */
+.fb-xp-meter {
+  position: sticky;
+  top: calc(var(--nav-h, 72px) + 0.5rem);
+  z-index: 20;
+  margin-bottom: 1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.fb-xp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  background: linear-gradient(180deg, rgba(200,168,76,0.10), transparent);
+  border-bottom: 1px solid var(--border-dim);
+}
+.fb-xp-title {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-mid);
+}
+.fb-xp-total { font-family: var(--font-heading); font-size: 1.15rem; color: var(--text-bright); }
+.fb-xp-total strong { color: var(--gold-bright); font-size: 1.5rem; }
+.fb-xp-body { padding: 0.5rem 0.9rem 0.7rem; }
+.fb-xp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.84rem;
+  color: var(--text-mid);
+  padding: 0.12rem 0;
+}
+.fb-xp-row > span:first-child { flex: 1; }
+.fb-xp-dots { font-size: 0.74rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.fb-xp-num { font-variant-numeric: tabular-nums; color: var(--text-bright); }
+.fb-xp-gross { border-top: 1px solid var(--border-dim); margin-top: 0.3rem; padding-top: 0.35rem; color: var(--text-dim); }
+.fb-xp-sub { border-top: 1px solid var(--border-dim); margin-top: 0.4rem; padding-top: 0.35rem; }
+.fb-xp-note, .fb-xp-empty { color: var(--text-faint); font-style: italic; }
+.fb-xp-warn { color: var(--crimson); }
+.fb-xp-unpriced, .fb-xp-foot {
+  margin-top: 0.5rem;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+/* The dashboard / picker card */
+.char-type-card-free .char-type-card-icon,
+.char-type-card-free .char-type-card-cta { color: var(--purple-bright); }
+.char-type-card-free:hover, .char-type-card-free:focus-visible { border-color: var(--purple-dim); }
+/* The sheet band */
+.sheet-freebuild {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--text-mid);
+  background: var(--bg-raised);
+  border-left: 3px solid var(--purple-dim);
+  border-radius: var(--radius-sm);
+}
+.sheet-freebuild strong { color: var(--gold-bright); }
+@media (max-width: 600px) {
+  .fb-xp-meter { position: static; }
+}

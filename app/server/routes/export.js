@@ -5,6 +5,7 @@ const db      = require('../db');
 const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
 const SORCERER = require('../../public/js/data-sorcerer.js');
 const FALLEN = require('../../public/js/data-fallen.js');
+const FreeBuild = require('../freebuild');
 const M20DATA  = require('../../public/js/data.js');
 const PRISM    = require('../../public/js/data-prism.js');
 
@@ -252,6 +253,10 @@ async function buildCharacterPDF(c) {
   // The Fallen are Awakened characters whose affiliation is 'Nephandi'; the sect
   // sits in `tradition`. Only the labels differ — every system is the same.
   const isFallen = c.affiliation === 'Nephandi';
+  // A Free Build character has no creation budget behind it, so the sheet says
+  // what it cost instead. Priced here rather than read from a column, for the
+  // same reason the web sheet prices it: a stored total goes stale.
+  const freeBuild = FreeBuild.buildXp(c);
   const fallenOrigin = isFallen ? (FALLEN.originById(c.nephandi_origin) || null) : null;
   const fallenEssence = isFallen ? (FALLEN.essenceForM20(c.essence) || null) : null;
 
@@ -296,6 +301,13 @@ async function buildCharacterPDF(c) {
     IF('Fell from', c.nephandi_prior_faction || '—', C1 + 112, iy, CW - 14);
     IF('Infernal Pact', c.pact_rating > 0
       ? `${c.pact_rating} - ${(FALLEN.pactLevel(c.pact_rating) || {}).name || ''}` : '—', C3, iy, CW);
+  }
+  if (freeBuild) {
+    iy -= 13;
+    IF('Build', 'Free Build - no creation budgets or caps', C1, iy, 190);
+    IF('Experience', `${freeBuild.total} XP` + (freeBuild.mode === 'freebies'
+      ? ` (after ${freeBuild.freebies.saved} from freebies)` : ' (no freebies)'), C2, iy, CW);
+    IF('Priced from', 'a blank sheet, M20 p. 336', C3, iy, CW);
   }
   iy -= 11;
   HL(ML - 5, iy + 2, W - (ML - 5) * 2, 1.2, ink.dark);

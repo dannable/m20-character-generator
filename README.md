@@ -161,7 +161,9 @@ pure unit tests over a server module (`dice-test.js`); in-process API tests
 that stub `better-sqlite3` onto `node:sqlite`, mount the routes on a bare
 Express app and call them over HTTP (`wizard-api-test.js`,
 `sessions-test.js`); and tests that load `app.js` into a `vm` with a DOM
-stub and call the render functions directly (`fallen-render-test.js`).
+stub and call the render functions directly (`fallen-render-test.js`). `build-xp-test.js` and `free-build-pdf-test.js` need
+neither a browser nor a database: the first is a pure unit test over
+`public/js/build-xp.js`, the second stubs `db` and builds a real PDF.
 
 Two drive a real browser. They need no `playwright` package — only a
 Chromium binary, which they talk to over the DevTools protocol using Node's
@@ -173,6 +175,7 @@ node tools/nephandi-glitch-test.js [screenshot-dir]   # the Fallen skin: palette
                                                       # corrupted Darrell
 node tools/darrell-void-test.js [screenshot-dir]      # the admin message form,
                                                       # and the idle escalation
+node tools/free-build-test.js [screenshot-dir]       # Free Build end to end
 node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
 CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
 ```
