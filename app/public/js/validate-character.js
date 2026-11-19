@@ -84,6 +84,20 @@
   // ── Nephandi (M20 Book of the Fallen) ──────────────────────────────────────
   // A Nephandus is an 'awakened' character whose affiliation is 'Nephandi'; the
   // sect lives in `tradition`. See server/nephandi.js.
+  // Free Build drops every creation budget and cap, which is a decision about
+  // how a sheet is BUILT. Whether such a character may join a particular
+  // Chronicle is a different decision, and it stays with the Storyteller:
+  // rules.allowFreeBuild === false turns them away at the door. Absent (the
+  // default) means allowed, so existing chronicles are unaffected.
+  // A Storyteller's own NPCs are exempt — they made them on purpose.
+  function freeBuildChecks(c, rules, out) {
+    if (c.build_mode !== 'free' || c.is_npc) return;
+    if (rules.allowFreeBuild === false) {
+      out.errors.push({ code: 'free_build_barred', field: 'build_mode', step: 0,
+        message: 'This Chronicle does not accept Free Build characters' });
+    }
+  }
+
   function nephandiChecks(c, rules, out, opts) {
     const r = obj(rules.nephandi);
     const isNeph = c.affiliation === 'Nephandi';
@@ -104,24 +118,27 @@
     }
     if (!FALLEN) return;      // catalogue absent (older cached bundle) — skip the rest
 
+    // Under Free Build the "you have not filled this in yet" errors are
+    // themselves a restriction, so they go; the Chronicle's own bars stay.
+    const freeBuild = c.build_mode === 'free';
     const sect = FALLEN.sectByName(c.tradition);
-    if (!c.tradition) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: 'Choose a Nephandic sect' });
-    else if (!sect) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: `${c.tradition} is not a Nephandic sect` });
+    if (!c.tradition) { if (!freeBuild) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: 'Choose a Nephandic sect' }); }
+    else if (!sect) { if (!freeBuild) out.errors.push({ code: 'sect', field: 'tradition', step: 0, message: `${c.tradition} is not a Nephandic sect` }); }
     else if (Array.isArray(r.allowedSects) && r.allowedSects.length && !r.allowedSects.includes(sect.id)) {
       out.errors.push({ code: 'sect_barred', field: 'tradition', step: 0, message: `${sect.name} is not allowed in this Chronicle` });
     }
 
     const origin = c.nephandi_origin || '';
-    if (!origin) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: 'Choose how the character Fell: Barabbi, Caul-Born or Widderslainte' });
-    else if (!FALLEN.originById(origin)) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: `${origin} is not a Nephandic origin` });
+    if (!origin) { if (!freeBuild) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: 'Choose how the character Fell: Barabbi, Caul-Born or Widderslainte' }); }
+    else if (!FALLEN.originById(origin)) { if (!freeBuild) out.errors.push({ code: 'origin', field: 'nephandi_origin', step: 0, message: `${origin} is not a Nephandic origin` }); }
     else if (Array.isArray(r.allowedOrigins) && r.allowedOrigins.length && !r.allowedOrigins.includes(origin)) {
       out.errors.push({ code: 'origin_barred', field: 'nephandi_origin', step: 0, message: `${FALLEN.originById(origin).name} is not allowed in this Chronicle` });
     }
 
     // Barabbi keep the faction they betrayed; the other two origins never had one.
     if (origin === 'barabbi') {
-      if (!c.nephandi_prior_faction) out.errors.push({ code: 'prior_faction', field: 'nephandi_prior_faction', step: 0, message: 'A Barabbus needs the Tradition, Convention or Craft they Fell from' });
-    } else if (origin && c.nephandi_prior_faction) {
+      if (!c.nephandi_prior_faction && !freeBuild) out.errors.push({ code: 'prior_faction', field: 'nephandi_prior_faction', step: 0, message: 'A Barabbus needs the Tradition, Convention or Craft they Fell from' });
+    } else if (origin && c.nephandi_prior_faction && !freeBuild) {
       out.errors.push({ code: 'prior_faction', field: 'nephandi_prior_faction', step: 0, message: `Only Barabbi have a prior faction; ${FALLEN.originById(origin)?.name || origin} does not` });
     }
 
@@ -277,8 +294,12 @@
   function validate(char, rules, opts) {
     const c = char || {}, r = obj(rules), o = opts || {};
     const out = { errors: [], warnings: [] };
+    // Free Build is exempt from the budgets and the caps — that is the mode —
+    // but not from the Chronicle's own admission rules. Those run either way.
+    const freeBuild = c.build_mode === 'free';
     factionChecks(c, r, out);
-    if (o.creation) capChecks(c, r, out);
+    freeBuildChecks(c, r, out);
+    if (o.creation && !freeBuild) capChecks(c, r, out);
     prismChecks(c, r, out);
     sorcererChecks(c, r, out, o);
     nephandiChecks(c, r, out, o);
@@ -286,6 +307,7 @@
   }
 
   return { validate,
+    freeBuildChecks: (c, r) => { const out = { errors: [], warnings: [] }; freeBuildChecks(c, obj(r), out); return out; },
     prismChecks: (c, r) => { const out = { errors: [], warnings: [] }; prismChecks(c, obj(r), out); return out; },
     sorcererChecks: (c, r, o) => { const out = { errors: [], warnings: [] }; sorcererChecks(c, obj(r), out, o || {}); return out; },
     nephandiChecks: (c, r, o) => { const out = { errors: [], warnings: [] }; nephandiChecks(c, obj(r), out, o || {}); return out; },

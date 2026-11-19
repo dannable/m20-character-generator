@@ -10680,3 +10680,44 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
 @media (max-width: 600px) {
   .fb-xp-meter { position: static; }
 }
+
+/* ─── Build mode picker (after choosing what the character is) ─────────────── */
+.char-type-subnote {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.build-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+}
+.build-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.8rem 0.85rem;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.build-mode-card:hover { border-color: var(--gold-dim); }
+.build-mode-card.selected {
+  border-color: var(--gold-mid);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-glow);
+}
+.build-mode-name { font-family: var(--font-heading); font-size: 1rem; color: var(--gold-bright); }
+.build-mode-rules {
+  font-family: var(--font-ui);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--purple-bright);
+}
+.build-mode-desc { font-size: 0.8rem; line-height: 1.45; color: var(--text-dim); }

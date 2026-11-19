@@ -8,6 +8,9 @@ const { sanitizeNephandiRules } = require('../nephandi');
 // Chronicle rules pass through every rule-set sanitiser (Prism of Focus, Sorcerer, Nephandi)
 function sanitizeChronicleRules(rules) {
   const r = sanitizePrismRules(rules);
+  // Whether the Storyteller accepts characters built with no budgets or caps.
+  // Absent means yes, so every chronicle that predates the setting is unchanged.
+  if (r && typeof r === 'object' && r.allowFreeBuild !== undefined) r.allowFreeBuild = !!r.allowFreeBuild;
   if (r && typeof r === 'object' && r.sorcerer !== undefined) r.sorcerer = sanitizeSorcererRules(r.sorcerer);
   if (r && typeof r === 'object' && r.nephandi !== undefined) r.nephandi = sanitizeNephandiRules(r.nephandi);
   return r;
@@ -105,6 +108,7 @@ router.get('/:id', (req, res) => {
     const rawMembers = db.prepare(`
       SELECT ch.id, ch.name, ch.player, ch.affiliation, ch.tradition, ch.arete, ch.user_id,
              ch.focus_mode, ch.character_type, ch.numina_style, ch.xp_earned, ch.xp_log,
+             ch.is_npc, ch.build_mode, ch.build_freebies,
              u.username AS owner_username
       FROM characters ch
       LEFT JOIN users u ON u.id = ch.user_id
