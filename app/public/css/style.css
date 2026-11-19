@@ -10721,3 +10721,94 @@ html[data-theme="light"] .creator-content.has-emblem .creator-emblem::before { o
   color: var(--purple-bright);
 }
 .build-mode-desc { font-size: 0.8rem; line-height: 1.45; color: var(--text-dim); }
+
+/* ─── Merits & Flaws: source badges, filtering, and the reading view ──────────
+   The badges mark where a row came from. They appear in the creator's Step VII
+   cards and in the Grimoire list, from one helper (mfBadgesHTML) so the two can
+   never disagree about what a row is. */
+.mf-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-ui);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  vertical-align: middle;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.mf-badge-fallen {
+  color: #e8dcc8;
+  background: #6e2028;
+  border: 1px solid #8c3038;
+}
+.mf-badge-investment {
+  color: #e8dcc8;
+  background: #3f2a56;
+  border: 1px solid #5c3f7a;
+}
+html[data-theme="light"] .mf-badge-fallen     { color: #fdf4ee; background: #7e1216; border-color: #5a0c10; }
+html[data-theme="light"] .mf-badge-investment { color: #f6f0fb; background: #4a1678; border-color: #35105a; }
+
+/* The ? on a card now opens the entry as well as showing the summary on hover. */
+.mf-info-clickable { cursor: pointer; }
+.mf-info-clickable:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 2px; }
+
+/* Step VII filter bar. Built once per list and never re-rendered, so typing in
+   it is never interrupted. */
+.mf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.mf-toolbar .mf-search { flex: 1 1 11rem; min-width: 0; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.mf-toolbar .mf-source { width: auto; flex: 0 0 auto; padding: 0.3rem 1.6rem 0.3rem 0.5rem; font-size: 0.78rem; background-position: right 0.5rem center; }
+.mf-taken-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mf-taken-toggle input { accent-color: var(--gold-mid); cursor: pointer; }
+.mf-result-count { font-size: 0.72rem; color: var(--text-faint); margin-left: auto; white-space: nowrap; }
+.mf-no-results { padding: 0.8rem 0.2rem; font-size: 0.85rem; color: var(--text-faint); font-style: italic; }
+.mf-no-results .mf-clear-filters { font-style: normal; margin-left: 0.3rem; }
+
+/* Grimoire: the book filter, and the way into an entry. */
+.gmf-source-select { width: auto; flex: 0 0 auto; padding: 0.35rem 1.7rem 0.35rem 0.6rem; font-size: 0.8rem; background-position: right 0.55rem center; }
+.gmf-item-tools { margin-top: 0.3rem; }
+.gmf-read-btn { padding: 0.15rem 0.45rem; font-size: 0.7rem; }
+
+/* The reading view. */
+.trait-text-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-dim);
+}
+.trait-text-body { max-height: 56vh; overflow-y: auto; }
+.trait-text-body p { margin-bottom: 0.7rem; font-size: 0.92rem; line-height: 1.6; color: var(--text-mid); }
+.trait-text-body p:last-child { margin-bottom: 0; }
+.trait-text-loading { font-style: italic; color: var(--text-faint); }
+.trait-text-source {
+  margin-top: 0.9rem !important;
+  padding-top: 0.5rem;
+  font-size: 0.76rem !important;
+  font-style: italic;
+  color: var(--text-faint) !important;
+  border-top: 1px solid var(--border-dim);
+}
+@media (max-width: 600px) {
+  .mf-result-count { margin-left: 0; width: 100%; }
+}

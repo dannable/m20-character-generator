@@ -155,8 +155,12 @@ async function main() {
     await shot('02-creator-dark');
 
     // ── The glitch: structure ───────────────────────────────────────────────
+    // fire() legitimately returns null when it cannot place a run — nothing of
+    // the right shape in view, a live selection, the live cap already reached.
+    // Asking once and assuming success made this block fail at random.
     const g = await evaluate(`(() => {
-      const span = NephGlitch.fire();
+      let span = null;
+      for (let i = 0; i < 25 && !span; i++) { NephGlitch.clear(); span = NephGlitch.fire(); }
       if (!span) return { ok: false };
       return { ok: true, cls: span.className, text: span.textContent,
                words: span.textContent.trim().split(/\\s+/).length,
