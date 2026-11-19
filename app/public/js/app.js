@@ -2000,15 +2000,15 @@ const App = {
     document.querySelectorAll('#page-char-type .char-type-card').forEach(card => {
       card.onclick = () => {
         const t = card.dataset.charType;
-        if (t === 'freebuild') { this.showFreeBuildDialog(); return; }
         if (t !== 'mortal' && t !== 'awakened' && t !== 'sorcerer' && t !== 'nephandi') return;
         // The Fallen path is gated behind a one-time acknowledgement of the
-        // book's own content warnings.
+        // book's own content warnings. That comes first: no point asking how
+        // to build something they may decide not to build at all.
         if (t === 'nephandi' && !this.currentUser?.nephandi_ack) {
-          this.showNephandiGate(() => this.newCharacterOfType('nephandi'));
+          this.showNephandiGate(() => this.showBuildModeDialog(t));
           return;
         }
-        this.newCharacterOfType(t);
+        this.showBuildModeDialog(t);
       };
     });
   },
@@ -2022,54 +2022,110 @@ const App = {
     this.showPage('creator');
   },
 
+  // ── How to build it ─────────────────────────────────────────────────────────
+  // Asked after the kind, because the kind is the bigger decision and because a
+  // Free Build mage still needs Spheres and a Free Build sorcerer still needs
+  // Paths. Guided is preselected; Free Build is the deliberate choice.
+  showBuildModeDialog(kind) {
+    const LABEL = { awakened: 'an Awakened mage', nephandi: 'one of the Fallen', mortal: 'a Mortal', sorcerer: 'a Sorcerer' };
+    this.showModal('How will you build them?', `
+      <p class="settings-hint" style="margin-bottom:1rem">Creating ${escHtml(LABEL[kind] || 'a character')}.</p>
+      <div class="build-mode-grid">
+        <button type="button" class="build-mode-card selected" data-build-mode="guided">
+          <div class="build-mode-name">Guided</div>
+          <div class="build-mode-rules">The seven-step creator</div>
+          <div class="build-mode-desc">Point pools, trait caps and freebie points, step by step, the way the book lays it out. Your Chronicle's rules apply.</div>
+        </button>
+        <button type="button" class="build-mode-card" data-build-mode="free">
+          <div class="build-mode-name">Free Build</div>
+          <div class="build-mode-rules">No budgets, no caps</div>
+          <div class="build-mode-desc">Set anything to anything, in one unrestricted editor. The sheet is priced in experience as you go, so you always know what it is worth.</div>
+        </button>
+      </div>
+      <div id="build-mode-free-opts" hidden>
+        <div class="form-group" style="margin-top:0.9rem">
+          <label class="form-label">Character name</label>
+          <input type="text" id="fbuild-name" class="form-input" maxlength="80" placeholder="Who are they?" />
+        </div>
+        <label class="chron-toggle-label" style="margin-top:0.6rem">
+          <input type="checkbox" id="fbuild-freebies" checked />
+          Spend the usual 15 freebie points first
+        </label>
+        <p class="form-hint" style="margin-top:0.4rem">
+          On: the 15 points — plus anything your Flaws bring in, less what your Merits cost — go to
+          whichever dots they buy the most experience for, and the XP total is what is left to pay.
+          Off: every dot is priced in XP from the first.
+        </p>
+      </div>`, null, 'Begin');
+
+    let mode = 'guided';
+    const opts = $('#build-mode-free-opts');
+    $$('.build-mode-card').forEach(card => {
+      card.onclick = () => {
+        mode = card.dataset.buildMode;
+        $$('.build-mode-card').forEach(c => c.classList.toggle('selected', c === card));
+        opts.hidden = mode !== 'free';
+        if (mode === 'free') setTimeout(() => $('#fbuild-name')?.focus(), 30);
+      };
+    });
+    $('#modal-confirm').onclick = () => {
+      if (mode === 'free') this.startFreeBuild(kind);
+      else { this.closeModal(); this.newCharacterOfType(kind); }
+    };
+  },
+
+  // ── NPCs ────────────────────────────────────────────────────────────────────
+  // A Storyteller's own cast. Always Free Build: an NPC exists to be whatever
+  // the story needs, and making the Storyteller spend freebie points on a
+  // bartender who needs Resources 5 would be a strange way to run a game. They
+  // are exempt from the Chronicle's own allowFreeBuild rule for the same reason.
+  showNpcDialog(chronicleId, chronicleName) {
+    const KINDS = [
+      ['awakened', 'Awakened', 'Spheres, Arete, Resonance'],
+      ['nephandi', 'The Fallen', 'An Awakened Nephandus'],
+      ['mortal',   'Mortal',    'Virtues, Humanity, Numina'],
+      ['sorcerer', 'Sorcerer',  'Linear Paths and rituals'],
+    ];
+    this.showModal('Create an NPC', `
+      <p class="settings-hint" style="margin-bottom:1rem">
+        For <strong>${escHtml(chronicleName || 'this Chronicle')}</strong>. NPCs are built in
+        Free Build — no point pools, no trait caps, no rules checks — and carry the experience
+        they would have cost. They are yours, listed apart from the players' characters.
+      </p>
+      <div class="form-group" style="margin-bottom:0.9rem">
+        <label class="form-label">Name</label>
+        <input type="text" id="fbuild-name" class="form-input" maxlength="80" placeholder="Who are they?" />
+      </div>
+      <div class="form-group" style="margin-bottom:0.9rem">
+        <label class="form-label">What are they?</label>
+        <select id="npc-kind" class="form-input">
+          ${KINDS.map(([v, label, hint]) => `<option value="${v}">${label} — ${escHtml(hint)}</option>`).join('')}
+        </select>
+      </div>
+      <label class="chron-toggle-label">
+        <input type="checkbox" id="fbuild-freebies" />
+        Spend the usual 15 freebie points first
+      </label>
+      <p class="form-hint" style="margin-top:0.4rem">
+        Off by default for an NPC: the experience figure is usually more useful as the plain
+        cost of the sheet, without a starting character's allowance folded into it.
+      </p>`, null, 'Create');
+    $('#modal-confirm').onclick = () => {
+      const kind = $('#npc-kind')?.value || 'awakened';
+      this.startFreeBuild(kind, { npcChronicleId: chronicleId });
+    };
+    setTimeout(() => $('#fbuild-name')?.focus(), 60);
+  },
+
   // ── Free Build ──────────────────────────────────────────────────────────────
   // A build mode rather than a fifth kind of character: the dialog asks what the
   // character IS first, because a Free Build mage still needs Spheres and a Free
   // Build sorcerer still needs Paths. Everything after that is the ordinary Free
   // Edit screen, which has never had budgets or caps in it — the only addition
   // is the running XP price. See js/build-xp.js and server/freebuild.js.
-  showFreeBuildDialog() {
-    const KINDS = [
-      ['awakened', 'Awakened', 'Mage: The Ascension 20th — Spheres, Arete, Resonance'],
-      ['nephandi', 'The Fallen', 'An Awakened Nephandus. The Qlippoth and the corrupted skin'],
-      ['mortal',   'Mortal',    'The Hunters Hunted II — Virtues, Humanity, Numina'],
-      ['sorcerer', 'Sorcerer',  'M20 Sorcerer — linear Paths and rituals'],
-    ];
-    this.showModal('Free Build', `
-      <p class="settings-hint" style="margin-bottom:1rem">
-        No creation budgets, no trait caps, no rules checks. Build the sheet however you
-        like; the price in experience is kept for you as you go, counted from a blank
-        character at the advancement rates on M20 p. 336.
-      </p>
-      <div class="form-group" style="margin-bottom:0.9rem">
-        <label class="form-label">Character name</label>
-        <input type="text" id="fbuild-name" class="form-input" maxlength="80" placeholder="Who are they?" />
-      </div>
-      <div class="form-group" style="margin-bottom:0.9rem">
-        <label class="form-label">What are they?</label>
-        <select id="fbuild-kind" class="form-input">
-          ${KINDS.map(([v, label, hint]) => `<option value="${v}" title="${escHtml(hint)}">${label} — ${escHtml(hint)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Freebie points</label>
-        <label class="chron-toggle-label" style="margin-top:0.3rem">
-          <input type="checkbox" id="fbuild-freebies" checked />
-          Spend the usual 15 freebie points first
-        </label>
-        <p class="form-hint" style="margin-top:0.4rem">
-          On: the 15 points — plus anything your Flaws bring in, less what your Merits
-          cost — are applied to whichever dots they buy the most experience for, and the
-          XP total is what is left to pay. Off: every dot is priced in XP from the start.
-        </p>
-      </div>`, () => this.startFreeBuild(), 'Begin');
-    setTimeout(() => $('#fbuild-name')?.focus(), 60);
-  },
-
-  async startFreeBuild() {
-    const name     = ($('#fbuild-name')?.value || '').trim();
-    const kind     = $('#fbuild-kind')?.value || 'awakened';
-    const freebies = $('#fbuild-freebies')?.checked !== false;
+  async startFreeBuild(kind, opts = {}) {
+    const name     = ($('#fbuild-name')?.value || '').trim() || opts.name || '';
+    const freebies = $('#fbuild-freebies') ? $('#fbuild-freebies').checked : opts.freebies !== false;
     if (!name) { toast('Give them a name first.', 'error'); return; }
 
     const charType = kind === 'nephandi' ? 'awakened' : kind;
@@ -2079,6 +2135,7 @@ const App = {
     char.build_mode = 'free';
     char.build_freebies = freebies ? 1 : 0;
     char.is_draft = 0;          // Free Build skips the creator, so it is never a draft
+    if (opts.npcChronicleId) { char.is_npc = 1; char.npc_chronicle_id = opts.npcChronicleId; }
 
     const btn = $('#modal-confirm');
     if (btn) btn.disabled = true;
@@ -4190,6 +4247,20 @@ const Chronicle = {
               </div>
 
               <div class="chron-rules-group">
+                <h4 class="chron-rules-heading">Build Modes <span class="chron-rules-subhead">How players may put a character together</span></h4>
+                <label class="chron-toggle-label">
+                  <input type="checkbox" id="chron-allow-free-build" ${rules.allowFreeBuild === false ? '' : 'checked'}>
+                  Accept Free Build characters
+                </label>
+                <p class="chron-rules-hint" style="margin-top:0.35rem">
+                  A Free Build character is made with no point pools, no trait caps and no rules
+                  checks, and carries the experience it would have cost instead. Untick this and
+                  such a character cannot join or be moved into this Chronicle. Your own NPCs are
+                  always allowed.
+                </p>
+              </div>
+
+              <div class="chron-rules-group">
                 <h4 class="chron-rules-heading">Trait Caps <span class="chron-rules-subhead">Max dots a character may have in each category at creation</span></h4>
                 <div class="chron-pool-grid">
                   <label class="chron-pool-label">Attributes</label>
@@ -4325,9 +4396,12 @@ const Chronicle = {
       ? new Date(c.next_session + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : null;
     const detailRules = (() => { try { return typeof c.rules === 'object' ? c.rules : JSON.parse(c.rules || '{}'); } catch { return {}; } })();
-    const membersHTML = c.members.length === 0
-      ? `<p class="chronicle-empty-state">${isActive ? 'No characters have joined yet. Share your join code!' : 'No characters are assigned.'}</p>`
-      : c.members.map(m => {
+    // NPCs belong to the Storyteller rather than to a player, so they are
+    // listed on their own. This whole endpoint is ST/admin only, so nothing
+    // here is a disclosure decision — only a tidiness one.
+    const pcs  = c.members.filter(m => !m.is_npc);
+    const npcs = c.members.filter(m => m.is_npc);
+    const memberRow = m => {
           const awards   = Array.isArray(m.xp_awards) ? m.xp_awards : [];
           const totalXp  = awards.reduce((s, e) => s + (e.amount || 0), 0);
           const xpTrack  = awards.length > 0
@@ -4354,7 +4428,13 @@ const Chronicle = {
               </div>` : ''}
             </div>
           </div>`;
-        }).join('');
+    };
+    const membersHTML = pcs.length === 0
+      ? `<p class="chronicle-empty-state">${isActive ? 'No characters have joined yet. Share your join code!' : 'No characters are assigned.'}</p>`
+      : pcs.map(memberRow).join('');
+    const npcsHTML = npcs.length === 0
+      ? `<p class="chronicle-empty-state">No NPCs yet. They are built with no budgets or caps, and priced in experience.</p>`
+      : npcs.map(memberRow).join('');
 
     const infoRows = [
       c.setting && `<div class="chronicle-info-row"><span class="chronicle-info-label">Setting</span><span>${escHtml(c.setting)}</span></div>`,
@@ -4409,6 +4489,14 @@ const Chronicle = {
             ${isActive && c.members.length > 0 ? `<button class="btn-secondary btn-sm" id="btn-grant-xp">Grant XP</button>` : ''}
           </div>
           <div id="chronicle-member-list">${membersHTML}</div>
+        </div>
+
+        <div class="chronicle-members-block chronicle-members-fullwidth">
+          <div class="chronicle-members-header">
+            <div class="chronicle-info-label">NPCs (${npcs.length})</div>
+            ${isActive ? `<button class="btn-secondary btn-sm" id="btn-create-npc">+ Create NPC</button>` : ''}
+          </div>
+          <div id="chronicle-npc-list">${npcsHTML}</div>
         </div>
 
         <div class="chronicle-update-row">
@@ -5093,6 +5181,8 @@ const Chronicle = {
         customMerits:       rulesState.customMerits.filter(m => m.name),
         customFlaws:        rulesState.customFlaws.filter(f => f.name),
         allowedFactions,
+        // Only stored when switched off, so the default stays "absent = allowed".
+        allowFreeBuild:     document.getElementById('chron-allow-free-build')?.checked === false ? false : undefined,
         ...PrismUI.collectSTRules(),
         ...SorcererUI.collectSTRules(),
       };
@@ -5242,6 +5332,7 @@ const Chronicle = {
     });
 
     // Grant XP to members
+    $('#btn-create-npc')?.addEventListener('click', () => App.showNpcDialog(c.id, c.name));
     $('#btn-grant-xp')?.addEventListener('click', () => this._showGrantXpModal(c));
     SessionUI.attachCard(c);
 

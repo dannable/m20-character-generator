@@ -6,7 +6,7 @@ const PrismXp = require('../prism');
 const Sorc = require('../sorcerer');
 const { normalizeCharacterSorcerer } = Sorc;
 const { normalizeCharacterNephandi } = require('../nephandi');
-const { normalizeCharacterFreeBuild, isFreeBuild } = require('../freebuild');
+const { normalizeCharacterFreeBuild } = require('../freebuild');
 const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
@@ -357,7 +357,8 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   try {
     if (!req.body.name || !req.body.name.trim()) return res.status(400).json({ error: 'Character name is required' });
-    const { join_code, chronicle_id: _cid, _join_code: _jc, override: _ov, ...bodyRest } = req.body;
+    const { join_code, chronicle_id: _cid, _join_code: _jc, override: _ov,
+            is_npc: wantsNpc, npc_chronicle_id: npcChronicleId, ...bodyRest } = req.body;
     normalizeCharacterFocus(bodyRest, null);
     normalizeCharacterSorcerer(bodyRest, null);
     normalizeCharacterNephandi(bodyRest, null);
@@ -368,14 +369,29 @@ router.post('/', (req, res) => {
       const chron = db.prepare('SELECT id FROM chronicles WHERE join_code = ?').get(join_code.trim().toUpperCase());
       if (chron) joinChronicleId = chron.id;
     }
-    // Free Build has no creation rules to satisfy — that is what it is for.
-    // Skipping the check outright, rather than letting it run and ignoring the
-    // result, keeps a pile of meaningless violations out of the server log.
-    const check = isFreeBuild(bodyRest) ? { errors: [], warnings: [] } : Rules.check(bodyRest, joinChronicleId, { creation: true });
+    // An NPC belongs to one chronicle and may only be made by that chronicle's
+    // Storyteller. is_npc is deliberately NOT in WRITABLE_FIELDS: it is set here
+    // or not at all, so a player cannot label their own character one.
+    let isNpc = 0;
+    if (wantsNpc) {
+      const cid = parseInt(npcChronicleId, 10);
+      if (!cid) return res.status(400).json({ error: 'An NPC needs a chronicle' });
+      if (!isChronicleST(req, cid) && req.session.role !== 'admin') {
+        return res.status(403).json({ error: 'Only the Storyteller of that Chronicle may create its NPCs' });
+      }
+      isNpc = 1;
+      joinChronicleId = cid;
+      bodyRest.is_npc = 1;   // so the rules check sees it (NPCs are exempt from allowFreeBuild)
+    }
+    // Free Build is exempt from budgets and caps but NOT from the Chronicle's
+    // admission rules — validate-character.js draws that line, so the check
+    // runs for every character and a barred Free Build is still refused here.
+    const check = Rules.check(bodyRest, joinChronicleId, { creation: true });
     const rejected = Rules.gate(req, check, { characterName: req.body.name, isDraft: !!bodyRest.is_draft, canOverride: req.session.role === 'admin' || (joinChronicleId && isChronicleST(req, joinChronicleId)) });
     if (rejected) return res.status(400).json(rejected);
     const data = pickFields(serializeCharacter(bodyRest), WRITABLE_FIELDS);
     data.user_id = req.session.userId;
+    data.is_npc = isNpc;
     const cols = Object.keys(data).join(', ');
     const placeholders = Object.keys(data).map(k => `@${k}`).join(', ');
     const result = db.prepare(`INSERT INTO characters (${cols}) VALUES (${placeholders})`).run(data);
@@ -418,8 +434,7 @@ router.put('/:id', (req, res) => {
     normalizeCharacterFreeBuild(rest);
     const willBeDraft = rest.is_draft !== undefined ? !!rest.is_draft : !!existing.is_draft;
     const mergedRow = { ...parseCharacter(existing), ...rest };
-    const check = isFreeBuild(mergedRow) ? { errors: [], warnings: [] }
-      : Rules.check(mergedRow, targetChronicleId, { creation: !!existing.is_draft });
+    const check = Rules.check(mergedRow, targetChronicleId, { creation: !!existing.is_draft });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: willBeDraft, canOverride: isAdmin || (targetChronicleId && isChronicleST(req, targetChronicleId)) });
     if (rejected) return res.status(400).json(rejected);
     if (chronicleChange !== null) {
@@ -510,8 +525,7 @@ router.post('/:id/edit-request', (req, res) => {
     normalizeCharacterNephandi(proposed, existing);
     normalizeCharacterFreeBuild(proposed);
     const mergedProposed = { ...parseCharacter(existing), ...proposed };
-    const check = isFreeBuild(mergedProposed) ? { errors: [], warnings: [] }
-      : Rules.check(mergedProposed, existing.chronicle_id, { creation: false });
+    const check = Rules.check(mergedProposed, existing.chronicle_id, { creation: false });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: false, canOverride: req.session.role === 'admin' || isChronicleST(req, existing.chronicle_id) });
     if (rejected) return res.status(400).json(rejected);
 

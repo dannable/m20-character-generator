@@ -86,6 +86,13 @@ async function main() {
     ok(await evaluate('!!document.getElementById("nephandi-gate")'), 'the content gate opened before the creator');
     await shot('01-gate');
     await evaluate('document.querySelector(".nephandi-gate-accept").click(); "ok"');
+    await sleep(700);
+    // Accepting the gate now asks how to build, Guided preselected. The gate
+    // comes first on purpose: no point asking how to build something they may
+    // decide not to build at all.
+    ok(await evaluate('!!document.querySelector(".build-mode-card")'),
+      'and the build-mode prompt follows it, not the other way round');
+    await evaluate('document.getElementById("modal-confirm").click(); "ok"');
     await sleep(1800);
 
     ok(await evaluate('document.getElementById("page-creator").classList.contains("nephandi-skin")'),
@@ -160,8 +167,13 @@ async function main() {
     })()`);
     ok(g.ok && /\bneph-g\b/.test(g.cls), 'fire() wrapped a run in .neph-g');
     ok(g.words >= 1 && g.words <= 3, `it took ${g.words} word(s), as intended (1-3): "${g.text}"`);
-    ok(['jitter', 'flicker', 'smear', 'scratch', 'tremble', 'neg'].includes(g.flavour), `flavour is one of the six: ${g.flavour}`);
-    ok(g.inline === 'inline', `the wrapper stays display:inline so nothing reflows (${g.inline})`);
+    // These two assertions were written before `lurch` existed and were only
+    // passing by luck: fire() picks at random, so each run had about a one in
+    // seven chance of drawing the one flavour that is deliberately a block box.
+    const FLAVOURS = ['jitter', 'flicker', 'smear', 'lurch', 'scratch', 'tremble', 'neg'];
+    ok(FLAVOURS.includes(g.flavour), `flavour is one of the seven: ${g.flavour}`);
+    ok(g.inline === (g.flavour === 'lurch' ? 'inline-block' : 'inline'),
+      `the wrapper is ${g.flavour === 'lurch' ? 'inline-block, which only lurch may be' : 'display:inline so nothing reflows'} (${g.inline})`);
     ok(g.live >= 1, `it is tracked as live (${g.live} live)`);
 
     // ── The glitch: it happens on its own ───────────────────────────────────

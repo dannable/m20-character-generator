@@ -374,6 +374,9 @@ try { db.exec(`ALTER TABLE users ADD COLUMN nephandi_ack INTEGER NOT NULL DEFAUL
 //   build_freebies  1 = the 15 freebie points are in play, 0 = XP from the first dot
 try { db.exec(`ALTER TABLE characters ADD COLUMN build_mode TEXT DEFAULT ''`); } catch {}
 try { db.exec(`ALTER TABLE characters ADD COLUMN build_freebies INTEGER DEFAULT 1`); } catch {}
+// A Storyteller's own cast, owned by them and belonging to one chronicle.
+// Set only by the server, and only for that chronicle's ST — see routes/characters.js.
+try { db.exec(`ALTER TABLE characters ADD COLUMN is_npc INTEGER NOT NULL DEFAULT 0`); } catch {}
 
 // ── Chronicle notes tables ────────────────────────────────────────────────────
 db.exec(`
