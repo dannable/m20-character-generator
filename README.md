@@ -176,6 +176,8 @@ node tools/nephandi-glitch-test.js [screenshot-dir]   # the Fallen skin: palette
 node tools/darrell-void-test.js [screenshot-dir]      # the admin message form,
                                                       # and the idle escalation
 node tools/free-build-test.js [screenshot-dir]       # Free Build end to end
+node tools/merits-flaws-ui-test.js [screenshot-dir]  # M&F badges, filters,
+                                                      # and the reading view
 node tools/mobile_shots.js tools/mobile_shots.json /tmp/m20-shots
 CHROME=/usr/bin/chromium node tools/nephandi-glitch-test.js   # any Chromium >= 110
 ```

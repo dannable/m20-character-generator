@@ -318,6 +318,87 @@ function showChronicleWelcomeModal(chronicleName, rules) {
 }
 
 // XP cost to raise a trait from currentVal → currentVal+1 (M20 p. 336)
+/* ─── Merits & Flaws: where a trait comes from, and what the book says ───────
+   Three books are in play. Core M20 rows carry a bare page number; Hunters
+   Hunted II rows already carry their own string ("HH II p. 45"); the Fallen
+   rows carry a bare number that belongs to Book of the Fallen, not to M20, so
+   printing "M20 p. 117" against Shadow Appeal would be wrong. */
+function mfIsFallen(item)     { return !!(item && item.nephandi); }
+function mfIsInvestment(item) { return !!(item && item.investment); }
+
+function mfPageText(item) {
+  if (!item || item.page == null) return '';
+  if (typeof item.page === 'string') return item.page;     // already book-qualified
+  return (mfIsFallen(item) ? 'BotF p.\u202f' : 'M20 p.\u202f') + item.page;
+}
+
+/* The badges that mark a row out, in the creator and in the Grimoire alike. */
+function mfBadgesHTML(item) {
+  let out = '';
+  if (item.custom || item._custom) out += '<span class="mf-custom-badge" title="User-defined custom entry">CUSTOM</span>';
+  if (mfIsFallen(item)) {
+    out += mfIsInvestment(item)
+      ? '<span class="mf-badge mf-badge-investment" title="An Infernal Investment — Book of the Fallen pp. 121-127">INVESTMENT</span>'
+      : '<span class="mf-badge mf-badge-fallen" title="From M20 Book of the Fallen">FALLEN</span>';
+  }
+  return out;
+}
+
+/* ─── The book text ──────────────────────────────────────────────────────────
+   data/fallen-lore.json holds the full passage for all 24 Fallen traits; it is
+   fetched once, on demand, and cached. There is no equivalent for the core
+   books: what the app stores for those is a written summary, not the passage,
+   so the dialog says which it is showing rather than letting the two look alike. */
+const TraitLore = {
+  _cache: null,
+  _pending: null,
+  load() {
+    if (this._cache) return Promise.resolve(this._cache);
+    if (!this._pending) {
+      this._pending = fetch('/data/fallen-lore.json')
+        .then(r => (r.ok ? r.json() : {}))
+        .then(j => (this._cache = j || {}))
+        .catch(() => (this._cache = {}));
+    }
+    return this._pending;
+  },
+  forTrait(id) {
+    return this.load().then(lore => (lore && lore.traits ? lore.traits[id] : null) || null);
+  },
+};
+
+/* Open the reading view for one Merit or Flaw. */
+async function showTraitText(item) {
+  if (!item) return;
+  const page = mfPageText(item);
+  const cost = item.cost != null ? String(item.cost) : '';
+  const meta = [item.category, cost && (cost + (/^\d+$/.test(cost) ? (cost === '1' ? ' pt' : ' pts') : '')), page]
+    .filter(Boolean).map(escHtml).join(' · ');
+
+  App.showModal(item.name, `
+    <div class="trait-text-meta">${mfBadgesHTML(item)}<span>${meta}</span></div>
+    <div class="trait-text-body" id="trait-text-body"><p class="trait-text-loading">Looking it up…</p></div>`);
+  const btn = $('#modal-confirm');
+  if (btn) btn.style.display = 'none';          // nothing to confirm; closeModal puts it back
+
+  const body = $('#trait-text-body');
+  const summary = item.description || '';
+  let full = null;
+  if (mfIsFallen(item)) { try { full = await TraitLore.forTrait(item.id); } catch { full = null; } }
+  if (!body) return;
+
+  if (full && full.length > summary.length) {
+    body.innerHTML = full.split(/\n{2,}/).filter(Boolean)
+      .map(para => `<p>${escHtml(para.trim())}</p>`).join('')
+      + `<p class="trait-text-source">Book of the Fallen${item.page != null ? ', p. ' + escHtml(String(item.page)) : ''}.</p>`;
+  } else if (summary) {
+    body.innerHTML = `<p>${escHtml(summary)}</p>`
+      + `<p class="trait-text-source">This is the app's summary. The full passage is in ${page ? escHtml(page) : 'the source book'}.</p>`;
+  } else {
+    body.innerHTML = `<p class="trait-text-source">Nothing is recorded for this trait${page ? ' beyond ' + escHtml(page) : ''}.</p>`;
+  }
+}
+
 // The cost table lives in js/build-xp.js, which the server needs too (it prices
 // Free Build characters for the sheet and the PDF). One copy, so the Advancement
 // screen and the Free Build meter cannot drift apart.
@@ -2598,7 +2679,7 @@ const Grimoire = {
     loading: false,
     castableOnly: false,
     charSpheres: null,
-    mfSearch: '', mfKind: 'all',  // merits-flaws tab filter
+    mfSearch: '', mfKind: 'all', mfSource: 'all',  // merits-flaws tab filters
     bgSearch: '',                 // backgrounds tab filter
   },
 
@@ -2612,6 +2693,7 @@ const Grimoire = {
     this.state.page          = 1;
     this.state.castableOnly  = false;
     this.state.mfSearch      = '';
+    this.state.mfSource      = 'all';
     this.state.mfKind        = 'all';
     this.state.bgSearch      = '';
     // When opened from a character sheet, always land on Rotes
@@ -2717,6 +2799,14 @@ const Grimoire = {
     const kindFilter = this.state.mfKind || 'all';
 
     const _matchSearch = item => !q || item.name.toLowerCase().includes(q) || (item.description || '').toLowerCase().includes(q);
+    const srcFilter = this.state.mfSource || 'all';
+    const _matchSource = item => {
+      if (srcFilter === 'all') return true;
+      if (srcFilter === 'core') return !mfIsFallen(item);
+      if (srcFilter === 'fallen') return mfIsFallen(item) && !mfIsInvestment(item);
+      if (srcFilter === 'investment') return mfIsInvestment(item);
+      return true;
+    };
 
     // ── Custom M&F section (dedicated, with CRUD) ────────────────────────────
     const _buildCustomSection = () => {
@@ -2751,9 +2841,14 @@ const Grimoire = {
       if (kindFilter !== 'all' && kindFilter !== kind) return '';
       const title    = kind === 'merit' ? 'Merits' : 'Flaws';
       // Built-ins only — custom items have their own section above
-      const builtins = (kind === 'merit' ? M20.MERITS : M20.FLAWS)
+      // The Fallen Merits, Flaws and Infernal Investments live in FALLEN, not
+      // in M20, so reading M20.MERITS alone left all 24 of them out of the
+      // Grimoire — they were only ever visible inside a Nephandi creator.
+      const fallen = (typeof FALLEN === 'undefined' || !FALLEN) ? []
+        : (kind === 'merit' ? FALLEN.meritRows() : FALLEN.flawRows());
+      const builtins = [...(kind === 'merit' ? M20.MERITS : M20.FLAWS), ...fallen]
         .map(m => ({ ...m, _builtin: true }))
-        .filter(_matchSearch);
+        .filter(x => _matchSource(x) && _matchSearch(x));
       if (!builtins.length) return '';
 
       const catGroups = CATS.map(cat => {
@@ -2820,6 +2915,12 @@ const Grimoire = {
             <button class="gmf-kind-btn${kindFilter==='merit'?' active':''}" data-kind="merit">Merits</button>
             <button class="gmf-kind-btn${kindFilter==='flaw'?' active':''}" data-kind="flaw">Flaws</button>
           </div>
+          <select class="gmf-source-select" aria-label="Filter by book">
+            <option value="all"${srcFilter==='all'?' selected':''}>All books</option>
+            <option value="core"${srcFilter==='core'?' selected':''}>Core</option>
+            <option value="fallen"${srcFilter==='fallen'?' selected':''}>Book of the Fallen</option>
+            <option value="investment"${srcFilter==='investment'?' selected':''}>Infernal Investments</option>
+          </select>
         </div>
         ${_buildCustomSection()}
         ${_buildChronSection()}
@@ -2838,6 +2939,30 @@ const Grimoire = {
         this._renderMFContent();
       });
     });
+    tc.querySelector('.gmf-source-select')?.addEventListener('change', e => {
+      this.state.mfSource = e.target.value;
+      this._renderMFContent();
+    });
+
+    // "Full text" — delegated from the tab content, which survives every
+    // re-render of the list, and looking the row up again rather than carrying
+    // the whole object through a data attribute.
+    if (!tc.dataset.readDelegated) {
+      tc.dataset.readDelegated = '1';
+      tc.addEventListener('click', e => {
+        const btn = e.target.closest('.gmf-read-btn');
+        if (!btn) return;
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const fallen = (typeof FALLEN === 'undefined' || !FALLEN) ? []
+          : [...FALLEN.meritRows(), ...FALLEN.flawRows()];
+        const pool = [...M20.MERITS, ...M20.FLAWS, ...fallen,
+          ..._getUserCustomMF().map(x => ({ ...x, custom: true })),
+          ..._getChronicleCustom().flatMap(ch => ch.merits_flaws || [])];
+        const item = pool.find(x => String(x.id) === id);
+        if (item) showTraitText(item);
+      });
+    }
 
     this._attachMFListeners(tc);
   },
@@ -2849,13 +2974,17 @@ const Grimoire = {
     const costStr   = rawCost == null ? '—'
       : /^\d+$/.test(rawCost) ? (rawCost + (rawCost === '1' ? ' pt' : ' pts'))
       : rawCost;
-    const pageRef   = item.page != null
-      ? `<span class="gmf-item-page">${typeof item.page === 'string' ? item.page : 'M20 p. ' + item.page}</span>`
-      : '';
-    const custBadge = isCustom ? `<span class="mf-custom-badge">CUSTOM</span>` : '';
+    // 'M20 p. N' was printed against every built-in, which is wrong for the
+    // Fallen rows: their page numbers belong to Book of the Fallen.
+    const pageText  = mfPageText(item);
+    const pageRef   = pageText ? `<span class="gmf-item-page">${escHtml(pageText)}</span>` : '';
+    const custBadge = mfBadgesHTML(item);
     const repFlag   = item.repeatable ? `<span class="gmf-item-flag">Repeatable</span>` : '';
     const desc      = item.description
       ? `<div class="gmf-item-desc">${escHtml(item.description)}</div>` : '';
+    // Only the Fallen traits have a stored passage; for the rest this opens the
+    // summary with its page citation, and says which of the two it is showing.
+    const readBtn   = `<button type="button" class="btn-ghost btn-sm gmf-read-btn" data-id="${escHtml(String(item.id ?? ''))}" data-kind="${item._kindHint || ''}">Full text</button>`;
     const actions   = isCustom
       ? `<div class="gmf-item-actions">
            <button class="btn-ghost btn-sm gmf-edit-btn" data-id="${item.id}">Edit</button>
@@ -2867,6 +2996,7 @@ const Grimoire = {
       <div class="gmf-item-main">
         <div class="gmf-item-name">${escHtml(item.name)}${custBadge}${repFlag}</div>
         ${pageRef}${desc}
+        <div class="gmf-item-tools">${readBtn}</div>
       </div>
       ${actions}
     </div>`;
@@ -13748,21 +13878,104 @@ const Creator = {
     }
   },
 
+  // ── Merit / Flaw filtering (Step VII) ──────────────────────────────────────
+  // Two lists of a couple of hundred rows each, four collapsed categories deep.
+  // Finding "Ambidextrous" meant opening Physical and reading. The toolbar is
+  // built once per container and left alone afterwards: re-rendering it on every
+  // keystroke would take the focus out of the box being typed into.
+  _mfFilters: null,
+  _mfFilter(kind) {
+    if (!this._mfFilters) this._mfFilters = {};
+    if (!this._mfFilters[kind]) this._mfFilters[kind] = { q: '', source: 'all', taken: false };
+    return this._mfFilters[kind];
+  },
+
+  _mfSources(list) {
+    const out = [['all', 'All books']];
+    if (list.some(i => !mfIsFallen(i) && !i.custom)) out.push(['core', 'Core']);
+    if (list.some(i => mfIsFallen(i) && !mfIsInvestment(i))) out.push(['fallen', 'Book of the Fallen']);
+    if (list.some(i => mfIsInvestment(i))) out.push(['investment', 'Infernal Investments']);
+    if (list.some(i => i.custom)) out.push(['custom', 'Custom']);
+    return out;
+  },
+
+  _mfMatches(item, f) {
+    if (f.source === 'core' && (mfIsFallen(item) || item.custom)) return false;
+    if (f.source === 'fallen' && !(mfIsFallen(item) && !mfIsInvestment(item))) return false;
+    if (f.source === 'investment' && !mfIsInvestment(item)) return false;
+    if (f.source === 'custom' && !item.custom) return false;
+    if (!f.q) return true;
+    const q = f.q.toLowerCase();
+    return item.name.toLowerCase().includes(q)
+        || (item.description || '').toLowerCase().includes(q)
+        || (item.category || '').toLowerCase().includes(q);
+  },
+
+  _ensureMFToolbar(container, kind, list) {
+    if (container.querySelector('.mf-toolbar')) return container.querySelector('.mf-list');
+    const f = this._mfFilter(kind);
+    const sources = this._mfSources(list);
+    const bar = document.createElement('div');
+    bar.className = 'mf-toolbar';
+    bar.innerHTML = `
+      <input type="search" class="form-input mf-search" placeholder="Search ${kind === 'merit' ? 'merits' : 'flaws'}…"
+             aria-label="Search ${kind === 'merit' ? 'merits' : 'flaws'}" value="${escHtml(f.q)}" />
+      ${sources.length > 2 ? `<select class="mf-source" aria-label="Filter by book">
+        ${sources.map(([v, label]) => `<option value="${v}"${v === f.source ? ' selected' : ''}>${escHtml(label)}</option>`).join('')}
+      </select>` : ''}
+      <label class="mf-taken-toggle"><input type="checkbox" class="mf-taken" ${f.taken ? 'checked' : ''}> Taken only</label>
+      <span class="mf-result-count"></span>`;
+    const listEl = document.createElement('div');
+    listEl.className = 'mf-list';
+    container.innerHTML = '';
+    container.appendChild(bar);
+    container.appendChild(listEl);
+
+    const rerender = () => { container.dataset.lastKey = ''; Creator.renderStep6MF(kind); };
+    bar.querySelector('.mf-search').addEventListener('input', e => { f.q = e.target.value; rerender(); });
+    bar.querySelector('.mf-source')?.addEventListener('change', e => { f.source = e.target.value; rerender(); });
+    bar.querySelector('.mf-taken').addEventListener('change', e => { f.taken = e.target.checked; rerender(); });
+    return listEl;
+  },
+
+  // Re-render one of the two lists without touching the other.
+  renderStep6MF(kind) {
+    const el = document.getElementById(kind === 'merit' ? 'fb-merits' : 'fb-flaws');
+    if (!el) return;
+    if (kind === 'merit') this.renderMFCards(el, this.effectiveMerits(), this.char.merits, 'merit');
+    else this.renderMFCards(el, this.effectiveFlaws(), this.char.flaws, 'flaw');
+  },
+
   renderMFCards(container, list, selected, kind) {
-    const key = JSON.stringify(selected);
+    const f = this._mfFilter(kind);
+    // The filters are part of the identity of what is on screen, so a change to
+    // them has to invalidate the cached render the same way a change to the
+    // selection does.
+    const key = JSON.stringify([selected, f]);
     if (container.dataset.lastKey === key) return;
     container.dataset.lastKey = key;
 
+    const body = this._ensureMFToolbar(container, kind, list);
+
     // Preserve which category <details> were open so they survive the re-render
     const openCats = new Set();
-    container.querySelectorAll('details.mf-cat-details[data-cat]').forEach(d => {
+    body.querySelectorAll('details.mf-cat-details[data-cat]').forEach(d => {
       if (d.open) openCats.add(d.dataset.cat);
     });
 
+    const isTaken = item => {
+      const raw = selected[item.id];
+      return item.repeatable ? (Array.isArray(raw) ? raw.length > 0 : raw !== undefined) : raw !== undefined;
+    };
+    const visible = list.filter(item => this._mfMatches(item, f) && (!f.taken || isTaken(item)));
+    const filtering = !!f.q || f.source !== 'all' || f.taken;
+    const countEl = container.querySelector('.mf-result-count');
+    if (countEl) countEl.textContent = filtering ? `${visible.length} of ${list.length}` : `${list.length} available`;
+
     const CATEGORIES = ['Physical', 'Mental', 'Social', 'Supernatural'];
 
-    container.innerHTML = CATEGORIES.map(cat => {
-      const items = list.filter(item => item.category === cat);
+    body.innerHTML = CATEGORIES.map(cat => {
+      const items = visible.filter(item => item.category === cat);
       if (!items.length) return '';
 
       // Count how many in this category are currently taken
@@ -13817,20 +14030,19 @@ const Creator = {
         }
 
         // ── Page reference (inline, muted) ────────────────────────
-        const pageRef = item.page != null
-          ? '<span class="mf-card-page-inline">'
-            + (typeof item.page === 'string' ? item.page : 'p. ' + item.page)
-            + '</span>'
+        const pageText = mfPageText(item);
+        const pageRef = pageText
+          ? '<span class="mf-card-page-inline">' + escHtml(pageText) + '</span>'
           : '';
 
-        // Custom badge
-        const customBadge = item.custom
-          ? '<span class="mf-custom-badge" title="User-defined custom entry">CUSTOM</span>'
-          : '';
+        // Which book it came from, and whether it is an Investment.
+        const customBadge = mfBadgesHTML(item);
 
         // ── Info-tip ? badge ─────────────────────────────────────
+        // Hovering still shows the summary; clicking opens the full entry.
         const safeDesc = (item.description || '').replace(/"/g, '&quot;');
-        const infoTip  = '<span class="info-tip mf-info-tip" data-tip="' + safeDesc + '">?</span>';
+        const infoTip  = '<span class="info-tip mf-info-tip mf-info-clickable" role="button" tabindex="0"'
+          + ' title="Read the full entry" data-tip="' + safeDesc + '">?</span>';
 
         // ── Instance rows (repeatable) ────────────────────────────
         let instancesHtml = '';
@@ -13885,7 +14097,42 @@ const Creator = {
         + '</summary>'
         + '<div class="mf-cat-body">' + itemsHtml + '</div>'
         + '</details>';
-    }).join('');
+    }).join('')
+      || '<p class="mf-no-results">Nothing matches that. '
+         + '<button type="button" class="btn-ghost btn-sm mf-clear-filters">Clear filters</button></p>';
+
+    body.querySelector('.mf-clear-filters')?.addEventListener('click', () => {
+      f.q = ''; f.source = 'all'; f.taken = false;
+      const bar = container.querySelector('.mf-toolbar');
+      if (bar) {
+        bar.querySelector('.mf-search').value = '';
+        if (bar.querySelector('.mf-source')) bar.querySelector('.mf-source').value = 'all';
+        bar.querySelector('.mf-taken').checked = false;
+      }
+      container.dataset.lastKey = '';
+      this.renderStep6MF(kind);
+    });
+
+    // Clicking the ? opens the entry rather than toggling the trait. Delegated
+    // from the container, which outlives every re-render of the cards inside it
+    // — a listener per ? would be lost the next time the list was rebuilt, and
+    // there is already a delegated click handler on this same container for the
+    // cards themselves.
+    if (!container.dataset.tipDelegated) {
+      container.dataset.tipDelegated = '1';
+      const openFromEvent = e => {
+        const tip = e.target.closest('.mf-info-clickable');
+        if (!tip || !container.contains(tip)) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const id = tip.closest('.mf-card')?.dataset.id;
+        const current = kind === 'merit' ? this.effectiveMerits() : this.effectiveFlaws();
+        const item = current.find(x => String(x.id) === id);
+        if (item) showTraitText(item);
+      };
+      container.addEventListener('click', openFromEvent);
+      container.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openFromEvent(e); });
+    }
   },
 
   maxSphere() {
