@@ -81,6 +81,43 @@ async function main() {
 
     await evaluate('App.showPage("dashboard"); App._attachCharTypePicker && App._attachCharTypePicker(); "ok"');
     await sleep(400);
+
+    // ── The sigil ───────────────────────────────────────────────────────────
+    await evaluate('App.showPage("char-type"); "ok"');
+    await sleep(400);
+    const sigil = await evaluate(`(() => {
+      const icon = document.querySelector('.char-type-card-fallen .char-type-card-icon');
+      const cs = getComputedStyle(icon);
+      return { glyph: icon.textContent.trim(), cls: icon.className,
+               mask: cs.webkitMaskImage || cs.maskImage,
+               size: cs.webkitMaskSize || cs.maskSize,
+               bg: cs.backgroundColor, colour: cs.color,
+               w: Math.round(icon.getBoundingClientRect().width) };
+    })()`);
+    ok(sigil.glyph === '', 'the picker card no longer carries a text glyph');
+    ok(/emblems\/nephandi\.webp/.test(sigil.mask), `it is masked with the sigil (${sigil.mask})`);
+    ok(/contain/.test(sigil.size), `drawn to fit (${sigil.size})`);
+    ok(sigil.bg === sigil.colour, `and painted in the card's own colour, so it follows the theme (${sigil.bg})`);
+    ok(sigil.w > 30, `at a visible size (${sigil.w}px)`);
+    const served = await evaluate(`fetch('/emblems/nephandi.webp').then(r => r.status)`);
+    ok(served === 200, `the emblem is served (${served})`);
+    // The server answers any unknown path with the SPA shell, so a missing file
+    // is a 200 of HTML rather than a 404 — which is exactly why the emblem
+    // lookup probes with new Image() and waits for the decode to fail.
+    const gone = await evaluate(`fetch('/emblems/nephandi.svg').then(r => r.headers.get('content-type') || '')`);
+    ok(!/^image\//.test(gone), `the old olive SVG is gone, so the lookup falls through to the webp (${gone})`);
+    const lightSigil = await evaluate(`(() => {
+      document.documentElement.setAttribute('data-theme', 'light');
+      const icon = document.querySelector('.char-type-card-fallen .char-type-card-icon');
+      const cs = getComputedStyle(icon);
+      const out = { bg: cs.backgroundColor, colour: cs.color };
+      document.documentElement.setAttribute('data-theme', 'dark');
+      return out;
+    })()`);
+    ok(lightSigil.bg === lightSigil.colour && lightSigil.bg !== sigil.bg,
+      `and takes a different colour on the light theme (${sigil.bg} -> ${lightSigil.bg})`);
+    await evaluate('App.showPage("dashboard"); App._attachCharTypePicker && App._attachCharTypePicker(); "ok"');
+    await sleep(300);
     await evaluate('document.querySelector(".char-type-card-fallen").click(); "ok"');
     await sleep(500);
     ok(await evaluate('!!document.getElementById("nephandi-gate")'), 'the content gate opened before the creator');
@@ -99,6 +136,27 @@ async function main() {
       'the skin is on #page-creator');
     ok(await evaluate('Creator.char.affiliation === "Nephandi" && Creator.char.character_type === "awakened"'),
       'a Nephandus is an awakened character with affiliation Nephandi');
+
+    // The watermark comes through the ordinary emblem lookup — no special case.
+    const emblem = await evaluate(`(async () => {
+      Creator.updateEmblem();
+      for (let i = 0; i < 40; i++) {
+        const f = document.querySelector('.creator-content');
+        if (f && f.classList.contains('has-emblem')) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const frame = document.querySelector('.creator-content');
+      const mark = document.querySelector('.creator-emblem');
+      return { has: frame.classList.contains('has-emblem'),
+               url: frame.style.getPropertyValue('--emblem'),
+               cands: Creator.emblemCandidates(),
+               opacity: mark ? getComputedStyle(mark, '::before').opacity : null };
+    })()`);
+    ok(emblem.cands.includes('nephandi'), `the emblem lookup asks for the Fallen sigil (${emblem.cands.join(', ')})`);
+    ok(emblem.has && /emblems\/nephandi\.webp/.test(emblem.url),
+      `and the creator watermark resolves to it (${emblem.url || 'nothing'})`);
+    ok(parseFloat(emblem.opacity) > 0 && parseFloat(emblem.opacity) < 0.5,
+      `shown as a watermark rather than a picture (opacity ${emblem.opacity})`);
 
     // ── Palette ─────────────────────────────────────────────────────────────
     const tok = await evaluate(`(() => {

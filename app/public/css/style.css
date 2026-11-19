@@ -10812,3 +10812,23 @@ html[data-theme="light"] .mf-badge-investment { color: #f6f0fb; background: #4a1
 @media (max-width: 600px) {
   .mf-result-count { margin-left: 0; width: 100%; }
 }
+
+/* ─── The Fallen's sigil ──────────────────────────────────────────────────────
+   The septagram of the Nephandi, used in two places from one file:
+   /emblems/nephandi.webp is picked up by the creator's watermark through the
+   ordinary emblem lookup (Creator.emblemCandidates already returns 'nephandi'),
+   and masked here to replace the glyph on the picker card.
+
+   A mask rather than an <img> because the mask takes only the artwork's alpha
+   and paints it in `currentColor` — so the sigil follows the card's own colour
+   in both themes, where a baked-in gold PNG would stay gold on parchment. */
+.char-type-card-sigil {
+  /* Larger than the 3rem glyphs on the sibling cards: this is fine line art, and
+     at glyph size its strokes fall below a pixel and go grey. */
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto;
+  background-color: currentColor;
+  -webkit-mask: url("/emblems/nephandi.webp") center / contain no-repeat;
+          mask: url("/emblems/nephandi.webp") center / contain no-repeat;
+}

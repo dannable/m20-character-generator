@@ -64,6 +64,13 @@ __pycache__/
 #   magick Corrupted_Darrell.png -resize 400x -quality 82 app/public/img/corrupted_darrell-2x.webp
 #   magick Corrupted_Darrell.png -resize 400x -strip     app/public/corrupted_darrell.png
 /Corrupted_Darrell.png
+# Source art for the Nephandi sigil. What ships is tinted to the emblem gold
+# that every other /emblems file uses, keeping its alpha so it also works as a
+# CSS mask on the picker card:
+#   magick SCNephandi.webp -alpha extract /tmp/a.png
+#   magick -size 505x500 xc:'#c0a040' /tmp/a.png -alpha off -compose CopyOpacity \
+#          -composite -define webp:lossless=true app/public/emblems/nephandi.webp
+/SCNephandi.webp
 Thumbs.db
 
 # Build intermediates from tools/build_fallen_catalogue.py; their content is
