@@ -318,22 +318,11 @@ function showChronicleWelcomeModal(chronicleName, rules) {
 }
 
 // XP cost to raise a trait from currentVal → currentVal+1 (M20 p. 336)
+// The cost table lives in js/build-xp.js, which the server needs too (it prices
+// Free Build characters for the sheet and the PDF). One copy, so the Advancement
+// screen and the Free Build meter cannot drift apart.
 function xpCost(traitGroup, currentVal, isAffinitySphere = false) {
-  switch (traitGroup) {
-    case 'numen':      return currentVal === 0 ? 7 : currentVal * (isAffinitySphere ? 6 : 7);   // Sorcerer p. 105 (Affinity Path x6)
-    case 'background_sorcerer': return currentVal === 0 ? 3 : currentVal * 3;                   // Sorcerer p. 105: current x3
-    case 'attribute':  return currentVal * 4;
-    case 'ability':    return currentVal === 0 ? 3 : currentVal * 2;
-    case 'background': return currentVal === 0 ? 3 : currentVal * 2;
-    case 'sphere':
-      if (currentVal === 0) return 10;             // new Sphere: flat 10 (M20 p. 336)
-      return isAffinitySphere ? currentVal * 7 : currentVal * 8;
-    case 'arete':      return currentVal * 8;
-    case 'willpower':  return currentVal * 1;
-    case 'resonance':  return currentVal * 2;
-    case 'practice':   return currentVal === 0 ? PRISM.COSTS.practice.xpNew : currentVal;           // Prism of Focus: new 3, raise = current rating
-    default: return null;
-  }
+  return BuildXP.cost(traitGroup, currentVal, isAffinitySphere);
 }
 
 /* ─── API ────────────────────────────────────────────────────── */
@@ -2011,6 +2000,7 @@ const App = {
     document.querySelectorAll('#page-char-type .char-type-card').forEach(card => {
       card.onclick = () => {
         const t = card.dataset.charType;
+        if (t === 'freebuild') { this.showFreeBuildDialog(); return; }
         if (t !== 'mortal' && t !== 'awakened' && t !== 'sorcerer' && t !== 'nephandi') return;
         // The Fallen path is gated behind a one-time acknowledgement of the
         // book's own content warnings.
@@ -2030,6 +2020,77 @@ const App = {
     if (charType === 'nephandi') Creator.init({ charType: 'awakened', affiliation: 'Nephandi' });
     else Creator.init({ charType });
     this.showPage('creator');
+  },
+
+  // ── Free Build ──────────────────────────────────────────────────────────────
+  // A build mode rather than a fifth kind of character: the dialog asks what the
+  // character IS first, because a Free Build mage still needs Spheres and a Free
+  // Build sorcerer still needs Paths. Everything after that is the ordinary Free
+  // Edit screen, which has never had budgets or caps in it — the only addition
+  // is the running XP price. See js/build-xp.js and server/freebuild.js.
+  showFreeBuildDialog() {
+    const KINDS = [
+      ['awakened', 'Awakened', 'Mage: The Ascension 20th — Spheres, Arete, Resonance'],
+      ['nephandi', 'The Fallen', 'An Awakened Nephandus. The Qlippoth and the corrupted skin'],
+      ['mortal',   'Mortal',    'The Hunters Hunted II — Virtues, Humanity, Numina'],
+      ['sorcerer', 'Sorcerer',  'M20 Sorcerer — linear Paths and rituals'],
+    ];
+    this.showModal('Free Build', `
+      <p class="settings-hint" style="margin-bottom:1rem">
+        No creation budgets, no trait caps, no rules checks. Build the sheet however you
+        like; the price in experience is kept for you as you go, counted from a blank
+        character at the advancement rates on M20 p. 336.
+      </p>
+      <div class="form-group" style="margin-bottom:0.9rem">
+        <label class="form-label">Character name</label>
+        <input type="text" id="fbuild-name" class="form-input" maxlength="80" placeholder="Who are they?" />
+      </div>
+      <div class="form-group" style="margin-bottom:0.9rem">
+        <label class="form-label">What are they?</label>
+        <select id="fbuild-kind" class="form-input">
+          ${KINDS.map(([v, label, hint]) => `<option value="${v}" title="${escHtml(hint)}">${label} — ${escHtml(hint)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Freebie points</label>
+        <label class="chron-toggle-label" style="margin-top:0.3rem">
+          <input type="checkbox" id="fbuild-freebies" checked />
+          Spend the usual 15 freebie points first
+        </label>
+        <p class="form-hint" style="margin-top:0.4rem">
+          On: the 15 points — plus anything your Flaws bring in, less what your Merits
+          cost — are applied to whichever dots they buy the most experience for, and the
+          XP total is what is left to pay. Off: every dot is priced in XP from the start.
+        </p>
+      </div>`, () => this.startFreeBuild(), 'Begin');
+    setTimeout(() => $('#fbuild-name')?.focus(), 60);
+  },
+
+  async startFreeBuild() {
+    const name     = ($('#fbuild-name')?.value || '').trim();
+    const kind     = $('#fbuild-kind')?.value || 'awakened';
+    const freebies = $('#fbuild-freebies')?.checked !== false;
+    if (!name) { toast('Give them a name first.', 'error'); return; }
+
+    const charType = kind === 'nephandi' ? 'awakened' : kind;
+    const char = Creator.defaultChar(charType);
+    char.name = name;
+    if (kind === 'nephandi') char.affiliation = 'Nephandi';
+    char.build_mode = 'free';
+    char.build_freebies = freebies ? 1 : 0;
+    char.is_draft = 0;          // Free Build skips the creator, so it is never a draft
+
+    const btn = $('#modal-confirm');
+    if (btn) btn.disabled = true;
+    try {
+      const created = await API.create(char);
+      this.closeModal();
+      this.currentCharId = created.id;
+      FreeEdit.open(created);
+    } catch (err) {
+      if (btn) btn.disabled = false;
+      toast(err.message || 'Could not start the build.', 'error');
+    }
   },
 
   // ── Nephandi content gate ───────────────────────────────────────────────────
@@ -2174,6 +2235,27 @@ const App = {
     } catch {
       $('#modal-body').innerHTML = '<p style="color:var(--crimson);text-align:center">Failed to load chronicles.</p>';
     }
+  },
+
+  // The shared confirm modal. Every other caller sets #modal-title, #modal-body
+  // and #modal-confirm by hand; this is the same sequence in one place.
+  // FreeEdit.stReject has been calling App.showModal since it was written, which
+  // until now threw a TypeError and left a Storyteller unable to reject an edit
+  // with a note.
+  // The signature is the one FreeEdit.stReject already passes: the confirm
+  // handler third, its label fourth.
+  showModal(title, bodyHTML, onConfirm = null, confirmLabel = 'Confirm', confirmClass = 'btn-primary') {
+    $('#modal-title').textContent = title;
+    $('#modal-body').innerHTML = bodyHTML;
+    const btn = $('#modal-confirm');
+    if (btn) {
+      btn.textContent = confirmLabel;
+      btn.className = confirmClass;
+      btn.disabled = false;
+      btn.style.display = '';
+      btn.onclick = onConfirm;   // null leaves it for the caller to assign
+    }
+    $('#modal-overlay').style.display = 'flex';
   },
 
   closeModal() {
@@ -5893,11 +5975,26 @@ const Sheet = {
          </div>`
       : '';
 
+    // A Free Build character carries no creation budget anybody could check it
+    // against, so the sheet says so outright and gives the price instead. The
+    // figure is derived from the sheet every time it is drawn, so it cannot go
+    // stale the way a stored total would.
+    const freeBuildHTML = (char.build_mode === 'free' && typeof BuildXP !== 'undefined') ? (() => {
+      const r = BuildXP.compute(char, { freebies: char.build_freebies !== 0 });
+      const bits = r.lines.map(l => `${escHtml(l.label)} ${l.xp}`).join(' · ');
+      return `<div class="sheet-freebuild">
+        <span><strong>Free Build</strong> — built without creation budgets or caps</span>
+        <span><strong>${r.total} XP</strong> at advancement rates${r.mode === 'freebies' ? `, after ${r.freebies.saved} XP of freebies` : ', no freebies'}</span>
+        ${bits ? `<span class="sheet-field-sub">${bits}</span>` : ''}
+      </div>`;
+    })() : '';
+
     content.innerHTML = `
     <div class="char-sheet${isFallenSheet ? ' nephandi-skin' : ''}">
       ${pendingEditNotice}
       ${ro ? '' : '<div id="session-join-banner"></div>'}
       ${xpTrackerHTML}
+      ${freeBuildHTML}
       ${stPendingEditsHTML}
       ${stXpHTML}
       <div class="sheet-header">
@@ -13829,6 +13926,55 @@ const FreeEdit = {
     $('#fe-save-btn').addEventListener('click', () => this._save());
   },
 
+  // ── Free Build: the running price ─────────────────────────────────────────
+  // Free Edit has never had a budget in it, which is exactly why Free Build
+  // uses it unchanged. The one thing it lacks is any sense of what the sheet is
+  // worth, so a Free Build character gets this: the whole sheet repriced from
+  // js/build-xp.js on every change. It is derived, never stored — there is no
+  // ledger to fall out of step with the dots.
+  _isFreeBuild() { return this.char?.build_mode === 'free'; },
+
+  _xpMeterHTML() {
+    if (!this._isFreeBuild() || typeof BuildXP === 'undefined') return '';
+    const r = BuildXP.compute(this.char, { freebies: this.char.build_freebies !== 0 });
+    const fb = r.freebies;
+    const rows = r.lines.map(l =>
+      `<div class="fb-xp-row"><span>${escHtml(l.label)}</span><span class="fb-xp-dots">${l.dots} ${l.dots === 1 ? 'dot' : 'dots'}</span><span class="fb-xp-num">${l.xp}</span></div>`
+    ).join('') || `<div class="fb-xp-row fb-xp-empty"><span>Nothing bought yet</span><span class="fb-xp-num">0</span></div>`;
+
+    const freebieBlock = r.mode === 'freebies' ? `
+      <div class="fb-xp-sub">
+        <div class="fb-xp-row"><span>Freebie points</span><span class="fb-xp-num">${fb.base}${fb.flaws ? ` +${fb.flaws}` : ''}${fb.merits ? ` −${fb.merits}` : ''} = ${fb.pool}</span></div>
+        <div class="fb-xp-row"><span>Spent on ${fb.lines.length} ${fb.lines.length === 1 ? 'dot' : 'dots'}</span><span class="fb-xp-num">−${fb.saved} XP</span></div>
+        ${fb.remaining ? `<div class="fb-xp-row fb-xp-note"><span>${fb.remaining} point${fb.remaining === 1 ? '' : 's'} left — nothing left they can pay for outright</span></div>` : ''}
+        ${fb.over ? `<div class="fb-xp-row fb-xp-warn"><span>Merits cost ${fb.over} more than the pool holds</span></div>` : ''}
+      </div>` : `
+      <div class="fb-xp-sub"><div class="fb-xp-row fb-xp-note"><span>Freebie points are switched off for this build</span></div></div>`;
+
+    return `
+      <div class="fb-xp-meter" id="fb-xp-meter">
+        <div class="fb-xp-head">
+          <span class="fb-xp-title">Free Build</span>
+          <span class="fb-xp-total"><strong>${r.total}</strong> XP</span>
+        </div>
+        <div class="fb-xp-body">
+          ${rows}
+          ${r.mode === 'freebies' && fb.saved ? `<div class="fb-xp-row fb-xp-gross"><span>Before freebies</span><span class="fb-xp-num">${r.gross}</span></div>` : ''}
+          ${freebieBlock}
+          ${r.unpriced.length ? `<p class="fb-xp-unpriced">Not priced in XP: ${r.unpriced.map(escHtml).join(', ')} — the app has no advancement rate for them.</p>` : ''}
+          <p class="fb-xp-foot">Counted from a blank sheet at M20 p. 336 rates. No caps or budgets apply to this character.</p>
+        </div>
+      </div>`;
+  },
+
+  _updateXpMeter() {
+    const el = document.getElementById('fb-xp-meter');
+    if (!el) return;
+    const html = this._xpMeterHTML();
+    if (!html) { el.remove(); return; }
+    el.outerHTML = html;
+  },
+
   // ── Main render ───────────────────────────────────────────────────────────
   _render() {
     const c = this.char;
@@ -13940,6 +14086,7 @@ const FreeEdit = {
          </div>`;
 
     el.innerHTML = `
+    ${this._xpMeterHTML()}
     ${isChronicle ? `<div class="fe-chronicle-notice">✏️ This character is in a Chronicle — changes will go to the Storyteller for approval before taking effect.</div>` : ''}
 
     <!-- Chronicle Membership -->
@@ -14419,6 +14566,15 @@ const FreeEdit = {
     FreeEditExtras.attach(el, this);
     if (this.char.character_type === 'sorcerer') SorcererUI.attachFreeEdit(el, this);
 
+    // Reprice after every change. These listeners are attached last and the
+    // work is deferred a task, so the handlers above have finished writing to
+    // this.char before the sheet is read back.
+    if (this._isFreeBuild()) {
+      const reprice = () => setTimeout(() => this._updateXpMeter(), 0);
+      ['click', 'input', 'change'].forEach(evt => el.addEventListener(evt, reprice));
+      reprice();
+    }
+
     // Bottom buttons
     $('#fe-cancel-btn-bottom')?.addEventListener('click', () => this._cancel());
     $('#fe-save-btn-bottom')?.addEventListener('click', () => this._save());
@@ -14695,6 +14851,8 @@ const Obsidian = {
       (char.faction || '');
     const affDisplay = char.character_type === 'sorcerer' ? charAffiliationLabel(char) : (trad || aff || '—');
 
+    const freeBuildMd = (char.build_mode === 'free' && typeof BuildXP !== 'undefined')
+      ? BuildXP.compute(char, { freebies: char.build_freebies !== 0 }) : null;
     const isFallenMd = char.affiliation === 'Nephandi';
     const fallenOriginMd = isFallenMd && typeof FALLEN !== 'undefined'
       ? FALLEN.originById(char.nephandi_origin) : null;
@@ -14726,9 +14884,12 @@ const Obsidian = {
       isFallenMd && char.nephandi_prior_faction && `nephandi_prior_faction: "${e(char.nephandi_prior_faction)}"`,
       isFallenMd && fallenEssenceMd && `abyssal_essence: "${e(fallenEssenceMd.name)}"`,
       isFallenMd && char.pact_rating > 0 && `pact_rating: ${char.pact_rating}`,
+      freeBuildMd    && `build_mode: "free"`,
+      freeBuildMd    && `build_xp: ${freeBuildMd.total}`,
+      freeBuildMd    && `build_freebies: ${freeBuildMd.mode === 'freebies'}`,
       char.id        && `character_id: ${char.id}`,
       shareUrl       && `share_url: "${shareUrl}"`,
-      `tags: [mage, m20, character${isFallenMd ? ', nephandi, fallen' : ''}]`,
+      `tags: [mage, m20, character${isFallenMd ? ', nephandi, fallen' : ''}${freeBuildMd ? ', free-build' : ''}]`,
       '---',
     ].filter(Boolean);
     let md = fmLines.join('\n') + '\n\n';

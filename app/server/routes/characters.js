@@ -6,6 +6,7 @@ const PrismXp = require('../prism');
 const Sorc = require('../sorcerer');
 const { normalizeCharacterSorcerer } = Sorc;
 const { normalizeCharacterNephandi } = require('../nephandi');
+const { normalizeCharacterFreeBuild, isFreeBuild } = require('../freebuild');
 const Rules = require('../validate');
 
 const JSON_FIELDS = ['talents','skills','knowledges','backgrounds','spheres',
@@ -70,6 +71,8 @@ const EDITABLE_FIELDS = new Set([
   'focus_mode','tenets','paradigm_preset','practice_ratings','practice_specialties',
   // Nephandi (see server/nephandi.js) — the sect itself lives in `tradition`
   'nephandi_origin','nephandi_prior_affiliation','nephandi_prior_faction','pact_rating',
+  // Free Build (see server/freebuild.js) — a build mode, not a character type
+  'build_mode','build_freebies',
 ]);
 
 // ── Columns a plain POST / PUT may write ──────────────────────────────────────
@@ -358,13 +361,17 @@ router.post('/', (req, res) => {
     normalizeCharacterFocus(bodyRest, null);
     normalizeCharacterSorcerer(bodyRest, null);
     normalizeCharacterNephandi(bodyRest, null);
+    normalizeCharacterFreeBuild(bodyRest);
     // Resolve the chronicle up front so the creation rules can be checked before the insert
     let joinChronicleId = null;
     if (join_code && req.session.role !== 'guest') {
       const chron = db.prepare('SELECT id FROM chronicles WHERE join_code = ?').get(join_code.trim().toUpperCase());
       if (chron) joinChronicleId = chron.id;
     }
-    const check = Rules.check(bodyRest, joinChronicleId, { creation: true });
+    // Free Build has no creation rules to satisfy — that is what it is for.
+    // Skipping the check outright, rather than letting it run and ignoring the
+    // result, keeps a pile of meaningless violations out of the server log.
+    const check = isFreeBuild(bodyRest) ? { errors: [], warnings: [] } : Rules.check(bodyRest, joinChronicleId, { creation: true });
     const rejected = Rules.gate(req, check, { characterName: req.body.name, isDraft: !!bodyRest.is_draft, canOverride: req.session.role === 'admin' || (joinChronicleId && isChronicleST(req, joinChronicleId)) });
     if (rejected) return res.status(400).json(rejected);
     const data = pickFields(serializeCharacter(bodyRest), WRITABLE_FIELDS);
@@ -408,8 +415,11 @@ router.put('/:id', (req, res) => {
     normalizeCharacterFocus(rest, existing);
     normalizeCharacterSorcerer(rest, existing);
     normalizeCharacterNephandi(rest, existing);
+    normalizeCharacterFreeBuild(rest);
     const willBeDraft = rest.is_draft !== undefined ? !!rest.is_draft : !!existing.is_draft;
-    const check = Rules.check({ ...parseCharacter(existing), ...rest }, targetChronicleId, { creation: !!existing.is_draft });
+    const mergedRow = { ...parseCharacter(existing), ...rest };
+    const check = isFreeBuild(mergedRow) ? { errors: [], warnings: [] }
+      : Rules.check(mergedRow, targetChronicleId, { creation: !!existing.is_draft });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: willBeDraft, canOverride: isAdmin || (targetChronicleId && isChronicleST(req, targetChronicleId)) });
     if (rejected) return res.status(400).json(rejected);
     if (chronicleChange !== null) {
@@ -498,7 +508,10 @@ router.post('/:id/edit-request', (req, res) => {
     normalizeCharacterFocus(proposed, existing);
     normalizeCharacterSorcerer(proposed, existing);
     normalizeCharacterNephandi(proposed, existing);
-    const check = Rules.check({ ...parseCharacter(existing), ...proposed }, existing.chronicle_id, { creation: false });
+    normalizeCharacterFreeBuild(proposed);
+    const mergedProposed = { ...parseCharacter(existing), ...proposed };
+    const check = isFreeBuild(mergedProposed) ? { errors: [], warnings: [] }
+      : Rules.check(mergedProposed, existing.chronicle_id, { creation: false });
     const rejected = Rules.gate(req, check, { characterName: existing.name, isDraft: false, canOverride: req.session.role === 'admin' || isChronicleST(req, existing.chronicle_id) });
     if (rejected) return res.status(400).json(rejected);
 
